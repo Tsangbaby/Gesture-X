@@ -38,7 +38,7 @@
         },
         {
           "name": "Compile and package RootHide",
-          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh\ncp \"$RUNNER_TEMP/SETTINGS_CONSTRUCTION_TESTS.txt\" \"$OUT_DIR/SETTINGS_CONSTRUCTION_TESTS.txt\""
+          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh\ncp \"$RUNNER_TEMP/SETTINGS_CONSTRUCTION_TESTS.txt\" \"$OUT_DIR/SETTINGS_CONSTRUCTION_TESTS.txt\"\ncp \"$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt\" \"$OUT_DIR/NATIVE_STARTUP_TESTS.txt\""
         },
         {
           "name": "Upload original verified deb and provenance",

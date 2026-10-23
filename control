@@ -6,4 +6,4 @@ Description: Double-tap blank portrait Home Screen space to request a system loc
 Maintainer: Tsangbaby
 Author: Tsangbaby
 Section: Tweaks
-Depends: ${ORION}, preferenceloader, firmware (>= 15.0)
+Depends: mobilesubstrate, preferenceloader, firmware (>= 15.0)

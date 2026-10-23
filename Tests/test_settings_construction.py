@@ -48,14 +48,40 @@ class SettingsConstructionContracts(unittest.TestCase):
             "Sources/HomeDoubleTap.swift": "b1614281d2ae17799075a59fd963931b2548047b866d9f33d31a0a045df98eef",
             "Sources/LockAction.swift": "532850be046aa6fcd67946d7e9e665a54193052df868fa2525e7d86f1a162dc4",
             "Sources/PrivateAPI.swift": "a2b9fdeed907801f2259175f88e328123c6f0c759c9a3f1008b521a9f9db6aa7",
-            "Sources/Tweak.x.swift": "f508b09b4e7f64c1505ff64ede6f764cc8facd47fe07ec79a5b04a579a2b443a",
+            "Preferences/SettingsController.swift": "054976307197cebc5e34bca966a354ba9518e0e462bc6df350cb1b97fe96ef15",
+            "Interfaces/TapLockPreferencesHost/PSViewController.h": "e1694c2e656c15ec16a92236159a6bd31d9a1125625ca80e154530b953074cf0",
             "Shared/Preferences.swift": "227f50e3b867615426e4860f01b515a71c81844d64522b3269309ba6651aada5",
             "Makefile": "0f835fbf44bf22e0535f7cf0d395ed0ec96fe20d23d9214d83bbd8df7eabe6c8",
             "Preferences/Makefile": "044e5562d1ea542b56b1283793cce69ba61eb899beb5c9d527002d81e02e95b8",
             "Interfaces/TapLockPreferencesHost/module.modulemap": "a8eaa6b0f7925ffa1ec469469e2f694abc02448ca89cfd1d5cbe2e4d4257b303",
         }
+        # Retire only the intentionally replaced Orion entry owner. Keep the
+        # old Home/Makefile digests by inverting only the authorized exact hunks.
+        inverses = {
+            "Sources/HomeDoubleTap.swift": [
+                ('              (location as String == "SBIconLocationRoot" ||\n'
+                 '               location as String == "SBIconLocationRootWithWidgets"),',
+                 '              location as String == "SBIconLocationRoot",'),
+                ('              let switcherType = NSClassFromString("SBMainSwitcherViewController"),\n'
+                 '              let switcher = PrivateAPI.object(switcherType as AnyObject, "sharedInstanceIfExists"),',
+                 '              let switcher = PrivateAPI.object(UIApplication.shared, "_switcherController"),'),
+            ],
+            "Makefile": [
+                ('Sources/NativeHook.swift Sources/Bootstrap.swift', 'Sources/Tweak.x.swift'),
+                ('TapLock_LIBRARIES = substrate\n', ''),
+                ('TapLock_SWIFTFLAGS = -IInterfaces -enable-experimental-feature SymbolLinkageMarkers\n', ''),
+            ],
+        }
         for name, digest in frozen.items():
-            self.assertEqual(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), digest, name)
+            data = (ROOT / name).read_bytes()
+            if name in inverses:
+                text = data.decode()
+                for after, before in inverses[name]:
+                    self.assertEqual(text.count(after), 1, name)
+                    text = text.replace(after, before, 1)
+                data = text.encode()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), digest, name)
+        self.assertFalse((ROOT / "Sources/Tweak.x.swift").exists())
         text = (ROOT / "Preferences/SettingsController.swift").read_text()
         suffix = text[text.index("    override func loadView() {"):]
         self.assertEqual(hashlib.sha256(suffix.encode()).hexdigest(),

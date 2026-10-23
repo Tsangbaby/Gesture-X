@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+S_MOD_INIT_FUNC_POINTERS = 0x9
+S_INIT_FUNC_OFFSETS = 0x16
 
 
 def require(condition, message):
@@ -57,12 +59,31 @@ def macho(data):
         minimum = None
         signed = False
         dependencies = []
+        sections = []
         for _ in range(ncmds):
             require(cursor + 8 <= 32 + cmdbytes, "Truncated load command")
             cmd, length = struct.unpack_from("<II", block, cursor)
             end = cursor + length
             require(length >= 8 and end <= 32 + cmdbytes, "Bad command length")
-            if cmd == 0x32:  # LC_BUILD_VERSION
+            if cmd == 0x19:  # LC_SEGMENT_64
+                require(length >= 72, "Truncated 64-bit segment")
+                nsects = struct.unpack_from("<I", block, cursor + 64)[0]
+                require(72 + 80 * nsects <= length, "Truncated section table")
+                for index in range(nsects):
+                    section = cursor + 72 + 80 * index
+                    (sectname, segname, address, secsize, fileoff, align,
+                     reloff, nreloc, flags, reserved1, reserved2,
+                     reserved3) = struct.unpack_from(
+                         "<16s16sQQIIIIIIII", block, section)
+                    sections.append({
+                        "segment": segname.split(b"\0", 1)[0].decode(),
+                        "name": sectname.split(b"\0", 1)[0].decode(),
+                        "address": address,
+                        "size": secsize,
+                        "file_offset": fileoff,
+                        "type": flags & 0xFF,
+                    })
+            elif cmd == 0x32:  # LC_BUILD_VERSION
                 require(length >= 24, "Truncated build version")
                 platform, minimum = struct.unpack_from("<II", block, cursor + 8)
                 require(platform == 2, "Not an iOS device binary")
@@ -98,9 +119,22 @@ def macho(data):
         require(cursor == 32 + cmdbytes, "Load-command count mismatch")
         require(minimum == 0x000F0000, "Expected compiled iOS 15.0 minimum")
         require(signed, "Missing embedded signature")
+        initializers = []
+        for section in sections:
+            if section["type"] not in (S_MOD_INIT_FUNC_POINTERS, S_INIT_FUNC_OFFSETS):
+                continue
+            width = 8 if section["type"] == S_MOD_INIT_FUNC_POINTERS else 4
+            start, count_bytes = section["file_offset"], section["size"]
+            require(count_bytes > 0 and count_bytes % width == 0,
+                    "Invalid initializer element size")
+            require(start >= 32 + cmdbytes and start + count_bytes <= len(block),
+                    "Out-of-bounds initializer table")
+            require(any(block[start:start + count_bytes]), "Empty initializer table")
+            initializers.append(dict(section, count=count_bytes // width))
         results.append({"arch": "arm64e" if subtype == 2 else "arm64",
                         "minimum_os": "15.0", "structural_signature": True,
-                        "dependencies": dependencies})
+                        "dependencies": dependencies, "sections": sections,
+                        "initializers": initializers})
     require(sorted(x["arch"] for x in results) == ["arm64", "arm64e"],
             "Expected one arm64 and one arm64e slice")
     return results
@@ -113,11 +147,14 @@ def verify(package):
         require(fields.get(key) == expected[key], f"Wrong {key}: {fields.get(key)}")
     require(fields["Architecture"] == "iphoneos-arm64e", "Not a RootHide package")
     depends = fields.get("Depends", "")
-    require("${" not in depends and "orion" in depends.lower() and
+    require("${" not in depends and "mobilesubstrate" in depends.lower() and
             "preferenceloader" in depends and "firmware (>= 15.0)" in depends,
             f"Unresolved/missing runtime dependencies: {depends}")
     listing = command("dpkg-deb", "-c", str(package))
     require("./var/jb/" not in listing, "Rootless payload in RootHide package")
+    require(not any(name in listing for name in
+                    ("NativeHookFixture", "NativeHookReactivation", "NativeStartupApp")),
+            "Simulator fixture leaked into package")
     with tempfile.TemporaryDirectory(prefix="taplock-verify-") as directory:
         dest = Path(directory)
         command("dpkg-deb", "-x", str(package), str(dest))
@@ -144,8 +181,12 @@ def verify(package):
                 require(script.stat().st_mode & 0o777 == 0o755, f"Non-executable {script.name}")
         binaries = {name: macho((dest / name).read_bytes()) for name in (required[0], required[2])}
         for record in binaries[required[0]]:
-            require(any(".jbroot/Library/Frameworks/Orion.framework/Orion" in item
-                        for item in record["dependencies"]), "Wrong/missing RootHide Orion link")
+            require(not any("Orion.framework" in item for item in record["dependencies"]),
+                    "Retired Orion dependency in tweak")
+            require(any(item.endswith("/usr/lib/libsubstrate.dylib")
+                        for item in record["dependencies"]),
+                    "Missing RootHide substrate runtime link")
+            require(record["initializers"], "Missing retained native initializer (__mod_init_func / __init_offsets)")
     return {"file": package.name, "bytes": package.stat().st_size,
             "sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
             "control": fields, "required_files": required, "binaries": binaries,

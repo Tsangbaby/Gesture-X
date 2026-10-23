@@ -113,3 +113,4 @@ PY
 }
 run_case "$OLD" baseline --expect-legacy-failure BASELINE_EXPECTED_FAILURE
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
+bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

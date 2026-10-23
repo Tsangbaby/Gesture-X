@@ -2,13 +2,15 @@
 
 ## 当前验证层级
 
-本地源码/资源与 CI 合同检查 **21 项通过**，Shell 语法及 `git diff --check` 通过。新增的初始化合同在旧代码上先失败，修正导入声明/显式 convenience initializer 后通过；这仍是本地源码合同，不是 Swift 执行结果。
+本地源码/资源、CI 合同及 Mach-O 解析器夹具检查 **28 项通过**；执行结果与云端 Swift/UIKit 结果分开记录。
 
-本轮 0.1.1 只修设置页初始化：去掉基类的过时 initializer 声明，在 Swift 子类实现旧工厂 selector 并转入 UIKit 的 `init(nibName:bundle:)`。固定 SHA-256 回归确认 4 个 `Sources` 文件、共享偏好源码、两个 Makefile、module map 及设置页从 `loadView` 起的业务代码字节未变。版本元数据同步更新，不增加生产日志或手势功能。
+本轮修复 SpringBoard 启动入口：移除 Orion 入口/链接/包依赖，以保留的 Swift dyld 初始化指针在主队列启动，并通过原生 `MSHookMessageEx` Hook 桌面列表。多任务状态改由 `SBMainSwitcherViewController.sharedInstanceIfExists` 获取，根位置精确接受 `SBIconLocationRoot` 与 `SBIconLocationRootWithWidgets`。未知状态仍拒绝，不放宽空白区或手势安全门，不增加生产诊断。
 
-云端新增独立 iOS Simulator 构造回归：从固定旧 SHA `72826b2a558b03e20a7dd5e98047dfdecc489202` 提取真实旧源码，要求复现 `NSInvalidArgumentException` / `initForContentSize:`；当前源码在相同的原生 UIKit 父类测试替身上分别创建 legacy/default 路径各 5 次，并检查真实表格/开关。测试替身明确缺少旧接口，只用于测试、不进入 Theos 目标/安装包，不能替代设备 Preferences 的完整链路。
+用户已报告 0.1.1 设置页在 iOS 15.4.1 修复，但开启后双击桌面无效。该已接受的设置页、其基类声明、共享偏好和锁屏请求源码在本轮保持字节不变。重新解析原交付包确认两个架构都没有 dyld 初始化表；这是静态启动缺口证据，不是手机上注入状态的观察。
 
-云端执行状态须查看 Actions 的对应 SHA 及 `SETTINGS_CONSTRUCTION_TESTS.txt`，不因脚本存在而认定通过。目标设备对 0.1.0 已报告 Settings 崩溃；0.1.1 的设备复测尚未执行。
+云端在原有临时 UIKit 模拟器中继续执行设置页旧 SHA 预期失败/当前 SHA 通过回归，并加载优化、dead-strip 后的完整生产 tweak 源码 dylib，验证自动启动、主队列投递、原方法恰好一次、挂载/移除和重复启动。系统列表类与 Hook 安装器为明确的测试替身；它们不进入 Theos 目标或包，不证明真实 SpringBoard 注入、Substrate 后端或设备锁屏。
+
+云端执行状态须查看对应 SHA 的 Actions、`NATIVE_STARTUP_TESTS.txt` 和 `SETTINGS_CONSTRUCTION_TESTS.txt`；脚本存在不等于运行通过。新的功能验证包仍须设备复测，不能继承设置页通过为整条功能链通过。
 
 以下是首次源码阶段保留的历史记录，描述的是增加 Git 与 CI 之前的状态：
 

@@ -69,8 +69,12 @@ class CloudBuildContracts(unittest.TestCase):
         for token in ("iphoneos-arm64e", "TapLock.dylib", "TapLockPrefs.bundle",
                       "PreferenceLoader/Preferences/TapLock.plist", "NSPrincipalClass",
                       "CFBundleIdentifier", "0x32", "0x25", "0x000F0000",
-                      "0x1D", "0xFADE0CC0", "plistlib.loads", "SHA256SUMS.txt"):
+                      "0x1D", "0xFADE0CC0", "plistlib.loads", "SHA256SUMS.txt",
+                      "mobilesubstrate", "libsubstrate.dylib", "__mod_init_func",
+                      "S_MOD_INIT_FUNC_POINTERS"):
             self.assertIn(token, text)
+        self.assertNotIn("Orion.framework/Orion", text)
+        self.assertNotIn('"orion" in depends.lower()', text)
 
 
 if __name__ == "__main__":

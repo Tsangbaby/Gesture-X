@@ -2,7 +2,8 @@
 
 ## 入口与所有权
 
-- 动态解析 `SBIconListView`，仅在类可转换为 UIView 且 `didMoveToWindow` 是 `void(self, _cmd)` 的情况下启用 Orion Hook。
+- 保留的 Swift C 函数指针位于 `__DATA,__mod_init_func`，由 dyld 自动调用后投递主队列；不是等待首次访问的普通全局闭包，也不依赖未被调用的导出函数。
+- 动态解析 `SBIconListView`，仅在类可转换为 UIView 且 `didMoveToWindow` 是 `void(self, _cmd)` 的情况下通过 `MSHookMessageEx` 安装唯一 Hook；原生声明模块无业务实现，Hook 后端由越狱环境提供。
 - Hook 先原样调用一次原方法，再处理本项目识别器。不替换 UIApplication 事件路由、原生识别器 delegate 或 hitTest。
 - 主队列启动时补扫现有主屏幕窗口，后续依靠桌面视图移入/移出窗口及应用生命周期通知；无定时补扫。
 - 每个精确匹配的列表视图最多一个双击识别器，视图持有识别器，进程级 owner 只保留弱引用。移出窗口立即移除。
@@ -17,7 +18,7 @@
 
 ## 空白区与必需状态
 
-必须满足 `SBHomeScreenWindow`、根 `iconLocation == SBIconLocationRoot`、直接手指命中列表自身，以及窗口重新 hitTest 仍命中该列表。缺失/不匹配任一项均拒绝。
+必须满足 `SBHomeScreenWindow`、根 `iconLocation` 精确为 `SBIconLocationRoot` 或 `SBIconLocationRootWithWidgets`、直接手指命中列表自身，以及窗口重新 hitTest 仍命中该列表。缺失/不匹配任一项均拒绝。多任务状态由 `SBMainSwitcherViewController.sharedInstanceIfExists` 读取，不向 UIApplication 发送缺乏 iOS 15 声明依据的 `_switcherController` getter。
 
 同时要求主界面确实显示桌面、多任务没有显示、图标管理器不在编辑中，锁屏管理器报告 UI 未锁、锁屏不可见且不在解锁。
 这些私有能力和根列表实际类型/位置值需要在目标设备验证；这是有意保守的适配门，不是“只设 deployment target 即兼容所有 iOS 15+”。

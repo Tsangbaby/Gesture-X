@@ -61,15 +61,15 @@ class RuntimeContracts(unittest.TestCase):
 
 class GestureContracts(unittest.TestCase):
     def test_hook_is_local_gated_and_forwards_original_once(self):
-        text = source("Sources/Tweak.x.swift")
-        self.assertIn("ClassHook<UIView>", text)
+        text = source("Sources/NativeHook.swift")
+        self.assertIn("MSHookMessageEx", text)
         self.assertIn('"SBIconListView"', text)
-        self.assertIn("hookWillActivate() -> Bool", text)
+        self.assertIn("PrivateAPI.checkedMethod", text)
         self.assertIn('"didMoveToWindow"', text)
-        self.assertEqual(text.count("orig.didMoveToWindow()"), 1)
-        self.assertIn("HomeDoubleTap.shared.attach(to: target)", text)
-        self.assertIn("DispatchQueue.main.async", text)
-        self.assertIn("handleError(_ error: OrionHookError)", text)
+        self.assertEqual(text.count("previous(view, selector)"), 1)
+        self.assertIn("HomeDoubleTap.shared.attach(to: view)", text)
+        self.assertIn("HomeDoubleTap.shared.start()", text)
+        self.assertIn("DispatchQueue.main.async", source("Sources/Bootstrap.swift"))
         self.assertNotIn("fatalError", text)
 
     def test_blank_root_hit_and_direct_finger_only(self):
@@ -84,7 +84,7 @@ class GestureContracts(unittest.TestCase):
         for token in ("Thread.isMainThread", "!UIAccessibility.isVoiceOverRunning",
                       "scene.interfaceOrientation.isPortrait", ".foregroundActive",
                       '"SBHomeScreenWindow"', '"isShowingHomescreen") == true',
-                      '"_switcherController"', '"isMainSwitcherVisible") == false',
+                      '"SBMainSwitcherViewController"', '"isMainSwitcherVisible") == false',
                       '"iconManager"', '"isEditing") == false',
                       "LockAction.unlockedManager() != nil", "scroll.isDragging",
                       "scroll.isDecelerating", ".began", ".changed"):
@@ -173,8 +173,9 @@ class SettingsAndBuildContracts(unittest.TestCase):
         for makefile in ("Makefile", "Preferences/Makefile"):
             self.assertIn("iphone:clang:latest:15.0", source(makefile))
             self.assertIn("arm64 arm64e", source(makefile))
-        self.assertIn("_PRIVATE_FRAMEWORKS = Preferences", source("Preferences/Makefile"))
-        self.assertIn("-I../Interfaces", source("Preferences/Makefile"))
+        self.assertIn("-IInterfaces", source("Makefile"))
+        self.assertIn("TapLock_LIBRARIES = substrate", source("Makefile"))
+        self.assertIn("TapLockNativeRuntime", source("Sources/NativeHook.swift"))
         self.assertIn("SUBPROJECTS += Preferences", source("Makefile"))
 
     def test_loader_identity_filter_and_version_match(self):
@@ -192,7 +193,8 @@ class SettingsAndBuildContracts(unittest.TestCase):
         version = re.search(r"^Version: (.+)$", control, re.M)[1]
         self.assertEqual(info["CFBundleVersion"], version)
         self.assertEqual(info["CFBundleShortVersionString"], version)
-        self.assertIn("${ORION}", control)
+        self.assertIn("mobilesubstrate", control)
+        self.assertNotIn("ORION", control)
         self.assertIn("preferenceloader", control)
         self.assertIn("firmware (>= 15.0)", control)
 
@@ -200,8 +202,9 @@ class SettingsAndBuildContracts(unittest.TestCase):
         for path in ROOT.rglob("*"):
             if not path.is_file():
                 continue
-            # The sole native implementation is an isolated simulator test shim.
-            if path == ROOT / "Tests/SettingsConstructionFixture.m":
+            # Native implementations are allowlisted simulator fixtures only.
+            if path in {ROOT / "Tests/SettingsConstructionFixture.m",
+                        ROOT / "Tests/NativeHookFixture.m"}:
                 continue
             self.assertNotIn(path.suffix, (".m", ".mm", ".c", ".cpp", ".xm", ".x",
                                            ".deb", ".dylib", ".o", ".zip"), str(path))

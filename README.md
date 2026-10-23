@@ -23,7 +23,8 @@
 ## 源码结构
 
 ```text
-Sources/Tweak.x.swift                 Orion 入口与唯一的桌面类 Hook
+Sources/Bootstrap.swift              保留的 dyld 初始化指针与主队列启动
+Sources/NativeHook.swift             原生 MSHookMessageEx 及原方法转发
 Sources/HomeDoubleTap.swift          识别器、生命周期、触摸/场景过滤
 Sources/PrivateAPI.swift             已使用的固定类型私有调用与 ABI 检查
 Sources/LockAction.swift             一次系统锁屏请求
@@ -36,7 +37,7 @@ Tests/test_source.py                可在当前主机执行的源码/资源检�
 Tests/PrivateAPIRuntimeTests.swift   供后续 macOS 执行的真实 Swift runtime 测试
 ```
 
-所有业务实现和 Hook 定义均为 Swift。生产 `.h` 只声明现有系统 `PSViewController`，让 Swift 正确继承 PreferenceLoader 要求的系统基类；生产目标没有手写 `.m/.mm/.c/Logos` 实现。`Tests/SettingsConstructionFixture.{h,m}` 是独立模拟器回归用的原生父类/工厂替身，只供测试，不参与 Theos 目标、不进入安装包。Orion/Theos 是外部工具/运行库，其正常预处理和互操作产物不等于“零底层依赖”。
+所有业务实现、启动入口和 Hook 回调均为 Swift。生产 `.h` 只声明系统 `PSViewController` 及越狱环境已有的 `MSHookMessageEx` ABI；没有手写 `.m/.mm/.c/Logos` 业务实现，也不再使用 Orion。`Tests/SettingsConstructionFixture.{h,m}` 与 `Tests/NativeHookFixture.{h,m}` 仅为模拟器提供缺失的原生父类/工厂和 Hook 安装测试替身，不参与 Theos 目标、不进入安装包。Substrate 兼容 Hook 后端、Swift/Objective-C runtime 和 UIKit 仍是底层依赖。
 
 ## 已执行的本地检查
 
@@ -55,10 +56,10 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 1. 执行 Python 源码/CI 合同检查。
 2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness；失败就停止。
-3. 用真实生产设置页 Swift 与 UIKit 执行旧 SHA 预期失败、当前 SHA 通过的初始化回归；原生父类/工厂为刻意缺少旧接口的测试替身，不冒充设备 Preferences。
+3. 用真实生产设置页 Swift 与 UIKit 执行旧 SHA 预期失败、当前 SHA 通过的初始化回归；在同一临时模拟器中实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 原方法转发、识别器挂载/移除和重复启动。原生系统类/安装器均为明确的测试替身，不冒充设备 SpringBoard 或 Preferences。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
-6. 检查包内路径、版本、设置入口、Orion 依赖、每个架构的最低系统版本及嵌入签名结构。
+6. 检查包内路径、版本、设置入口、Substrate 运行库链接、Orion 依赖不存在、每个架构的启动表/最低系统版本及嵌入签名结构。
 7. 上传原始 `.deb`、SHA-256、源码仓库/commit 标记、工具链记录、初始化回归记录和完整构建日志。产物名包含完整源码 SHA，保留 14 天。
 
 实际成功/失败以 [Actions](https://github.com/Tsangbaby/Gesture-X/actions) 的对应源码 SHA 运行和下载产物核验为准；添加 workflow 不等于构建通过。默认 Makefile 仍采用 rootless scheme，当前云端仅验证 RootHide，不能由此宣称普通 Rootless 包或任何机型已通过。

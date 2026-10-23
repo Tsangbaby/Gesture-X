@@ -6,9 +6,11 @@ INSTALL_TARGET_PROCESSES = SpringBoard
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = TapLock
-TapLock_FILES = Shared/Preferences.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/Tweak.x.swift
+TapLock_FILES = Shared/Preferences.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift
 TapLock_FRAMEWORKS = Foundation UIKit
+TapLock_LIBRARIES = substrate
 TapLock_SWIFT_VERSION = 5
+TapLock_SWIFTFLAGS = -IInterfaces -enable-experimental-feature SymbolLinkageMarkers
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 
