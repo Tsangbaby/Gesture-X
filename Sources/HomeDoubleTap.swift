@@ -18,7 +18,8 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
     private let recognizers = NSHashTable<UIGestureRecognizer>.weakObjects()
     private var started = false
     private var enabled = false
-    private var isDispatchingLock = false
+    private var action: TapLockPreferences.Action = .lock
+    private var isDispatchingAction = false
 
     private override init() { super.init() }
 
@@ -76,6 +77,7 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
         guard Thread.isMainThread else { return }
         cancelAll() // Invalidate pending recognition even if off->on was coalesced.
         enabled = TapLockPreferences.readEnabled()
+        action = TapLockPreferences.readAction()
         refreshRecognizers()
     }
 
@@ -190,12 +192,19 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
     }
 
     @objc private func recognized(_ sender: UITapGestureRecognizer) {
-        guard Thread.isMainThread, sender.state == .ended, !isDispatchingLock,
+        guard Thread.isMainThread, sender.state == .ended, !isDispatchingAction,
               recognizers.contains(sender), let host = sender.view,
               isEligible(in: host),
               isBlankHit(in: host, point: sender.location(in: host)) else { return }
-        isDispatchingLock = true
-        defer { isDispatchingLock = false }
-        LockAction.requestLock()
+        isDispatchingAction = true
+        defer { isDispatchingAction = false }
+        switch action {
+        case .lock:
+            LockAction.requestLock()
+        case .openApp(let identifier):
+            InstalledApplications.open(identifier: identifier)
+        case .unavailable:
+            break
+        }
     }
 }

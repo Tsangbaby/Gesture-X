@@ -123,15 +123,59 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     require(false, "action table missing")
                     return false
                 }
+                #if OPEN_APP_ROWS
+                let expectedActionRows = 2
+                #else
+                let expectedActionRows = 1
+                #endif
                 require(action.title == "选择双击动作" &&
-                        action.tableView(actionTable, numberOfRowsInSection: 0) == 1,
+                        action.tableView(actionTable, numberOfRowsInSection: 0) == expectedActionRows,
                         "unimplemented actions must not be exposed")
                 let selected = action.tableView(actionTable, cellForRowAt: IndexPath(row: 0, section: 0))
                 require(selected.textLabel?.text == "系统锁屏" && selected.accessoryType == .checkmark,
                         "accepted lock action must remain selected")
+                #if OPEN_APP_FEATURE
+                let appAction = action.tableView(actionTable, cellForRowAt: IndexPath(row: 1, section: 0))
+                require(appAction.textLabel?.text == "打开指定App", "App action row missing")
+                actionTable.delegate?.tableView?(actionTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let picker = navigation.topViewController as? TapLockSettingsController,
+                      picker !== action else { require(false, "App picker did not push"); return false }
+                picker.loadViewIfNeeded()
+                picker.viewWillAppear(false)
+                guard let pickerTable = picker.view as? UITableView else {
+                    require(false, "App picker table missing"); return false
+                }
+                require(picker.title == "选择App", "wrong App picker title")
+                require(picker.tableView(pickerTable, numberOfRowsInSection: 0) > 0,
+                        "installed simulator exposes no selectable Apps")
+                let target = picker.tableView(pickerTable, cellForRowAt: IndexPath(row: 0, section: 0))
+                guard let identifier = target.detailTextLabel?.text, let name = target.textLabel?.text else {
+                    require(false, "App picker lost name/Bundle ID"); return false
+                }
+                // Rendering cells uses the cached snapshot. It must not reset selection.
+                for _ in 0..<20 { _ = picker.tableView(pickerTable, cellForRowAt: IndexPath(row: 0, section: 0)) }
+                require(TapLockPreferences.readAction() == .lock, "entering/cancelling picker changed the action")
+                pickerTable.delegate?.tableView?(pickerTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                require(navigation.topViewController === action, "App selection did not return to action page")
+                require(TapLockPreferences.readAction() == .openApp(identifier), "App choice did not persist")
+                action.viewWillAppear(false)
+                let chosenApp = action.tableView(actionTable, cellForRowAt: IndexPath(row: 1, section: 0))
+                require(chosenApp.accessoryType == .checkmark && chosenApp.detailTextLabel?.text == name,
+                        "selected App checkmark/summary missing")
+                require(action.tableView(actionTable, cellForRowAt: IndexPath(row: 0, section: 0)).accessoryType == .none,
+                        "lock remained selected alongside App")
+                home.viewWillAppear(false)
+                require(home.tableView(homeTable, cellForRowAt: IndexPath(row: 1, section: 0)).detailTextLabel?.text ==
+                        "打开指定App · " + name, "home App summary did not refresh")
+                require(TapLockPreferences.readEnabled() == !original, "App selection changed the enable switch")
+                print("PASS: real simulator App picker/selection/checkmark/summary #\(iteration)")
+                #endif
                 actionTable.delegate?.tableView?(actionTable, didSelectRowAt: IndexPath(row: 0, section: 0))
                 require(navigation.topViewController === home, "selecting current action must return home")
                 require(TapLockPreferences.readEnabled() == !original, "action navigation changed enable state")
+                #if OPEN_APP_FEATURE
+                require(TapLockPreferences.readAction() == .lock, "could not switch back from App to lock")
+                #endif
                 actionTrips += 1
 
                 navigation.popToRootViewController(animated: false)

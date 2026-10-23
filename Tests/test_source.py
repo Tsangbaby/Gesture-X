@@ -132,9 +132,9 @@ class GestureContracts(unittest.TestCase):
     def test_recognized_event_rechecks_before_single_lock_request(self):
         text = source("Sources/HomeDoubleTap.swift")
         body = text.split("func recognized(", 1)[1].split("\n    }", 1)[0]
-        for token in ("sender.state == .ended", "!isDispatchingLock",
+        for token in ("sender.state == .ended", "!isDispatchingAction",
                       "recognizers.contains(sender)", "isEligible(in: host)",
-                      "isBlankHit(in: host", "defer { isDispatchingLock = false }"):
+                      "isBlankHit(in: host", "defer { isDispatchingAction = false }"):
             self.assertIn(token, body)
         self.assertEqual(body.count("LockAction.requestLock()"), 1)
         self.assertLess(body.index("isEligible(in: host)"), body.index("LockAction.requestLock()"))
@@ -175,6 +175,8 @@ class SettingsAndBuildContracts(unittest.TestCase):
                           for p in (ROOT / directory).glob("*.swift")})
         self.assertEqual(members("Preferences/Makefile", "TapLockPrefs"),
                          {(ROOT / "Shared/Preferences.swift").resolve(),
+                          (ROOT / "Shared/Applications.swift").resolve(),
+                          (ROOT / "Sources/PrivateAPI.swift").resolve(),
                           (ROOT / "Preferences/SettingsController.swift").resolve()})
         for makefile in ("Makefile", "Preferences/Makefile"):
             self.assertIn("iphone:clang:latest:15.0", source(makefile))

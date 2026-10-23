@@ -48,6 +48,70 @@ enum TapLockPreferences {
         return true
     }
 
+    // One property-list value keeps the action and its target atomic. Missing
+    // configuration preserves the accepted lock action; malformed data does not.
+    enum Action: Equatable {
+        case lock
+        case openApp(String)
+        case unavailable
+    }
+    static let actionKey = "DoubleTapAction"
+
+    static func validBundleIdentifier(_ identifier: String) -> Bool {
+        !identifier.isEmpty && identifier.utf8.count <= 255 &&
+            !identifier.hasPrefix(".") && !identifier.hasSuffix(".") &&
+            !identifier.contains("..") && identifier.rangeOfCharacter(from:
+                CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.").inverted) == nil
+    }
+
+    static func readAction() -> Action {
+        guard synchronize() else { return .unavailable }
+        guard let value = CFPreferencesCopyValue(
+            actionKey as CFString, domain as CFString,
+            kCFPreferencesCurrentUser, kCFPreferencesAnyHost
+        ) else { return .lock }
+        guard CFGetTypeID(value) == CFDictionaryGetTypeID(),
+              let record = value as? [String: Any],
+              let kind = record["kind"] as? String else { return .unavailable }
+        if kind == "lock", record.count == 1 { return .lock }
+        if kind == "openApp", record.count == 2,
+           let identifier = record["bundleIdentifier"] as? String,
+           validBundleIdentifier(identifier) { return .openApp(identifier) }
+        return .unavailable
+    }
+
+    @discardableResult
+    static func writeAction(_ action: Action) -> Bool {
+        let record: [String: String]
+        switch action {
+        case .lock:
+            record = ["kind": "lock"]
+        case .openApp(let identifier):
+            guard validBundleIdentifier(identifier) else { return false }
+            record = ["kind": "openApp", "bundleIdentifier": identifier]
+        case .unavailable:
+            return false
+        }
+        _ = synchronize()
+        let previous = CFPreferencesCopyValue(
+            actionKey as CFString, domain as CFString,
+            kCFPreferencesCurrentUser, kCFPreferencesAnyHost
+        )
+        CFPreferencesSetValue(actionKey as CFString, record as CFDictionary,
+                              domain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+        guard synchronize() else {
+            CFPreferencesSetValue(actionKey as CFString, previous,
+                                  domain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+            _ = synchronize()
+            return false
+        }
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName(rawValue: changedNotification as CFString), nil, nil, true
+        )
+        return true
+    }
+
     private static func synchronize() -> Bool {
         CFPreferencesSynchronize(domain as CFString,
                                  kCFPreferencesCurrentUser, kCFPreferencesAnyHost)

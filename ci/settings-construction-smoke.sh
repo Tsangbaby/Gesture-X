@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 : "${RUNNER_TEMP:?Run on the isolated cloud Mac runner}"
 BASELINE=72826b2a558b03e20a7dd5e98047dfdecc489202
 HIERARCHY_BASELINE=94b384d64ce44705e754f4695c98661110db76ff
+OPEN_APP_BASELINE=7f35f9e51aa9d61d8bd052f0ab6b85127313d326
 WORK="$(mktemp -d "$RUNNER_TEMP/taplock-settings.XXXXXX")"
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ARCH="$(uname -m)"
@@ -84,6 +85,15 @@ with open(sys.argv[1], 'w') as f:
     f.write('Runtime: ' + sys.argv[3] + '\nTarget: ' + sys.argv[4] + '\n')
 PY
 
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$OPEN_APP_BASELINE"
+APP_OLD="$WORK/accepted-lock-ui"
+for path in Shared/Preferences.swift Preferences/SettingsController.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap; do
+    mkdir -p "$APP_OLD/$(dirname "$path")"
+    git -C "$ROOT" show "$OPEN_APP_BASELINE:$path" > "$APP_OLD/$path"
+done
+
 run_case() {
     local source_root="$1" label="$2" mode="$3" marker="$4"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
@@ -98,11 +108,19 @@ with open(sys.argv[1], 'wb') as f:
         CFBundleShortVersionString='1', MinimumOSVersion='15.0',
         LSRequiresIPhoneOS=True, UIDeviceFamily=[1], UILaunchScreen={}), f)
 PY
-    xcrun swiftc -parse-as-library -swift-version 5 -target "$TARGET" -sdk "$SDK" \
+    local compile_sources=("$source_root/Shared/Preferences.swift" "$source_root/Preferences/SettingsController.swift")
+    local compile_flags=(-parse-as-library -swift-version 5)
+    if [ "$label" = app-baseline ] || [ "$label" = fixed ]; then
+        compile_flags+=(-DOPEN_APP_ROWS)
+    fi
+    if [ "$label" = fixed ]; then
+        compile_flags+=(-DOPEN_APP_FEATURE)
+        compile_sources+=("$ROOT/Shared/Applications.swift" "$ROOT/Sources/PrivateAPI.swift")
+    fi
+    xcrun swiftc "${compile_flags[@]}" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
         -import-objc-header "$ROOT/Tests/SettingsConstructionFixture.h" \
-        "$source_root/Shared/Preferences.swift" \
-        "$source_root/Preferences/SettingsController.swift" \
+        "${compile_sources[@]}" \
         "$ROOT/Tests/SettingsConstructionApp.swift" \
         -Xlinker -rpath -Xlinker @executable_path/Frameworks \
         -o "$app/SettingsConstruction"
@@ -125,5 +143,6 @@ PY
 }
 run_case "$OLD" baseline --expect-legacy-failure BASELINE_EXPECTED_FAILURE
 run_case "$STABLE" accepted --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势'
+run_case "$APP_OLD" app-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: unimplemented actions must not be exposed'
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

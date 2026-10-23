@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 from settings_hierarchy_baseline import FIXTURE, invert_settings_hierarchy
+from open_app_baseline import invert_open_app
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,7 +17,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines()
                       if ': ' in line)
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
-        self.assertEqual(fields['Version'], '0.1.2')
+        self.assertEqual(fields['Version'], '0.1.3')
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])
         self.assertEqual(fields['Package'], 'com.tsangbaby.taplock')
@@ -35,26 +36,30 @@ class SettingsHierarchyContracts(unittest.TestCase):
         self.assertEqual(text.count('TapLockPreferences.writeEnabled(sender.isOn)'), 1)
         self.assertIn('UITableViewCell(style: .value1', text)
         for forbidden in ('LockAction', 'HomeDoubleTap', 'URLSession', 'NSUserDefaults',
-                          'UserDefaults', 'writeAction', 'fatalError', 'TODO', 'FIXME'):
+                          'UserDefaults', 'fatalError', 'TODO', 'FIXME'):
             self.assertNotIn(forbidden, text)
 
     def test_accepted_runtime_preferences_loader_and_build_graph_are_byte_exact(self):
         self.assertEqual(FIXTURE['baseline'], '94b384d64ce44705e754f4695c98661110db76ff')
         for relative, digest in FIXTURE['frozen'].items():
             with self.subTest(path=relative):
-                self.assertEqual(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest(), digest)
-        restored = invert_settings_hierarchy((ROOT / 'Preferences/SettingsController.swift').read_text())
+                text = invert_open_app(relative, (ROOT / relative).read_text())
+                self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), digest)
+        restored = invert_settings_hierarchy(invert_open_app('Preferences/SettingsController.swift',
+            (ROOT / 'Preferences/SettingsController.swift').read_text()))
         self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
     def test_exact_inverse_rejects_missing_or_duplicate_ui_hunks(self):
-        text = (ROOT / 'Preferences/SettingsController.swift').read_text()
+        text = invert_open_app('Preferences/SettingsController.swift',
+            (ROOT / 'Preferences/SettingsController.swift').read_text())
         for hunk in FIXTURE['hunks']:
             for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                 with self.assertRaises(AssertionError):
                     invert_settings_hierarchy(mutation)
 
     def test_exact_inverse_does_not_hide_unrelated_drift(self):
-        text = (ROOT / 'Preferences/SettingsController.swift').read_text()
+        text = invert_open_app('Preferences/SettingsController.swift',
+            (ROOT / 'Preferences/SettingsController.swift').read_text())
         restored = invert_settings_hierarchy(text + '\n// unrelated drift\n')
         self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 

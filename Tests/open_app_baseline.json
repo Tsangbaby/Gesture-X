@@ -1,0 +1,92 @@
+{
+  "baseline": "7f35f9e51aa9d61d8bd052f0ab6b85127313d326",
+  "frozen": {
+    "Makefile": "0a95d0f96ad8da4829d5e30d781ff2649207cbb0b55eed2a39751f4fe204960b",
+    "Preferences/Makefile": "044e5562d1ea542b56b1283793cce69ba61eb899beb5c9d527002d81e02e95b8",
+    "Shared/Preferences.swift": "227f50e3b867615426e4860f01b515a71c81844d64522b3269309ba6651aada5",
+    "Sources/HomeDoubleTap.swift": "f617fb9572b4298925ab083ab57001daedc0466d9757ecc9e1b4388dd8b27469",
+    "Preferences/SettingsController.swift": "42af8f851553512275d86d21c9943109c8489565d982d694ff0e399ff32bfdef",
+    "control": "f5e509ca8241b9858e9481b4ad80ae5655af74ab7abe727d91020c8a3774eca9",
+    "Preferences/Resources/Info.plist": "1a6251bcb09c2d6ef597f796c7c658af94d2036240e07645b6ac634b2a6471e8"
+  },
+  "hunks": {
+    "Makefile": [
+      {
+        "before": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n",
+        "after": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n"
+      }
+    ],
+    "Preferences/Makefile": [
+      {
+        "before": "\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift SettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\n",
+        "after": "\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift SettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\n"
+      }
+    ],
+    "Shared/Preferences.swift": [
+      {
+        "before": "    }\n\n    private static func synchronize() -> Bool {\n        CFPreferencesSynchronize(domain as CFString,\n",
+        "after": "    }\n\n    // One property-list value keeps the action and its target atomic. Missing\n    // configuration preserves the accepted lock action; malformed data does not.\n    enum Action: Equatable {\n        case lock\n        case openApp(String)\n        case unavailable\n    }\n    static let actionKey = \"DoubleTapAction\"\n\n    static func validBundleIdentifier(_ identifier: String) -> Bool {\n        !identifier.isEmpty && identifier.utf8.count <= 255 &&\n            !identifier.hasPrefix(\".\") && !identifier.hasSuffix(\".\") &&\n            !identifier.contains(\"..\") && identifier.rangeOfCharacter(from:\n                CharacterSet(charactersIn: \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.\").inverted) == nil\n    }\n\n    static func readAction() -> Action {\n        guard synchronize() else { return .unavailable }\n        guard let value = CFPreferencesCopyValue(\n            actionKey as CFString, domain as CFString,\n            kCFPreferencesCurrentUser, kCFPreferencesAnyHost\n        ) else { return .lock }\n        guard CFGetTypeID(value) == CFDictionaryGetTypeID(),\n              let record = value as? [String: Any],\n              let kind = record[\"kind\"] as? String else { return .unavailable }\n        if kind == \"lock\", record.count == 1 { return .lock }\n        if kind == \"openApp\", record.count == 2,\n           let identifier = record[\"bundleIdentifier\"] as? String,\n           validBundleIdentifier(identifier) { return .openApp(identifier) }\n        return .unavailable\n    }\n\n    @discardableResult\n    static func writeAction(_ action: Action) -> Bool {\n        let record: [String: String]\n        switch action {\n        case .lock:\n            record = [\"kind\": \"lock\"]\n        case .openApp(let identifier):\n            guard validBundleIdentifier(identifier) else { return false }\n            record = [\"kind\": \"openApp\", \"bundleIdentifier\": identifier]\n        case .unavailable:\n            return false\n        }\n        _ = synchronize()\n        let previous = CFPreferencesCopyValue(\n            actionKey as CFString, domain as CFString,\n            kCFPreferencesCurrentUser, kCFPreferencesAnyHost\n        )\n        CFPreferencesSetValue(actionKey as CFString, record as CFDictionary,\n                              domain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)\n        guard synchronize() else {\n            CFPreferencesSetValue(actionKey as CFString, previous,\n                                  domain as CFString, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)\n            _ = synchronize()\n            return false\n        }\n        CFNotificationCenterPostNotification(\n            CFNotificationCenterGetDarwinNotifyCenter(),\n            CFNotificationName(rawValue: changedNotification as CFString), nil, nil, true\n        )\n        return true\n    }\n\n    private static func synchronize() -> Bool {\n        CFPreferencesSynchronize(domain as CFString,\n"
+      }
+    ],
+    "Sources/HomeDoubleTap.swift": [
+      {
+        "before": "    private var started = false\n    private var enabled = false\n    private var isDispatchingLock = false\n\n    private override init() { super.init() }\n",
+        "after": "    private var started = false\n    private var enabled = false\n    private var action: TapLockPreferences.Action = .lock\n    private var isDispatchingAction = false\n\n    private override init() { super.init() }\n"
+      },
+      {
+        "before": "        cancelAll() // Invalidate pending recognition even if off->on was coalesced.\n        enabled = TapLockPreferences.readEnabled()\n        refreshRecognizers()\n    }\n",
+        "after": "        cancelAll() // Invalidate pending recognition even if off->on was coalesced.\n        enabled = TapLockPreferences.readEnabled()\n        action = TapLockPreferences.readAction()\n        refreshRecognizers()\n    }\n"
+      },
+      {
+        "before": "\n    @objc private func recognized(_ sender: UITapGestureRecognizer) {\n        guard Thread.isMainThread, sender.state == .ended, !isDispatchingLock,\n              recognizers.contains(sender), let host = sender.view,\n              isEligible(in: host),\n              isBlankHit(in: host, point: sender.location(in: host)) else { return }\n        isDispatchingLock = true\n        defer { isDispatchingLock = false }\n        LockAction.requestLock()\n    }\n}\n",
+        "after": "\n    @objc private func recognized(_ sender: UITapGestureRecognizer) {\n        guard Thread.isMainThread, sender.state == .ended, !isDispatchingAction,\n              recognizers.contains(sender), let host = sender.view,\n              isEligible(in: host),\n              isBlankHit(in: host, point: sender.location(in: host)) else { return }\n        isDispatchingAction = true\n        defer { isDispatchingAction = false }\n        switch action {\n        case .lock:\n            LockAction.requestLock()\n        case .openApp(let identifier):\n            InstalledApplications.open(identifier: identifier)\n        case .unavailable:\n            break\n        }\n    }\n}\n"
+      }
+    ],
+    "Preferences/SettingsController.swift": [
+      {
+        "before": "@objc(TapLockSettingsController)\nfinal class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {\n    private enum Page { case root, homeScreen, doubleTapAction }\n    private var page: Page = .root\n    private let enabledSwitch = UISwitch()\n\n    // Some Settings factories prefer this selector. It must not call a missing\n",
+        "after": "@objc(TapLockSettingsController)\nfinal class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {\n    private enum Page { case root, homeScreen, doubleTapAction, applicationPicker }\n    private var page: Page = .root\n    private let enabledSwitch = UISwitch()\n    private var action: TapLockPreferences.Action = .lock\n    private var applicationName: String?\n    private var applications: [InstalledApplications.Choice] = []\n\n    // Some Settings factories prefer this selector. It must not call a missing\n"
+      },
+      {
+        "before": "        case .doubleTapAction:\n            title = \"选择双击动作\"\n        }\n    }\n",
+        "after": "        case .doubleTapAction:\n            title = \"选择双击动作\"\n        case .applicationPicker:\n            title = \"选择App\"\n            // One render snapshot, never enumerate LaunchServices per table cell.\n            applications = InstalledApplications.choices()\n        }\n    }\n"
+      },
+      {
+        "before": "            enabledSwitch.isOn = TapLockPreferences.readEnabled()\n        }\n    }\n\n",
+        "after": "            enabledSwitch.isOn = TapLockPreferences.readEnabled()\n        }\n        action = TapLockPreferences.readAction()\n        applicationName = nil\n        if case .openApp(let identifier) = action {\n            applicationName = InstalledApplications.choice(identifier: identifier)?.name\n        }\n        (view as? UITableView)?.reloadData()\n    }\n\n    private var actionSummary: String {\n        switch action {\n        case .lock: return \"系统锁屏\"\n        case .openApp: return \"打开指定App · \" + (applicationName ?? \"App不可用\")\n        case .unavailable: return \"配置不可用，请重新选择\"\n        }\n    }\n\n"
+      },
+      {
+        "before": "\n    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {\n        page == .homeScreen ? 2 : 1\n    }\n\n    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {\n        let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)\n        for label in [cell.textLabel, cell.detailTextLabel] {\n            label?.font = .preferredFont(forTextStyle: .body)\n",
+        "after": "\n    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {\n        switch page {\n        case .root: return 1\n        case .homeScreen, .doubleTapAction: return 2\n        case .applicationPicker: return applications.count\n        }\n    }\n\n    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {\n        let cell: UITableViewCell\n        if page == .applicationPicker {\n            cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)\n        } else {\n            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)\n        }\n        for label in [cell.textLabel, cell.detailTextLabel] {\n            label?.font = .preferredFont(forTextStyle: .body)\n"
+      },
+      {
+        "before": "        case (.homeScreen, _):\n            cell.textLabel?.text = \"选择双击动作\"\n            cell.detailTextLabel?.text = \"系统锁屏\"\n            cell.accessoryType = .disclosureIndicator\n        case (.doubleTapAction, _):\n            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = .checkmark\n        }\n        return cell\n",
+        "after": "        case (.homeScreen, _):\n            cell.textLabel?.text = \"选择双击动作\"\n            cell.detailTextLabel?.text = actionSummary\n            cell.accessoryType = .disclosureIndicator\n        case (.doubleTapAction, 0):\n            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = action == .lock ? .checkmark : .none\n        case (.doubleTapAction, _):\n            cell.textLabel?.text = \"打开指定App\"\n            if case .openApp = action {\n                cell.detailTextLabel?.text = applicationName ?? \"App不可用\"\n                cell.accessoryType = .checkmark\n            } else {\n                cell.detailTextLabel?.text = \"选择App\"\n                cell.accessoryType = .disclosureIndicator\n            }\n        case (.applicationPicker, let row):\n            let choice = applications[row]\n            cell.textLabel?.text = choice.name\n            cell.detailTextLabel?.text = choice.identifier\n            cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none\n        }\n        return cell\n"
+      },
+      {
+        "before": "            navigationController?.pushViewController(TapLockSettingsController(page: .doubleTapAction), animated: true)\n        case (.doubleTapAction, 0):\n            navigationController?.popViewController(animated: true)\n        default:\n",
+        "after": "            navigationController?.pushViewController(TapLockSettingsController(page: .doubleTapAction), animated: true)\n        case (.doubleTapAction, 0):\n            guard TapLockPreferences.writeAction(.lock) else { showSaveError(); return }\n            navigationController?.popViewController(animated: true)\n        case (.doubleTapAction, 1):\n            navigationController?.pushViewController(TapLockSettingsController(page: .applicationPicker), animated: true)\n        case (.applicationPicker, let row):\n            guard applications.indices.contains(row) else { return }\n            let choice = applications[row]\n            guard InstalledApplications.choice(identifier: choice.identifier) != nil else {\n                let alert = UIAlertController(title: \"App不可用\", message: \"该App已卸载或不允许启动，请重新进入列表选择。\", preferredStyle: .alert)\n                alert.addAction(UIAlertAction(title: \"好\", style: .default))\n                present(alert, animated: true)\n                return\n            }\n            guard TapLockPreferences.writeAction(.openApp(choice.identifier)) else { showSaveError(); return }\n            navigationController?.popViewController(animated: true)\n        default:\n"
+      },
+      {
+        "before": "            return \"当前开放主屏幕双击手势，其他手势将在逐项实现和验证后加入。\"\n        case .homeScreen:\n            return \"默认关闭。开启后，仅在已解锁、竖屏的主屏幕空白处双击锁屏。\" +\n                \"图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。\"\n        case .doubleTapAction:\n            return \"当前仅开放已通过实机验证的系统锁屏动作。点击该动作返回，不会立即执行锁屏。\"\n        }\n    }\n",
+        "after": "            return \"当前开放主屏幕双击手势，其他手势将在逐项实现和验证后加入。\"\n        case .homeScreen:\n            return \"默认关闭。开启后，仅在已解锁、竖屏的主屏幕空白处双击执行所选动作。\" +\n                \"图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。\"\n        case .doubleTapAction:\n            return \"升级后默认保留系统锁屏。选择动作只保存设置，不会立即执行。目标App不可用时不执行其他动作。\"\n        case .applicationPicker:\n            return applications.isEmpty ? \"未找到可选App。请确认App已安装且当前系统允许读取应用列表。\" :\n                \"仅列出已安装、允许启动且未隐藏的系统或用户App。选择后立即保存，不会在此处打开。\"\n        }\n    }\n"
+      },
+      {
+        "before": "        guard TapLockPreferences.writeEnabled(sender.isOn) else {\n            sender.isOn = TapLockPreferences.readEnabled()\n            let alert = UIAlertController(title: \"未能保存设置\",\n                                          message: \"设置未能持久保存，请稍后再试。\",\n                                          preferredStyle: .alert)\n            alert.addAction(UIAlertAction(title: \"好\", style: .default))\n            present(alert, animated: true)\n            return\n        }\n    }\n}\n",
+        "after": "        guard TapLockPreferences.writeEnabled(sender.isOn) else {\n            sender.isOn = TapLockPreferences.readEnabled()\n            showSaveError()\n            return\n        }\n    }\n\n    private func showSaveError() {\n        let alert = UIAlertController(title: \"未能保存设置\",\n                                      message: \"设置未能持久保存，请稍后再试。\",\n                                      preferredStyle: .alert)\n        alert.addAction(UIAlertAction(title: \"好\", style: .default))\n        present(alert, animated: true)\n    }\n}\n"
+      }
+    ],
+    "control": [
+      {
+        "before": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.2\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to request a system lock.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n",
+        "after": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.3\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock or open a selected App.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n"
+      }
+    ],
+    "Preferences/Resources/Info.plist": [
+      {
+        "before": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.2</string>\n    <key>CFBundleVersion</key><string>0.1.2</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n",
+        "after": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.3</string>\n    <key>CFBundleVersion</key><string>0.1.3</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n"
+      }
+    ]
+  }
+}
