@@ -11,6 +11,12 @@ ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'
 
 
 class OpenAppContracts(unittest.TestCase):
+    def test_empty_real_catalog_is_diagnosed_without_changing_the_success_gate(self):
+        app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
+        for token in ('LS_PROBE:', 'method_getTypeEncoding', 'isLaunchProhibited',
+                      'raw catalog', 'filtered catalog', 'installed simulator exposes no selectable Apps'):
+            self.assertIn(token, app)
+
     def test_uikit_harness_preserves_no_marker_failure_and_emits_ci_only_evidence(self):
         app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
         self.assertIn('SETTINGS_CHECKPOINT: didFinishLaunching', app)

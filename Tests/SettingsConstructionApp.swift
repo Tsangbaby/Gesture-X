@@ -17,6 +17,37 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
         }
     }
 
+    #if OPEN_APP_FEATURE
+    // Inspect only the disposable simulator when a real OS integration gate
+    // fails. These probes never enter either production target or the package.
+    private func inspectEmptyCatalog() {
+        func signature(_ receiver: AnyObject, _ name: String) -> String {
+            guard let type = object_getClass(receiver),
+                  let method = class_getInstanceMethod(type, NSSelectorFromString(name)),
+                  let encoding = method_getTypeEncoding(method) else { return "missing" }
+            return String(cString: encoding)
+        }
+        for name in ["LSApplicationWorkspace", "LSApplicationProxy"] {
+            print("LS_PROBE: class \(name) = \(String(describing: NSClassFromString(name)))")
+        }
+        guard let workspaceType = NSClassFromString("LSApplicationWorkspace") else { fflush(stdout); return }
+        print("LS_PROBE: defaultWorkspace \(signature(workspaceType as AnyObject, "defaultWorkspace"))")
+        guard let workspace = PrivateAPI.object(workspaceType as AnyObject, "defaultWorkspace") else { fflush(stdout); return }
+        print("LS_PROBE: allApplications \(signature(workspace, "allApplications")); open \(signature(workspace, "openApplicationWithBundleID:"))")
+        let proxies = PrivateAPI.object(workspace, "allApplications") as? [NSObject] ?? []
+        print("LS_PROBE: raw catalog \(proxies.count); filtered catalog \(InstalledApplications.choices().count)")
+        for proxy in proxies.prefix(6) {
+            print("LS_PROBE: proxy \(type(of: proxy))")
+            for selector in ["isInstalled", "isLaunchProhibited", "applicationType", "bundleIdentifier", "localizedName", "appTags"] {
+                let value = selector.hasPrefix("is") ? String(describing: PrivateAPI.bool(proxy, selector)) :
+                    String(describing: PrivateAPI.object(proxy, selector))
+                print("LS_PROBE: \(selector) ABI=\(signature(proxy, selector)) value=\(value)")
+            }
+        }
+        fflush(stdout)
+    }
+    #endif
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         print("SETTINGS_CHECKPOINT: didFinishLaunching \(ProcessInfo.processInfo.arguments)")
@@ -148,6 +179,7 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     require(false, "App picker table missing"); return false
                 }
                 require(picker.title == "选择App", "wrong App picker title")
+                if picker.tableView(pickerTable, numberOfRowsInSection: 0) == 0 { inspectEmptyCatalog() }
                 require(picker.tableView(pickerTable, numberOfRowsInSection: 0) > 0,
                         "installed simulator exposes no selectable Apps")
                 let target = picker.tableView(pickerTable, cellForRowAt: IndexPath(row: 0, section: 0))

@@ -6,7 +6,7 @@
 - 新候选在 `feat/open-selected-app` 开发，保留已接受分支和 main；仅增加“系统锁屏 / 打开指定App”二选一、已安装 App 选择、单值原子动作配置与一次 LaunchServices 启动。无通用动作引擎、URL Scheme 回退或生产日志。
 - 锁屏、PrivateAPI、启动、Hook、触摸/场景/编辑/VoiceOver 过滤保持已接受 owner。手势 owner 只增加偏好重载时缓存动作，以及既有通过门之后的二选一派发。
 - 缺失动作配置保持锁屏；损坏配置、错误 Bundle ID、未安装/隐藏/禁止启动目标、接口或 ABI 不支持都拒绝执行，不回退为另一个动作。App 列表一页只创建一次快照，名称单条查询不重扫全部 App。
-- 本地新切片已观察缺失实现时的源码合同 RED，再实现 GREEN；完整 Python 源码/资源/历史逆变换及解析器检查为 48 项通过。历史哈希未替换；只允许精确计数、顺序的候选逆变换，并执行缺失/重复/错序及无关漂移反例。
+- 本地新切片已观察缺失实现时的源码合同 RED，再实现 GREEN；完整 Python 源码/资源/历史逆变换及解析器检查为 49 项通过。历史哈希未替换；只允许精确计数、顺序的候选逆变换，并执行缺失/重复/错序及无关漂移反例。
 - 云端门：执行真实 Shared/Preferences、PrivateAPI、Shared/Applications 的 Swift 测试（OS 服务替身）；同一个 UIKit harness 先使原始 0.1.2 在“缺少 App 动作行”行为断言失败，再执行当前版真实模拟器 App 选择/持久化/摘要/选中和锁屏切回。随后编译优化后的完整启动图及 Theos 双架构目标，核验最终原始 RootHide 包。实际结果由 exact-SHA Actions、OPEN_APP_TESTS.txt、SETTINGS_CONSTRUCTION_TESTS.txt 和包核验报告记录，不由本文件预先宣告。
 - 新 App 动作及升级/切回回归仍待本轮原始安装包的真机验收；CI 与结构签名不能替代。没有新增诊断采集或设备操作。
 - 首次运行 `39927657753` 的 macOS 测试替身与系统已有 LSApplicationProxy/LSApplicationWorkspace 重名，真实 Swift 编译成功但目录行为测试失败，未进入 UIKit 或打包。测试替身改用独立名称；CI 临时源副本只按精确计数重绑定这两个类名，逆替换后必须与生产源字节一致，方法体/ABI 检查不变。生产文件无修改，断言不降低。
