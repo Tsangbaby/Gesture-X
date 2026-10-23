@@ -11,6 +11,14 @@ ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'
 
 
 class OpenAppContracts(unittest.TestCase):
+    def test_uikit_harness_preserves_no_marker_failure_and_emits_ci_only_evidence(self):
+        app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
+        self.assertIn('SETTINGS_CHECKPOINT: didFinishLaunching', app)
+        script = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
+        for token in ('SettingsConstruction crash report:', 'Library/Logs/DiagnosticReports',
+                      'process == "SettingsConstruction"', 'missing verified completion marker'):
+            self.assertIn(token, script)
+
     def test_runtime_fixture_names_cannot_collide_with_system_launchservices(self):
         app = (ROOT / 'Tests/ApplicationsRuntimeTests.swift').read_text()
         self.assertNotIn('@objc(LSApplicationProxy)', app)

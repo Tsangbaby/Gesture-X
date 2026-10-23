@@ -19,6 +19,8 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        print("SETTINGS_CHECKPOINT: didFinishLaunching \(ProcessInfo.processInfo.arguments)")
+        fflush(stdout)
         let selector = NSSelectorFromString("initForContentSize:")
         guard let host = NSClassFromString("PSViewController") else {
             require(false, "fixture class missing")

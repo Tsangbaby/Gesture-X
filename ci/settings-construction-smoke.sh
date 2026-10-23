@@ -128,6 +128,7 @@ PY
     xcrun simctl install "$DEVICE" "$app"
     python3 - "$DEVICE" "$bundle" "$mode" "$marker" "$RESULTS" <<'PY'
 import subprocess, sys
+from pathlib import Path
 p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
                     sys.argv[1], sys.argv[2], sys.argv[3]],
                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
@@ -136,6 +137,23 @@ print('simctl launch exit:', p.returncode, flush=True)
 # simctl reports transport success, not the app's exit status. Every case
 # still requires its own exact terminal assertion/completion marker.
 if p.returncode or sys.argv[4] not in p.stdout:
+    # This is CI-harness evidence only, collected before the disposable
+    # simulator is deleted. Never weaken the exact-marker failure gate.
+    roots = [Path.home() / 'Library/Logs/DiagnosticReports',
+             Path.home() / 'Library/Developer/CoreSimulator/Devices' / sys.argv[1] /
+             'data/Library/Logs/CrashReporter']
+    reports = [path for root in roots for path in root.glob('SettingsConstruction*') if path.is_file()]
+    for path in sorted(reports, key=lambda item: item.stat().st_mtime, reverse=True)[:2]:
+        print('SettingsConstruction crash report:', path.name, flush=True)
+        print(path.read_text(errors='replace')[:24000], flush=True)
+    try:
+        logs = subprocess.run(['xcrun', 'simctl', 'spawn', sys.argv[1], 'log', 'show',
+                               '--last', '3m', '--style', 'compact', '--predicate',
+                               'process == "SettingsConstruction"'], stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, timeout=30)
+        print(logs.stdout[-24000:], flush=True)
+    except subprocess.TimeoutExpired:
+        print('CI-only SettingsConstruction log read timed out', flush=True)
     raise SystemExit('Constructor test failed: missing verified completion marker / nonzero exit')
 with open(sys.argv[5], 'a') as f:
     f.write(p.stdout + '\n')
