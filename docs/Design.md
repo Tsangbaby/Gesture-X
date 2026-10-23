@@ -33,7 +33,9 @@
 
 PreferenceLoader 原始源码的 `controllerForSpecifier:` 检查 PSViewController 继承关系，优先调用 `initForContentSize:`，随后写入 root/parent/specifier。不能只用同名 UITableViewController 替代。
 
-本项目的 Swift 控制器直接继承真实系统 PSViewController，用 UIKit UITableView 渲染一行开关。声明头导入其 initializer，子类所有存储属性均有默认值且不自定义 initializer，以保留继承的创建路径。原生父类继续承担 loader 的其余 setters；没有伪造继承关系或动态替换 isa。
+本项目的 Swift 控制器直接继承真实系统 PSViewController，用 UIKit UITableView 渲染一行开关。声明头只声明真实基类，不再把旧版 `initForContentSize:` 声明为其可用方法。Swift 子类显式拥有 `@objc(initForContentSize:)` convenience initializer，转入 UIKit 支持的 `init(nibName:bundle:)`，不向缺少该接口的父类转发。原生父类继续承担 loader 的其余 setters；没有伪造继承关系或动态替换 isa。
+
+0.1.0 在 iOS 15.4.1 的 Settings 崩溃已将失效路径定位到自动生成的 `initForContentSize:` → `objc_msgSendSuper2`。因此不能再以 Theos 头文件存在该声明作为设备实现证明。CI 会从固定 0.1.0 SHA 编译真实旧控制器，在缺失旧接口的原生 UIKit 父类测试替身上复现异常，再用同一替身执行修复后控制器的 legacy/default 两种工厂路径及实际表格/开关创建。该替身只验证初始化回归，不证明设备 Preferences 的完整 factory/setter 链，也不进入安装包。
 
 两进程共用唯一 CFPreferences domain、Enabled key、current-user/any-host scope，严格读取 CFBoolean，缺失/损坏/同步失败均默认关闭。只有设置持久保存成功才发送 Darwin 通知；接收方在主队列先取消部分识别，再加载最新值。没有在每次触摸时读偏好文件。
 

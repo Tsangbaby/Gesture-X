@@ -1,11 +1,17 @@
 import UIKit
 import TapLockPreferencesHost
 
-/// Inherits the real Preferences host contract (including initForContentSize:).
-/// Stored properties have defaults and no custom initializer hides that ABI.
+/// Real Preferences base class, with an owned legacy factory entry point.
 @objc(TapLockSettingsController)
 final class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {
     private let enabledSwitch = UISwitch()
+
+    // Some Settings factories prefer this selector. It must not call a missing
+    // PSViewController implementation; use the supported UIKit initializer.
+    @objc(initForContentSize:)
+    convenience init(contentSize: CGSize) {
+        self.init(nibName: nil, bundle: nil)
+    }
 
     override func loadView() {
         let table = UITableView(frame: .zero, style: .insetGrouped)

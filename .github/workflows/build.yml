@@ -29,12 +29,16 @@
           "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p 'test_*.py' -v\nxcodebuild -version\nxcrun swift --version\nxcrun swiftc -swift-version 5 Sources/PrivateAPI.swift Tests/PrivateAPIRuntimeTests.swift -o \"$RUNNER_TEMP/private-api-tests\"\n\"$RUNNER_TEMP/private-api-tests\""
         },
         {
+          "name": "Settings constructor regression (iOS Simulator fixture)",
+          "run": "bash ci/settings-construction-smoke.sh"
+        },
+        {
           "name": "Install packaging tools and pinned RootHide Theos",
           "run": "set -euo pipefail\nbrew install make dpkg ldid xz\nprintf '%s\\n' \"$(brew --prefix make)/libexec/gnubin\" >> \"$GITHUB_PATH\"\nexport THEOS=\"$RUNNER_TEMP/theos\"\nprintf 'THEOS=%s\\n' \"$THEOS\" >> \"$GITHUB_ENV\"\ngit init \"$THEOS\"\ngit -C \"$THEOS\" remote add origin https://github.com/roothide/theos.git\ngit -C \"$THEOS\" fetch --depth=1 origin \"$THEOS_REF\"\ngit -C \"$THEOS\" checkout --detach FETCH_HEAD\ngit -C \"$THEOS\" submodule update --init --recursive --depth=1\ntest \"$(git -C \"$THEOS\" rev-parse HEAD)\" = \"$THEOS_REF\"\ngit -C \"$THEOS\" submodule status --recursive\ngit init \"$RUNNER_TEMP/sdks\"\ngit -C \"$RUNNER_TEMP/sdks\" remote add origin https://github.com/theos/sdks.git\ngit -C \"$RUNNER_TEMP/sdks\" sparse-checkout init --cone\ngit -C \"$RUNNER_TEMP/sdks\" sparse-checkout set iPhoneOS16.5.sdk\ngit -C \"$RUNNER_TEMP/sdks\" fetch --depth=1 --filter=blob:none origin \"$SDK_REF\"\ngit -C \"$RUNNER_TEMP/sdks\" checkout --detach FETCH_HEAD\ntest \"$(git -C \"$RUNNER_TEMP/sdks\" rev-parse HEAD)\" = \"$SDK_REF\"\nmkdir -p \"$THEOS/sdks\"\ncp -R \"$RUNNER_TEMP/sdks/iPhoneOS16.5.sdk\" \"$THEOS/sdks/\""
         },
         {
           "name": "Compile and package RootHide",
-          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh"
+          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh\ncp \"$RUNNER_TEMP/SETTINGS_CONSTRUCTION_TESTS.txt\" \"$OUT_DIR/SETTINGS_CONSTRUCTION_TESTS.txt\""
         },
         {
           "name": "Upload original verified deb and provenance",

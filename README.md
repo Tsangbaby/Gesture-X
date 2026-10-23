@@ -4,7 +4,7 @@
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.0，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.1，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
 ## 首版只有一条功能链
@@ -36,7 +36,7 @@ Tests/test_source.py                可在当前主机执行的源码/资源检�
 Tests/PrivateAPIRuntimeTests.swift   供后续 macOS 执行的真实 Swift runtime 测试
 ```
 
-所有业务实现和 Hook 定义均为 Swift。唯一 `.h` 只声明现有系统 `PSViewController`，让 Swift 正确继承 PreferenceLoader 要求的系统基类；没有手写 `.m/.mm/.c/Logos` 实现。Orion/Theos 是外部工具/运行库，其正常预处理和互操作产物不等于“零底层依赖”。
+所有业务实现和 Hook 定义均为 Swift。生产 `.h` 只声明现有系统 `PSViewController`，让 Swift 正确继承 PreferenceLoader 要求的系统基类；生产目标没有手写 `.m/.mm/.c/Logos` 实现。`Tests/SettingsConstructionFixture.{h,m}` 是独立模拟器回归用的原生父类/工厂替身，只供测试，不参与 Theos 目标、不进入安装包。Orion/Theos 是外部工具/运行库，其正常预处理和互操作产物不等于“零底层依赖”。
 
 ## 已执行的本地检查
 
@@ -55,10 +55,11 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 1. 执行 Python 源码/CI 合同检查。
 2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness；失败就停止。
-3. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
-4. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
-5. 检查包内路径、版本、设置入口、Orion 依赖、每个架构的最低系统版本及嵌入签名结构。
-6. 上传原始 `.deb`、SHA-256、源码仓库/commit 标记、工具链记录和完整构建日志。产物名包含完整源码 SHA，保留 14 天。
+3. 用真实生产设置页 Swift 与 UIKit 执行旧 SHA 预期失败、当前 SHA 通过的初始化回归；原生父类/工厂为刻意缺少旧接口的测试替身，不冒充设备 Preferences。
+4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
+5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
+6. 检查包内路径、版本、设置入口、Orion 依赖、每个架构的最低系统版本及嵌入签名结构。
+7. 上传原始 `.deb`、SHA-256、源码仓库/commit 标记、工具链记录、初始化回归记录和完整构建日志。产物名包含完整源码 SHA，保留 14 天。
 
 实际成功/失败以 [Actions](https://github.com/Tsangbaby/Gesture-X/actions) 的对应源码 SHA 运行和下载产物核验为准；添加 workflow 不等于构建通过。默认 Makefile 仍采用 rootless scheme，当前云端仅验证 RootHide，不能由此宣称普通 Rootless 包或任何机型已通过。
 

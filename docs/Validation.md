@@ -2,7 +2,13 @@
 
 ## 当前验证层级
 
-本地源码/资源与 CI 合同检查 **18 项通过**；已增加单任务云端 Mac / RootHide 构建、真实 Swift runtime 测试和包内核验。云端执行状态请查看仓库 Actions 的对应 SHA，不因 workflow 已存在而认定通过。设备验收仍未执行。
+本地源码/资源与 CI 合同检查 **21 项通过**，Shell 语法及 `git diff --check` 通过。新增的初始化合同在旧代码上先失败，修正导入声明/显式 convenience initializer 后通过；这仍是本地源码合同，不是 Swift 执行结果。
+
+本轮 0.1.1 只修设置页初始化：去掉基类的过时 initializer 声明，在 Swift 子类实现旧工厂 selector 并转入 UIKit 的 `init(nibName:bundle:)`。固定 SHA-256 回归确认 4 个 `Sources` 文件、共享偏好源码、两个 Makefile、module map 及设置页从 `loadView` 起的业务代码字节未变。版本元数据同步更新，不增加生产日志或手势功能。
+
+云端新增独立 iOS Simulator 构造回归：从固定旧 SHA `72826b2a558b03e20a7dd5e98047dfdecc489202` 提取真实旧源码，要求复现 `NSInvalidArgumentException` / `initForContentSize:`；当前源码在相同的原生 UIKit 父类测试替身上分别创建 legacy/default 路径各 5 次，并检查真实表格/开关。测试替身明确缺少旧接口，只用于测试、不进入 Theos 目标/安装包，不能替代设备 Preferences 的完整链路。
+
+云端执行状态须查看 Actions 的对应 SHA 及 `SETTINGS_CONSTRUCTION_TESTS.txt`，不因脚本存在而认定通过。目标设备对 0.1.0 已报告 Settings 崩溃；0.1.1 的设备复测尚未执行。
 
 以下是首次源码阶段保留的历史记录，描述的是增加 Git 与 CI 之前的状态：
 

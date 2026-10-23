@@ -148,7 +148,11 @@ class SettingsAndBuildContracts(unittest.TestCase):
         self.assertIn("UIAlertController", text)
         header = source("Interfaces/TapLockPreferencesHost/PSViewController.h")
         self.assertIn("@interface PSViewController : UIViewController", header)
-        self.assertIn("initForContentSize:", header)
+        self.assertNotIn("initForContentSize:", header)
+        self.assertIn("@objc(initForContentSize:)", text)
+        self.assertIn("convenience init(contentSize: CGSize)", text)
+        self.assertIn("self.init(nibName: nil, bundle: nil)", text)
+        self.assertNotIn("super.init(contentSize:", text)
         self.assertNotIn("@implementation", header)
         self.assertIn('header "PSViewController.h"',
                       source("Interfaces/TapLockPreferencesHost/module.modulemap"))
@@ -195,6 +199,9 @@ class SettingsAndBuildContracts(unittest.TestCase):
     def test_no_handwritten_non_swift_implementations_or_build_outputs(self):
         for path in ROOT.rglob("*"):
             if not path.is_file():
+                continue
+            # The sole native implementation is an isolated simulator test shim.
+            if path == ROOT / "Tests/SettingsConstructionFixture.m":
                 continue
             self.assertNotIn(path.suffix, (".m", ".mm", ".c", ".cpp", ".xm", ".x",
                                            ".deb", ".dylib", ".o", ".zip"), str(path))
