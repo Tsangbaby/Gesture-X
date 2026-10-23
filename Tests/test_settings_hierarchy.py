@@ -55,6 +55,12 @@ class SettingsHierarchyContracts(unittest.TestCase):
         restored = invert_settings_hierarchy(text + '\n// unrelated drift\n')
         self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
+    def test_navigation_harness_compiles_against_old_controllers_without_new_delegate_methods(self):
+        app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
+        self.assertNotRegex(app, r'\b(?:controller|home|action)\.tableView\([^\n]*didSelectRowAt:')
+        for table in ('table', 'homeTable', 'actionTable'):
+            self.assertIn(table + '.delegate?.tableView?(', app)
+
     def test_same_uikit_harness_rejects_the_old_layout_before_testing_current_navigation(self):
         script = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         self.assertIn('HIERARCHY_BASELINE=' + FIXTURE['baseline'], script)

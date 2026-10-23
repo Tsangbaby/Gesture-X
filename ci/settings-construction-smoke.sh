@@ -114,6 +114,7 @@ p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-runni
                     sys.argv[1], sys.argv[2], sys.argv[3]],
                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
 print(p.stdout, flush=True)
+print('Constructor launch exit:', p.returncode, 'expected:', sys.argv[6], flush=True)
 if p.returncode != int(sys.argv[6]) or sys.argv[4] not in p.stdout:
     raise SystemExit('Constructor test failed: missing verified completion marker / nonzero exit')
 with open(sys.argv[5], 'a') as f:

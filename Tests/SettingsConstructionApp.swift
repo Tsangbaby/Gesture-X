@@ -78,7 +78,7 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                         "root must navigate, not duplicate the gesture switch")
                 constructions += 1
 
-                controller.tableView(table, didSelectRowAt: IndexPath(row: 0, section: 0))
+                table.delegate?.tableView?(table, didSelectRowAt: IndexPath(row: 0, section: 0))
                 guard let home = navigation.topViewController as? TapLockSettingsController,
                       home !== controller else {
                     require(false, "home category did not push its real controller")
@@ -112,7 +112,7 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                         actionCell.accessoryType == .disclosureIndicator,
                         "current action summary/navigation missing")
 
-                home.tableView(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
                 guard let action = navigation.topViewController as? TapLockSettingsController,
                       action !== home else {
                     require(false, "action page did not push")
@@ -129,13 +129,13 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 let selected = action.tableView(actionTable, cellForRowAt: IndexPath(row: 0, section: 0))
                 require(selected.textLabel?.text == "系统锁屏" && selected.accessoryType == .checkmark,
                         "accepted lock action must remain selected")
-                action.tableView(actionTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                actionTable.delegate?.tableView?(actionTable, didSelectRowAt: IndexPath(row: 0, section: 0))
                 require(navigation.topViewController === home, "selecting current action must return home")
                 require(TapLockPreferences.readEnabled() == !original, "action navigation changed enable state")
                 actionTrips += 1
 
                 navigation.popToRootViewController(animated: false)
-                controller.tableView(table, didSelectRowAt: IndexPath(row: 0, section: 0))
+                table.delegate?.tableView?(table, didSelectRowAt: IndexPath(row: 0, section: 0))
                 guard let reopened = navigation.topViewController as? TapLockSettingsController,
                       reopened !== home else {
                     require(false, "home must be reconstructed on reentry")
