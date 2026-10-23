@@ -2,15 +2,17 @@
 
 ## 当前验证层级
 
-本地源码/资源、CI 合同及 Mach-O 解析器夹具检查 **28 项通过**；执行结果与云端 Swift/UIKit 结果分开记录。
+本地源码/资源、CI 合同及 Mach-O 解析器夹具检查 **30 项通过**；执行结果与云端 Swift/UIKit 结果分开记录。
 
-本轮修复 SpringBoard 启动入口：移除 Orion 入口/链接/包依赖，以保留的 Swift dyld 初始化指针在主队列启动，并通过原生 `MSHookMessageEx` Hook 桌面列表。多任务状态改由 `SBMainSwitcherViewController.sharedInstanceIfExists` 获取，根位置精确接受 `SBIconLocationRoot` 与 `SBIconLocationRootWithWidgets`。未知状态仍拒绝，不放宽空白区或手势安全门，不增加生产诊断。
+本轮基线为已交付 RootHide 包对应源码 `fa26d99a0642aad0ed0e9abf7c73d7883bf5ee65`。用户报告双击已可锁定，但屏幕仍亮且过渡生硬；这只接受了手势到 UI 锁定的路径，不接受灭屏和锁屏键效果，也不外推到其他系统。
 
-用户已报告 0.1.1 设置页在 iOS 15.4.1 修复，但开启后双击桌面无效。该已接受的设置页、其基类声明、共享偏好和锁屏请求源码在本轮保持字节不变。重新解析原交付包确认两个架构都没有 dyld 初始化表；这是静态启动缺口证据，不是手机上注入状态的观察。
+唯一生产修改为 `Sources/LockAction.swift`：从直接 UI 锁定改为实际 SpringBoard 单例上的一次 `_simulateLockButtonPress`，检查 `v@:` 精确 ABI，并保留未锁/锁屏不可见/未在解锁及主线程门。手势、启动、Hook、设置页、共享偏好、包标识/版本/部署下限和生产编译图保持基线字节不变；无自制动画、亮度改写、重试或生产日志采集。
 
-云端在原有临时 UIKit 模拟器中继续执行设置页旧 SHA 预期失败/当前 SHA 通过回归，并加载优化、dead-strip 后的完整生产 tweak 源码 dylib，验证自动启动、主队列投递、原方法恰好一次、挂载/移除和重复启动。系统列表类与 Hook 安装器为明确的测试替身；它们不进入 Theos 目标或包，不证明真实 SpringBoard 注入、Substrate 后端或设备锁屏。
+新增云端 macOS harness 对真实旧版/当前版 LockAction 和 PrivateAPI 执行相同用例：旧版必须在“调用一次系统按钮入口而非直接 UI 锁定”断言失败，当前版须通过正常调用、恰好一次、已锁/锁屏可见/解锁中拒绝、对象缺失/错误类型、入口缺失/错误返回 ABI、非主线程拒绝及恢复。类是明确的测试替身，不进入安装包，不证明真实灭屏/动画。对应运行状态以 exact-SHA Actions 日志和 `LOCK_BUTTON_TESTS.txt` 为准。
 
-云端执行状态须查看对应 SHA 的 Actions、`NATIVE_STARTUP_TESTS.txt` 和 `SETTINGS_CONSTRUCTION_TESTS.txt`；脚本存在不等于运行通过。新的功能验证包仍须设备复测，不能继承设置页通过为整条功能链通过。
+既有 11 项 PrivateAPI runtime、设置页初始化及优化生产 dyld 启动/Hook/挂载回归继续执行。源码检查先观察旧动作合同失败，再修改为通过；Linux 本地不具备 Apple Objective-C runtime，不能把 Python GREEN 写作 Swift 行为通过。
+
+兼容目标为 iOS 15.0 起，无写死的版本上限；每个包内 Mach-O 的实际最低版本必须独立验证为 15.0。版本化头文件中的 selector 存在、CI 编译成功与一台设备结果，都不能证明所有 iOS 15+ 的兼容性。新功能验证包仍待真实锁屏键效果、灭屏及正常唤醒/解锁验收。
 
 以下是首次源码阶段保留的历史记录，描述的是增加 Git 与 CI 之前的状态：
 

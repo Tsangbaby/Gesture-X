@@ -9,7 +9,9 @@
 
 ## 首版只有一条功能链
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 发出一次系统锁屏请求`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 调用一次系统锁屏键模拟入口`
+
+动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
 - 只在已解锁、前台主屏幕、主显示器且界面为竖屏时允许识别。
 - 只接受根桌面列表自身命中的直接手指触摸；图标、文件夹、小组件、搜索控件、Dock 不在允许范围。
@@ -55,7 +57,7 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 `.github/workflows/build.yml` 在 `main` 的源码变更或手动触发时执行单个标准 `macos-15` RootHide 任务：
 
 1. 执行 Python 源码/CI 合同检查。
-2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness；失败就停止。
+2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；旧版预期失败、当前版必须通过。系统类是测试替身，不证明设备灭屏/动画；失败就停止。
 3. 用真实生产设置页 Swift 与 UIKit 执行旧 SHA 预期失败、当前 SHA 通过的初始化回归；在同一临时模拟器中实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 原方法转发、识别器挂载/移除和重复启动。原生系统类/安装器均为明确的测试替身，不冒充设备 SpringBoard 或 Preferences。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
@@ -66,4 +68,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-最后按 `docs/Acceptance.md` 集中做设备验收。尚无设备通过结论。
+最后按 `docs/Acceptance.md` 集中做设备验收。前一基线已有用户报告设置页与双击锁定生效，但亮屏/过渡不符合要求；当前系统按钮动作仍待设备验证，不能继承为已修复。

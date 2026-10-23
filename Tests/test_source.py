@@ -48,14 +48,20 @@ class RuntimeContracts(unittest.TestCase):
         text = source("Sources/LockAction.swift")
         self.assertIn("Thread.isMainThread", text)
         self.assertIn('"sharedInstanceIfExists"', text)
-        self.assertIn('"lockUIFromSource:withOptions:"', text)
-        self.assertIn('arguments: ["i", "@"]', text)
-        self.assertIn("Int32, NSDictionary?", text)
-        self.assertEqual(text.count("invoke(manager, selector, 1, nil)"), 1)
+        self.assertIn('NSClassFromString("SpringBoard")', text)
+        self.assertIn('"sharedApplication"', text)
+        self.assertIn('"_simulateLockButtonPress"', text)
+        self.assertIn("application.isKind(of: applicationType)", text)
+        self.assertIn('returns: "v")', text)
+        self.assertIn("@convention(c) (AnyObject, Selector) -> Void", text)
+        self.assertEqual(text.count("invoke(application, selector)"), 1)
+        self.assertLess(text.index("unlockedManager() != nil"),
+                        text.index("invoke(application, selector)"))
         for selector in ("isUILocked", "isLockScreenVisible", "isUIUnlocking"):
             self.assertIn(f'"{selector}") == false', text)
-        for forbidden in ("asyncAfter", "Timer", "brightness", "sleepWakeButtonInteraction",
-                          "lockHardwareButton", "return true"):
+        for forbidden in ("lockUIFromSource", "asyncAfter", "Timer", "brightness",
+                          "sleepWakeButtonInteraction", "lockHardwareButton", "return true",
+                          "ProcessInfo", "operatingSystemVersion", "IOHID", "UIView.animate"):
             self.assertNotIn(forbidden, text)
 
 

@@ -4,16 +4,13 @@ import ObjectiveC
 /// Issues a system lock request; it does not claim that the device is locked.
 /// Actual lock/display state is a separate device-acceptance requirement.
 enum LockAction {
-    private static let selector = NSSelectorFromString("lockUIFromSource:withOptions:")
+    private static let selector = NSSelectorFromString("_simulateLockButtonPress")
 
     static func unlockedManager() -> NSObject? {
         guard Thread.isMainThread,
               let type = NSClassFromString("SBLockScreenManager"),
               let manager = PrivateAPI.object(type as AnyObject, "sharedInstanceIfExists"),
               manager.isKind(of: type),
-              let runtimeType = object_getClass(manager),
-              PrivateAPI.checkedMethod(in: runtimeType, selector: selector,
-                                       returns: "v", arguments: ["i", "@"]) != nil,
               PrivateAPI.bool(manager, "isUILocked") == false,
               PrivateAPI.bool(manager, "isLockScreenVisible") == false,
               PrivateAPI.bool(manager, "isUIUnlocking") == false else {
@@ -24,16 +21,18 @@ enum LockAction {
 
     static func requestLock() {
         guard Thread.isMainThread,
-              let manager = unlockedManager(),
-              let type = object_getClass(manager),
+              unlockedManager() != nil,
+              let applicationType = NSClassFromString("SpringBoard"),
+              let application = PrivateAPI.object(applicationType as AnyObject, "sharedApplication"),
+              application.isKind(of: applicationType),
+              let type = object_getClass(application),
               let method = PrivateAPI.checkedMethod(in: type, selector: selector,
-                                                    returns: "v", arguments: ["i", "@"]) else {
+                                                    returns: "v") else {
             return
         }
-        // Int32 is intentional: the accepted private ABI is v@:i@, not NSUInteger.
-        // Source 1 is a lock request; no hardware-button simulation or fallback.
-        typealias LockCall = @convention(c) (AnyObject, Selector, Int32, NSDictionary?) -> Void
+        // Let the system own the short-press transition; do not also lock the UI.
+        typealias LockCall = @convention(c) (AnyObject, Selector) -> Void
         let invoke = unsafeBitCast(method_getImplementation(method), to: LockCall.self)
-        invoke(manager, selector, 1, nil)
+        invoke(application, selector)
     }
 }

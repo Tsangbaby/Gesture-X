@@ -50,6 +50,13 @@ class CloudBuildContracts(unittest.TestCase):
         self.assertIn("Sources/PrivateAPI.swift", runtime)
         self.assertIn("Tests/PrivateAPIRuntimeTests.swift", runtime)
         self.assertIn('"$RUNNER_TEMP/private-api-tests"', runtime)
+        self.assertIn("bash ci/lock-action-smoke.sh", runtime)
+        smoke = (ROOT / "ci/lock-action-smoke.sh").read_text()
+        for token in ("fa26d99a0642aad0ed0e9abf7c73d7883bf5ee65", "LegacyLockAction.swift",
+                      "Sources/LockAction.swift", "Sources/PrivateAPI.swift",
+                      "Tests/LockActionRuntimeTests.swift", "LOCK_BUTTON_FAIL:",
+                      "LOCK_BUTTON_BASELINE_EXPECTED_FAILURE", "LOCK_BUTTON_TESTS.txt"):
+            self.assertIn(token, smoke)
         path = ROOT / "ci/build.sh"
         self.assertTrue(path.is_file(), "Missing actual build script")
         script = path.read_text()

@@ -25,10 +25,11 @@
 
 ## 锁屏接口
 
-选择 `SBLockScreenManager.sharedInstanceIfExists` 和 `lockUIFromSource:withOptions:`。
-仅接受已核对的固定 `void(self, selector, Int32, object)` ABI，即 `v@:i@` 的组件；不把旧头文件中的 NSUInteger 当成等价类型，不对未知类型宽度强转。请求 source=1、options=nil，只有一次调用。
+动作入口改为实际 `SpringBoard.sharedApplication` 对象的 `_simulateLockButtonPress`，仅接受固定 `void(self, selector)` ABI，即 `v@:` 的组件，只有一次同步调用。先验证接收对象的类，再检查返回值、隐式参数和零个显式参数；接口缺失/签名不符时不调用，不回退到旧 UI 锁定接口。
 
-这是直接锁屏请求，不沿实体按钮模拟链，不 Hook 锁屏状态更新器，不用黑色视图、亮度或显示遮罩假装锁屏。返回 void，因此源码不把“调用返回”当作“设备已锁定”。设备是否进入锁定状态、屏幕行为与 Face ID 后续解锁必须单独验收。
+`SBLockScreenManager.sharedInstanceIfExists` 仅作为原有安全状态读取者，仍要求 UI 未锁、锁屏不可见、未在解锁中，避免再次短按将已锁设备唤醒；不再要求它实现已停用的 `lockUIFromSource:withOptions:`。不 Hook 实体按键，不发送 HID，不另造动画、黑色视图、亮度或显示遮罩。灭屏和过渡交给系统入口处理，但返回 void 不能证明设备已经灭屏或动画等同硬件短按。
+
+最低部署版本为 iOS 15.0，不设硬编码系统版本上限。私有类/selector/签名按运行时能力检查，不按 `majorVersion == 15` 选择；iOS 15.2 与 17.0 头文件均声明该按钮模拟入口，但头文件不证明实际实现和未来版本兼容。设备锁定、灭屏/系统过渡及唤醒/Face ID 必须分开验收。
 
 ## 设置契约
 
@@ -54,8 +55,12 @@ PreferenceLoader 原始源码的 `controllerForSpecifier:` 检查 PSViewControll
   https://raw.githubusercontent.com/DHowett/preferenceloader/master/prefs.xm
 - rootless scheme 与架构边界：
   https://theos.dev/docs/rootless
-- source=1 锁屏调用的公开源码用例（用例不是本项目真机证据）：
+- 旧 source=1 UI 锁定入口的历史对照（本项目已停用）：
   https://github.com/minh-ton/NineLS/blob/main/NineLS.xm
+- 系统按钮模拟入口的固定版本声明：Runtime-Headers commit `f15f8ebf05b6da366045a4eec985c9dda7c5f456` 中 `iOS/15/15.2.tar.gz` 与 `iOS/17/17.0.tar.gz` 的 SpringBoard.h，均声明 `- (void)_simulateLockButtonPress`。
+  https://github.com/kissalexandra/Runtime-Headers/tree/f15f8ebf05b6da366045a4eec985c9dda7c5f456/iOS
+- 直接调用按钮入口的开源手势实现（只作调用模式参考，不是真机结果）：
+  https://github.com/Nosskirneh/ProperLockGestures/blob/c4aacb914e68b6ace59cd593ae535e4ccc47e30e/Tweak.xm
 - 已有 Actra 参考分析中：`gestureRecognizer:shouldReceiveTouch:` @0x17dec 使用主屏幕窗口与精确列表命中；`_ActraSupportsDeviceLockBridge` @0x3cf40 检查 `v28@0:8i16@20` 锁屏签名。反编译结果只作为带地址的线索，本项目没有复制其动作系统或把它描述为原始源码。
 
-公开旧版 SBLockScreenManager 头文件将 source 声明为 NSUInteger，与参考二进制的 Int32 签名存在差异。本实现明确选择 Int32 能力门；目标运行时不满足时不调用，而非隐式兼容或冒险猜测。
+旧 UI 锁定入口的 NSUInteger/Int32 声明差异属于历史证据，不再参与当前动作能力门；未知按钮 ABI 仍拒绝调用，不冒险强转或补发其他锁定路径。

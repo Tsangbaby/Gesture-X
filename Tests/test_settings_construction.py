@@ -8,6 +8,41 @@ ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "72826b2a558b03e20a7dd5e98047dfdecc489202"
 
 
+def invert_system_button_action(text):
+    """Restore only the authorized button-action delta; keep the old digest."""
+    hunks = [
+        ('NSSelectorFromString("_simulateLockButtonPress")',
+         'NSSelectorFromString("lockUIFromSource:withOptions:")'),
+        ('              manager.isKind(of: type),\n'
+         '              PrivateAPI.bool(manager, "isUILocked") == false,',
+         '              manager.isKind(of: type),\n'
+         '              let runtimeType = object_getClass(manager),\n'
+         '              PrivateAPI.checkedMethod(in: runtimeType, selector: selector,\n'
+         '                                       returns: "v", arguments: ["i", "@"]) != nil,\n'
+         '              PrivateAPI.bool(manager, "isUILocked") == false,'),
+        ('              unlockedManager() != nil,\n'
+         '              let applicationType = NSClassFromString("SpringBoard"),\n'
+         '              let application = PrivateAPI.object(applicationType as AnyObject, "sharedApplication"),\n'
+         '              application.isKind(of: applicationType),\n'
+         '              let type = object_getClass(application),',
+         '              let manager = unlockedManager(),\n'
+         '              let type = object_getClass(manager),'),
+        ('                                                    returns: "v") else {',
+         '                                                    returns: "v", arguments: ["i", "@"]) else {'),
+        ('        // Let the system own the short-press transition; do not also lock the UI.\n'
+         '        typealias LockCall = @convention(c) (AnyObject, Selector) -> Void',
+         '        // Int32 is intentional: the accepted private ABI is v@:i@, not NSUInteger.\n'
+         '        // Source 1 is a lock request; no hardware-button simulation or fallback.\n'
+         '        typealias LockCall = @convention(c) (AnyObject, Selector, Int32, NSDictionary?) -> Void'),
+        ('        invoke(application, selector)', '        invoke(manager, selector, 1, nil)'),
+    ]
+    for after, before in hunks:
+        if text.count(after) != 1:
+            raise AssertionError("Unexpected system-button candidate hunk/count")
+        text = text.replace(after, before, 1)
+    return text
+
+
 class SettingsConstructionContracts(unittest.TestCase):
     def test_missing_legacy_super_initializer_is_exercised_before_packaging(self):
         steps = json.loads((ROOT / ".github/workflows/build.yml").read_text())["jobs"]["roothide"]["steps"]
@@ -74,6 +109,8 @@ class SettingsConstructionContracts(unittest.TestCase):
         }
         for name, digest in frozen.items():
             data = (ROOT / name).read_bytes()
+            if name == "Sources/LockAction.swift":
+                data = invert_system_button_action(data.decode()).encode()
             if name in inverses:
                 text = data.decode()
                 for after, before in inverses[name]:
@@ -86,6 +123,21 @@ class SettingsConstructionContracts(unittest.TestCase):
         suffix = text[text.index("    override func loadView() {"):]
         self.assertEqual(hashlib.sha256(suffix.encode()).hexdigest(),
                          "e4ffae1a0bb6059351f00f55281b8429b6563cd085c982ee55527554ffc4130c")
+
+    def test_button_inverse_rejects_missing_or_duplicate_candidate_hunks(self):
+        text = (ROOT / "Sources/LockAction.swift").read_text()
+        anchor = 'NSSelectorFromString("_simulateLockButtonPress")'
+        for mutation in (text.replace(anchor, 'NSSelectorFromString("other")'),
+                         text + "\n" + anchor):
+            with self.subTest(mutation=mutation[-80:]):
+                with self.assertRaises(AssertionError):
+                    invert_system_button_action(mutation)
+
+    def test_button_inverse_does_not_hide_unrelated_source_drift(self):
+        text = (ROOT / "Sources/LockAction.swift").read_text()
+        restored = invert_system_button_action(text + "\n// unrelated drift\n")
+        self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(),
+                            "532850be046aa6fcd67946d7e9e665a54193052df868fa2525e7d86f1a162dc4")
 
 
 if __name__ == "__main__":
