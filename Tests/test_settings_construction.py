@@ -3,6 +3,7 @@ import hashlib
 import json
 import unittest
 from pathlib import Path
+from settings_hierarchy_baseline import invert_settings_hierarchy
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "72826b2a558b03e20a7dd5e98047dfdecc489202"
@@ -109,6 +110,8 @@ class SettingsConstructionContracts(unittest.TestCase):
         }
         for name, digest in frozen.items():
             data = (ROOT / name).read_bytes()
+            if name == "Preferences/SettingsController.swift":
+                data = invert_settings_hierarchy(data.decode()).encode()
             if name == "Sources/LockAction.swift":
                 data = invert_system_button_action(data.decode()).encode()
             if name in inverses:
@@ -119,7 +122,7 @@ class SettingsConstructionContracts(unittest.TestCase):
                 data = text.encode()
             self.assertEqual(hashlib.sha256(data).hexdigest(), digest, name)
         self.assertFalse((ROOT / "Sources/Tweak.x.swift").exists())
-        text = (ROOT / "Preferences/SettingsController.swift").read_text()
+        text = invert_settings_hierarchy((ROOT / "Preferences/SettingsController.swift").read_text())
         suffix = text[text.index("    override func loadView() {"):]
         self.assertEqual(hashlib.sha256(suffix.encode()).hexdigest(),
                          "e4ffae1a0bb6059351f00f55281b8429b6563cd085c982ee55527554ffc4130c")

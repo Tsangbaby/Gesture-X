@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 : "${RUNNER_TEMP:?Run on the isolated cloud Mac runner}"
 BASELINE=72826b2a558b03e20a7dd5e98047dfdecc489202
+HIERARCHY_BASELINE=94b384d64ce44705e754f4695c98661110db76ff
 WORK="$(mktemp -d "$RUNNER_TEMP/taplock-settings.XXXXXX")"
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ARCH="$(uname -m)"
@@ -67,6 +68,14 @@ for path in Shared/Preferences.swift Preferences/SettingsController.swift \
     mkdir -p "$OLD/$(dirname "$path")"
     git -C "$ROOT" show "$BASELINE:$path" > "$OLD/$path"
 done
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$HIERARCHY_BASELINE"
+STABLE="$WORK/accepted-source"
+for path in Shared/Preferences.swift Preferences/SettingsController.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap; do
+    mkdir -p "$STABLE/$(dirname "$path")"
+    git -C "$ROOT" show "$HIERARCHY_BASELINE:$path" > "$STABLE/$path"
+done
 python3 - "$RESULTS" "$BASELINE" "$RUNTIME" "$TARGET" <<'PY'
 import sys
 with open(sys.argv[1], 'w') as f:
@@ -76,7 +85,7 @@ with open(sys.argv[1], 'w') as f:
 PY
 
 run_case() {
-    local source_root="$1" label="$2" mode="$3" marker="$4"
+    local source_root="$1" label="$2" mode="$3" marker="$4" expected_exit="${5:-0}"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
     mkdir -p "$app/Frameworks"
     cp -R "$FRAMEWORK" "$app/Frameworks/"
@@ -99,18 +108,19 @@ PY
         -o "$app/SettingsConstruction"
     codesign --force --sign - "$app"
     xcrun simctl install "$DEVICE" "$app"
-    python3 - "$DEVICE" "$bundle" "$mode" "$marker" "$RESULTS" <<'PY'
+    python3 - "$DEVICE" "$bundle" "$mode" "$marker" "$RESULTS" "$expected_exit" <<'PY'
 import subprocess, sys
 p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
                     sys.argv[1], sys.argv[2], sys.argv[3]],
                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
 print(p.stdout, flush=True)
-if p.returncode or sys.argv[4] not in p.stdout:
+if p.returncode != int(sys.argv[6]) or sys.argv[4] not in p.stdout:
     raise SystemExit('Constructor test failed: missing verified completion marker / nonzero exit')
 with open(sys.argv[5], 'a') as f:
     f.write(p.stdout + '\n')
 PY
 }
 run_case "$OLD" baseline --expect-legacy-failure BASELINE_EXPECTED_FAILURE
+run_case "$STABLE" accepted --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势' 1
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

@@ -35,7 +35,9 @@
 
 PreferenceLoader 原始源码的 `controllerForSpecifier:` 检查 PSViewController 继承关系，优先调用 `initForContentSize:`，随后写入 root/parent/specifier。不能只用同名 UITableViewController 替代。
 
-本项目的 Swift 控制器直接继承真实系统 PSViewController，用 UIKit UITableView 渲染一行开关。声明头只声明真实基类，不再把旧版 `initForContentSize:` 声明为其可用方法。Swift 子类显式拥有 `@objc(initForContentSize:)` convenience initializer，转入 UIKit 支持的 `init(nibName:bundle:)`，不向缺少该接口的父类转发。原生父类继续承担 loader 的其余 setters；没有伪造继承关系或动态替换 isa。
+本项目的 Swift 控制器直接继承真实系统 PSViewController，用 UIKit UITableView 渲染设置首页、主屏幕手势页和双击动作页。三个页面由这个控制器的私有页面类型区分，不引入动作引擎或新存储。声明头只声明真实基类，不再把旧版 `initForContentSize:` 声明为其可用方法。Swift 子类显式拥有 `@objc(initForContentSize:)` convenience initializer，转入 UIKit 支持的 `init(nibName:bundle:)`，不向缺少该接口的父类转发。原生父类继续承担 loader 的其余 setters；没有伪造继承关系或动态替换 isa。
+
+本轮只迁移设置入口：“主屏幕的手势” → “启用主屏双击 / 选择双击动作” → “系统锁屏”。文案核对自用户提供的 SquidGesture Pro 2.7.6-1 中文 Localizable.strings（键 HOMESCREEN_SETTING、HOMESCREEN_DOUBLE_TAP_ENABLED、HOMESCREEN_DOUBLE_TAP、SYSTEM_LOCKSCREEN）；这不等于已证明原版全部页面或像素级视觉一致。当前唯一动作固定为已实机通过的系统锁屏，选择该行只返回上页，不从设置进程调用锁屏，不新增无意义的动作偏好。未实现的其他分类和动作不暴露空开关。迁移保留原 Enabled key、默认关闭策略和写入/失败回滚/通知链；不重置用户已保存值。
 
 0.1.0 在 iOS 15.4.1 的 Settings 崩溃已将失效路径定位到自动生成的 `initForContentSize:` → `objc_msgSendSuper2`。因此不能再以 Theos 头文件存在该声明作为设备实现证明。CI 会从固定 0.1.0 SHA 编译真实旧控制器，在缺失旧接口的原生 UIKit 父类测试替身上复现异常，再用同一替身执行修复后控制器的 legacy/default 两种工厂路径及实际表格/开关创建。该替身只验证初始化回归，不证明设备 Preferences 的完整 factory/setter 链，也不进入安装包。
 

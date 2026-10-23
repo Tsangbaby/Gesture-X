@@ -4,6 +4,8 @@ import TapLockPreferencesHost
 /// Real Preferences base class, with an owned legacy factory entry point.
 @objc(TapLockSettingsController)
 final class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {
+    private enum Page { case root, homeScreen, doubleTapAction }
+    private var page: Page = .root
     private let enabledSwitch = UISwitch()
 
     // Some Settings factories prefer this selector. It must not call a missing
@@ -11,6 +13,11 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
     @objc(initForContentSize:)
     convenience init(contentSize: CGSize) {
         self.init(nibName: nil, bundle: nil)
+    }
+
+    private convenience init(page: Page) {
+        self.init(nibName: nil, bundle: nil)
+        self.page = page
     }
 
     override func loadView() {
@@ -24,34 +31,81 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "TapLock"
-        enabledSwitch.accessibilityLabel = "启用桌面双击锁屏"
-        enabledSwitch.addTarget(self, action: #selector(changeEnabled(_:)), for: .valueChanged)
+        switch page {
+        case .root:
+            title = "TapLock"
+        case .homeScreen:
+            title = "主屏幕的手势"
+            enabledSwitch.accessibilityLabel = "启用主屏双击"
+            enabledSwitch.addTarget(self, action: #selector(changeEnabled(_:)), for: .valueChanged)
+        case .doubleTapAction:
+            title = "选择双击动作"
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        enabledSwitch.isOn = TapLockPreferences.readEnabled()
+        if page == .homeScreen {
+            enabledSwitch.isOn = TapLockPreferences.readEnabled()
+        }
     }
 
     func numberOfSections(in tableView: UITableView) -> Int { return 1 }
 
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { return 1 }
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        page == .homeScreen ? 2 : 1
+    }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-        cell.textLabel?.text = "启用桌面双击锁屏"
-        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
-        cell.textLabel?.adjustsFontForContentSizeCategory = true
-        cell.textLabel?.numberOfLines = 0
-        cell.selectionStyle = .none
-        cell.accessoryView = enabledSwitch
+        let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+        for label in [cell.textLabel, cell.detailTextLabel] {
+            label?.font = .preferredFont(forTextStyle: .body)
+            label?.adjustsFontForContentSizeCategory = true
+            label?.numberOfLines = 0
+        }
+        switch (page, indexPath.row) {
+        case (.root, _):
+            cell.textLabel?.text = "主屏幕的手势"
+            cell.accessoryType = .disclosureIndicator
+        case (.homeScreen, 0):
+            cell.textLabel?.text = "启用主屏双击"
+            cell.selectionStyle = .none
+            cell.accessoryView = enabledSwitch
+        case (.homeScreen, _):
+            cell.textLabel?.text = "选择双击动作"
+            cell.detailTextLabel?.text = "系统锁屏"
+            cell.accessoryType = .disclosureIndicator
+        case (.doubleTapAction, _):
+            cell.textLabel?.text = "系统锁屏"
+            cell.accessoryType = .checkmark
+        }
         return cell
     }
 
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        switch (page, indexPath.row) {
+        case (.root, 0):
+            navigationController?.pushViewController(TapLockSettingsController(page: .homeScreen), animated: true)
+        case (.homeScreen, 1):
+            navigationController?.pushViewController(TapLockSettingsController(page: .doubleTapAction), animated: true)
+        case (.doubleTapAction, 0):
+            navigationController?.popViewController(animated: true)
+        default:
+            break
+        }
+    }
+
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        "默认关闭。开启后，仅在已解锁、竖屏的主屏幕空白处双击锁屏。" +
-        "图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。"
+        switch page {
+        case .root:
+            return "当前开放主屏幕双击手势，其他手势将在逐项实现和验证后加入。"
+        case .homeScreen:
+            return "默认关闭。开启后，仅在已解锁、竖屏的主屏幕空白处双击锁屏。" +
+                "图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。"
+        case .doubleTapAction:
+            return "当前仅开放已通过实机验证的系统锁屏动作。点击该动作返回，不会立即执行锁屏。"
+        }
     }
 
     @objc private func changeEnabled(_ sender: UISwitch) {

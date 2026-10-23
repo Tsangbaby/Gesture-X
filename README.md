@@ -1,10 +1,10 @@
-# TapLock — Swift + UIKit 首版源码
+# TapLock — Swift + UIKit 分阶段实现
 
-**状态：首版源码已完成，已配置 GitHub Actions 云端 Mac / RootHide 构建；编译、产物与设备结果分别记录，不以静态检查代替。**
+**状态：系统按钮锁屏基线已有用户实机通过反馈并合入 main；当前 0.1.2 是设置分层验证候选，编译、产物与设备结果分别记录。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.1，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.2，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
 ## 首版只有一条功能链
@@ -18,9 +18,21 @@
 - 编辑桌面、原生滚动/长按/拖动正在进行、VoiceOver 开启时不触发。
 - 不注入普通 App，不接管底部/状态栏/实体按键，不增加全屏触摸罩。
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
-- 不加入通用动作引擎、动作列表、手势配置、主题、轮询、授权模块或后台日志采集。
+- 不加入通用动作引擎、多动作配置、主题、轮询、授权模块或后台日志采集；动作页当前只展示已验证的系统锁屏。
 
-上述是**实现约束和验收目标，不是已经取得的真机通过结论**。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
+系统按钮锁屏基线 `94b384d64ce44705e754f4695c98661110db76ff` 已收到用户“测试已通过”反馈，不将其外推到其他系统或新设置布局。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
+
+## 当前设置入口
+
+```text
+设置首页
+└─ 主屏幕的手势
+   ├─ 启用主屏双击
+   └─ 选择双击动作（系统锁屏）
+      └─ 系统锁屏 ✓
+```
+
+按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留；动作行只确认当前唯一可用动作并返回，不立即执行锁屏。不混入“打开 App”等尚未实现/验证的新动作。
 
 ## 源码结构
 
@@ -31,7 +43,7 @@ Sources/HomeDoubleTap.swift          识别器、生命周期、触摸/场景过
 Sources/PrivateAPI.swift             已使用的固定类型私有调用与 ABI 检查
 Sources/LockAction.swift             一次系统锁屏请求
 Shared/Preferences.swift             Settings/SpringBoard 共用开关读写
-Preferences/SettingsController.swift UIKit 设置页：一个开关
+Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 当前双击动作
 Interfaces/TapLockPreferencesHost/    系统 PSViewController 声明及 module map
 Preferences/Resources/Info.plist     设置 bundle 身份
 layout/Library/PreferenceLoader/     设置入口
@@ -58,7 +70,7 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 1. 执行 Python 源码/CI 合同检查。
 2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；旧版预期失败、当前版必须通过。系统类是测试替身，不证明设备灭屏/动画；失败就停止。
-3. 用真实生产设置页 Swift 与 UIKit 执行旧 SHA 预期失败、当前 SHA 通过的初始化回归；在同一临时模拟器中实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 原方法转发、识别器挂载/移除和重复启动。原生系统类/安装器均为明确的测试替身，不冒充设备 SpringBoard 或 Preferences。
+3. 用真实生产设置页 Swift 与 UIKit 执行旧构造器预期失败、已接受版本缺少新层级的预期失败，以及当前版的初始化、逐级导航、真实开关读写和重新进入保留值回归；在同一临时模拟器中实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 原方法转发、识别器挂载/移除和重复启动。原生系统类/安装器均为明确的测试替身，不冒充设备 SpringBoard 或 Preferences。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
 6. 检查包内路径、版本、设置入口、Substrate 运行库链接、Orion 依赖不存在、每个架构的启动表/最低系统版本及嵌入签名结构。
@@ -68,4 +80,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-最后按 `docs/Acceptance.md` 集中做设备验收。前一基线已有用户报告设置页与双击锁定生效，但亮屏/过渡不符合要求；当前系统按钮动作仍待设备验证，不能继承为已修复。
+最后按 `docs/Acceptance.md` 做当前变更的设备验收。已通过的系统按钮锁屏链路在本轮保持源码字节不变，新设置布局仍待用户查看及回归；云端执行不等于设备 Settings 外观已通过。
