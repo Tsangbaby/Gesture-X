@@ -1,5 +1,17 @@
 # 验证分层记录
 
+## 当前候选：打开控制中心 0.1.5
+
+- 用户授权先固化 0.1.4，再只增加“打开控制中心”。main 已纳入已验收源码，追加纯验收文档提交 `b8ea00fb82ca82302447ddd4bd501258f6a1e58d`；main 与 `fix/native-app-launch-icons` 的运行时代码相同，文档提交未触发重复 CI。原始 0.1.4 `.deb` 已按 artifact ZIP、SOURCE_COMMIT、内层校验和及包结构独立核验并留存于 `/home/ubuntu/Gesture-X-artifacts/0.1.4-b8d6994/`，不是重新构建。
+- 新功能仅在 `feat/open-control-center`：原单指双击、默认关闭开关与所有原有触摸/场景/横屏/VoiceOver 过滤不变；只新增一个互斥动作、严格单值偏好记录和第三个设置行。设置选择只保存，不调用系统动作；升级保留已有动作，缺失配置仍默认锁屏，损坏记录不执行其他动作。
+- 原生入口依据 immutable `kissalexandra/Runtime-Headers@f15f8ebf05b6da366045a4eec985c9dda7c5f456` 的 `iOS/15/15.2.tar.gz`，Git blob `a7302432fdcb66c93aa448fec72359ce510d0016`；已下载到内存并校验原始 blob。`15.2/System/Library/PrivateFrameworks/SpringBoard.framework/SpringBoard/SBControlCenterController.h` 的 SHA-256 为 `d6449dde8cc3e5e7a2fcef08e3b3b2781b6800940ff7105465ccb21bea1f8ddb`，声明 `+sharedInstance` 返回对象，`-isPresentedOrDismissing` / `-canBePresented` 返回 BOOL，`-presentAnimated:` 返回 void、参数 BOOL。头文件只是版本化接口依据，不是本机接收者或设备成功证据。
+- `ControlCenterAction.open` 只在主线程且现有锁屏状态读取器确认已解锁时取得原生控制器；校验单例实际类型、两个 BOOL 状态与 `void(BOOL)` 精确 ABI，再仅调用一次 `presentAnimated:true`。已展示/正在关闭、系统不允许、对象/selector/ABI 不支持均拒绝；不切换关闭，不重试、换入口、调用其他动作或添加生产诊断。
+- 20 个 0.1.4 生产/资源/构建输入受冻结 SHA-256 保护；仅 6 个授权旧路径的 14 个精确计数/顺序 hunk 可逆变换。旧历史摘要及 before/after fixture 不变，新候选逆变换须显式开启；两阶段各自执行缺失/重复/错序/无关漂移反例，CI 不依赖本地完整历史。
+- 本地新切片在实现前观察到 6 项源码合同 RED；当前完整 Python 源码/资源/历史保护检查已通过，另完成 shell 语法、plist/版本一致性与真实 Debian 升级顺序检查。本机未安装 Swift，未在本地执行 Swift parse / 编译；真实 Swift 证据必须由已授权云端产生。这些本地检查不是原生动作执行或设备展示证明。
+- 云端必须执行同一实际 Swift harness：冻结的 0.1.4 在不支持新动作的偏好解析行为断言失败，当前源通过原生 receiver、BOOL/void ABI、系统拒绝、锁定/解锁中、单次调用及错误线程测试。测试只重绑定唯一类名查找常量，逆替换后生产源须逐字节相等。另用同一 UIKit harness 证明实际 0.1.4 缺少第三行，再验证当前真实设置页选中、保存、重进、摘要、互斥和旧动作/图标回归。
+- 优化后的 Swift 短字符串可能不作为连续字节出现，已在 0.1.4 原包观察到 `isUILocked` / `isUIUnlocking` 缺少连续文字而长 selector 存在。包级足迹门仅对确定的长查找名称逐架构核验；短 getter 的 ABI / 逻辑由实际 Swift harness 独立验证，不为保留字符串改生产代码。
+- 本节为候选交付前记录；实际 Swift/UIKit 执行、Apple 双架构编译和内层原包核验结果绑定最终 exact-SHA Actions 与相应报告，不预先宣告通过。0.1.5 尚无设备反馈，不合入 main、不自动发布 Tag / Release。
+
 ## 当前基线：原生 App 启动与图标修正 0.1.4（用户反馈通过）
 
 - 用户对已交付的 0.1.4 反馈“测试已通过”。绑定源码 `b8d6994be7defcc37ceac3bb158c5526c952ac3a`、成功 Actions `39949290095` 和该运行的原始 RootHide 安装包；环境为用户此前报告的 iOS 15.4.1 / RootHide。这是用户设备反馈，不是助手独立设备复测，不外推到其他系统或未逐项说明的测试。

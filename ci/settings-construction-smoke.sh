@@ -8,6 +8,7 @@ BASELINE=72826b2a558b03e20a7dd5e98047dfdecc489202
 HIERARCHY_BASELINE=94b384d64ce44705e754f4695c98661110db76ff
 OPEN_APP_BASELINE=7f35f9e51aa9d61d8bd052f0ab6b85127313d326
 ICON_BASELINE=cb3f53b27e102b74cea93bf9a44d476cb873477a
+CONTROL_CENTER_BASELINE=b8d6994be7defcc37ceac3bb158c5526c952ac3a
 WORK="$(mktemp -d "$RUNNER_TEMP/taplock-settings.XXXXXX")"
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ARCH="$(uname -m)"
@@ -105,6 +106,16 @@ for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAP
     git -C "$ROOT" show "$ICON_BASELINE:$path" > "$ICON_OLD/$path"
 done
 
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$CONTROL_CENTER_BASELINE"
+CC_OLD="$WORK/accepted-no-control-center"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap; do
+    mkdir -p "$CC_OLD/$(dirname "$path")"
+    git -C "$ROOT" show "$CONTROL_CENTER_BASELINE:$path" > "$CC_OLD/$path"
+done
+
 run_case() {
     local source_root="$1" label="$2" mode="$3" marker="$4"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
@@ -121,16 +132,19 @@ with open(sys.argv[1], 'wb') as f:
 PY
     local compile_sources=("$source_root/Shared/Preferences.swift" "$source_root/Preferences/SettingsController.swift")
     local compile_flags=(-parse-as-library -swift-version 5)
-    if [ "$label" = app-baseline ] || [ "$label" = icon-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = app-baseline ] || [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DOPEN_APP_ROWS)
     fi
-    if [ "$label" = icon-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DOPEN_APP_FEATURE -DAPP_ICONS)
         compile_sources+=("$source_root/Shared/Applications.swift" "$source_root/Sources/PrivateAPI.swift")
     fi
+    if [ "$label" = control-center-baseline ] || [ "$label" = fixed ]; then
+        compile_flags+=(-DCONTROL_CENTER_ROWS)
+        compile_sources+=("$source_root/Preferences/ApplicationIcons.swift")
+    fi
     if [ "$label" = fixed ]; then
-        compile_flags+=(-DAPP_ICON_LOADER_TESTS)
-        compile_sources+=("$ROOT/Preferences/ApplicationIcons.swift")
+        compile_flags+=(-DAPP_ICON_LOADER_TESTS -DCONTROL_CENTER_FEATURE)
     fi
     xcrun swiftc "${compile_flags[@]}" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
@@ -178,5 +192,6 @@ run_case "$OLD" baseline --expect-legacy-failure BASELINE_EXPECTED_FAILURE
 run_case "$STABLE" accepted --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势'
 run_case "$APP_OLD" app-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: unimplemented actions must not be exposed'
 run_case "$ICON_OLD" icon-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: App picker icon missing'
+run_case "$CC_OLD" control-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Control Center action row missing'
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

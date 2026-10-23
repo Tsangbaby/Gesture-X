@@ -195,6 +195,17 @@ def verify(package):
             require(forbidden not in tweak_bytes, f"Settings/client API leaked into SpringBoard binary: {forbidden!r}")
         require_selector_per_slice(tweak_bytes, binaries[required[0]],
                                    b"launchApplicationWithIdentifier:suspended:")
+        control_center_names = (b"SBControlCenterController", b"presentAnimated:",
+                                b"isPresentedOrDismissing", b"canBePresented")
+        # Optimized Swift small strings need not exist as contiguous bytes
+        # (also true of the accepted isUILocked/isUIUnlocking getters).
+        # Executed Swift tests cover every ABI gate; the binary footprint gate
+        # independently requires all long native lookup names in both slices.
+        for name in control_center_names:
+            if len(name) > 15:
+                require_selector_per_slice(tweak_bytes, binaries[required[0]], name)
+        require(b"SBControlCenterController" not in (dest / required[2]).read_bytes(),
+                "Control Center provider leaked into Settings binary")
         require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
                                    b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:
@@ -208,6 +219,7 @@ def verify(package):
             "sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
             "control": fields, "required_files": required, "binaries": binaries,
             "launch_boundary": "native SpringBoard selector present; LS client/catalog absent from tweak; icon loader in Settings only",
+            "control_center_binary_long_names": [name.decode() for name in control_center_names if len(name) > 15],
             "device_tested": False}
 
 

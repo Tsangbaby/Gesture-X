@@ -163,14 +163,20 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     require(false, "action table missing")
                     return false
                 }
-                #if OPEN_APP_ROWS
+                #if CONTROL_CENTER_ROWS
+                let expectedActionRows = 3
+                #elseif OPEN_APP_ROWS
                 let expectedActionRows = 2
                 #else
                 let expectedActionRows = 1
                 #endif
+                #if CONTROL_CENTER_ROWS
+                let rowFailure = "Control Center action row missing"
+                #else
+                let rowFailure = "unimplemented actions must not be exposed"
+                #endif
                 require(action.title == "选择双击动作" &&
-                        action.tableView(actionTable, numberOfRowsInSection: 0) == expectedActionRows,
-                        "unimplemented actions must not be exposed")
+                        action.tableView(actionTable, numberOfRowsInSection: 0) == expectedActionRows, rowFailure)
                 let selected = action.tableView(actionTable, cellForRowAt: IndexPath(row: 0, section: 0))
                 require(selected.textLabel?.text == "系统锁屏" && selected.accessoryType == .checkmark,
                         "accepted lock action must remain selected")
@@ -244,7 +250,36 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 require(TapLockPreferences.readEnabled() == !original, "App selection changed the enable switch")
                 print("PASS: real simulator App picker/selection/checkmark/summary #\(iteration)")
                 #endif
+                #if CONTROL_CENTER_FEATURE
+                let controlRow = action.tableView(actionTable, cellForRowAt: IndexPath(row: 2, section: 0))
+                require(controlRow.textLabel?.text == "打开控制中心" && controlRow.accessoryType == .none,
+                        "Control Center label/initial selection incorrect")
+                actionTable.delegate?.tableView?(actionTable, didSelectRowAt: IndexPath(row: 2, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .controlCenter,
+                        "Control Center selection did not save and return home")
+                home.viewWillAppear(false)
+                require(home.tableView(homeTable, cellForRowAt: IndexPath(row: 1, section: 0)).detailTextLabel?.text ==
+                        "打开控制中心", "Control Center home summary did not refresh")
+                require(TapLockPreferences.readEnabled() == !original, "Control Center selection changed enable state")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let controlPage = navigation.topViewController as? TapLockSettingsController,
+                      controlPage !== home else { require(false, "Control Center page did not reopen"); return false }
+                controlPage.loadViewIfNeeded()
+                controlPage.viewWillAppear(false)
+                guard let controlTable = controlPage.view as? UITableView else {
+                    require(false, "reopened Control Center table missing"); return false
+                }
+                require(controlPage.tableView(controlTable, cellForRowAt: IndexPath(row: 2, section: 0)).accessoryType == .checkmark,
+                        "reconstructed action page lost the Control Center checkmark")
+                for row in [0, 1] {
+                    require(controlPage.tableView(controlTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType != .checkmark,
+                            "another action remained selected alongside Control Center")
+                }
+                controlTable.delegate?.tableView?(controlTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                print("CONTROL_CENTER_UIKIT_PASS: selection + persistent reentry + exclusive checkmark + home summary + lock restoration #\(iteration)")
+                #else
                 actionTable.delegate?.tableView?(actionTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                #endif
                 require(navigation.topViewController === home, "selecting current action must return home")
                 require(TapLockPreferences.readEnabled() == !original, "action navigation changed enable state")
                 #if OPEN_APP_FEATURE

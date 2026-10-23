@@ -1,0 +1,95 @@
+{
+  "baseline": "b8d6994be7defcc37ceac3bb158c5526c952ac3a",
+  "frozen": {
+    "Interfaces/TapLockNativeRuntime/NativeRuntime.h": "e763895e3f1429884ee3d5101bee0601ad899fb50f950db7df2a57d9a2afa760",
+    "Interfaces/TapLockNativeRuntime/module.modulemap": "e22a94cbcef24d41a163d6e1214644d2ebc4ffa445456c572aef7e8dcfaf7a21",
+    "Interfaces/TapLockPreferencesHost/PSViewController.h": "e1694c2e656c15ec16a92236159a6bd31d9a1125625ca80e154530b953074cf0",
+    "Interfaces/TapLockPreferencesHost/module.modulemap": "a8eaa6b0f7925ffa1ec469469e2f694abc02448ca89cfd1d5cbe2e4d4257b303",
+    "Makefile": "ded5fbdfebf31e677fe9188d997b09b36d95d023970db442200cf212529a652a",
+    "Preferences/ApplicationIcons.swift": "946826d36c54e9e9bb21dd2054e7265f5b1a8b8424419f6a1a3101156ebfe9d7",
+    "Preferences/Makefile": "48ab9b33dea920d96e2202c654f2b7f9169b2fcbf212f2995ae1cd675a683d4e",
+    "Preferences/Resources/Info.plist": "ff447832129e7a19d8a93a56079f9cb9bc4e058b8b629228e75c4ee88f851cee",
+    "Preferences/SettingsController.swift": "56a4999010f23b6ed82aaa8a24def37b086489f66a685c3c5d54261a860bd00c",
+    "Shared/Applications.swift": "67445a7a11dfacba116e7fd7699bb96e0bf221d6a1c042b99ad182db8788b0cd",
+    "Shared/Preferences.swift": "12682b159a3798a784acafe9e62536e815e33ecc62e1de6779fb97c458548209",
+    "Sources/AppAction.swift": "aea806214ee0c17b919d3a3b61932309cd1803af4f3286e310ad57bf064a2e0b",
+    "Sources/Bootstrap.swift": "c06f200f456f8103990378d60888e7810e0185ec3152a1026759e429c68d8e07",
+    "Sources/HomeDoubleTap.swift": "16cee7aa2a7196bbb4c6ab3813028ebed99f54f995d7d46362d138609221cf61",
+    "Sources/LockAction.swift": "8c902edd37e44ea4b5afc4e21b078fa6415b22e6efc55264b4af6d2d66e07387",
+    "Sources/NativeHook.swift": "45f6dbe10dcdceb201edf0bb8ba539b7e8be6e1f5f968ddc76ecdb2753edccba",
+    "Sources/PrivateAPI.swift": "a2b9fdeed907801f2259175f88e328123c6f0c759c9a3f1008b521a9f9db6aa7",
+    "TapLock.plist": "22957c2b6df0a9dd9c7deba18639321701aadf1e6452b86d9be434e48c7f454f",
+    "ci/build.sh": "816ce5018af537b3a43228975c002a7082c611f06a8727872405e4455398cc64",
+    "control": "050386f432268c7847471012e0c24f7252682fd28f480472dbf7299852307275"
+  },
+  "hunks": {
+    "Makefile": [
+      {
+        "before": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n",
+        "after": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n"
+      }
+    ],
+    "Preferences/Resources/Info.plist": [
+      {
+        "before": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.4</string>\n    <key>CFBundleVersion</key><string>0.1.4</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n",
+        "after": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.5</string>\n    <key>CFBundleVersion</key><string>0.1.5</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n"
+      }
+    ],
+    "Preferences/SettingsController.swift": [
+      {
+        "before": "        case .lock: return \"系统锁屏\"\n        case .openApp: return \"打开指定App · \" + (applicationName ?? \"App不可用\")\n        case .unavailable: return \"配置不可用，请重新选择\"\n        }\n",
+        "after": "        case .lock: return \"系统锁屏\"\n        case .openApp: return \"打开指定App · \" + (applicationName ?? \"App不可用\")\n        case .controlCenter: return \"打开控制中心\"\n        case .unavailable: return \"配置不可用，请重新选择\"\n        }\n"
+      },
+      {
+        "before": "        switch page {\n        case .root: return 1\n        case .homeScreen, .doubleTapAction: return 2\n        case .applicationPicker: return applications.count\n        }\n",
+        "after": "        switch page {\n        case .root: return 1\n        case .homeScreen: return 2\n        case .doubleTapAction: return 3\n        case .applicationPicker: return applications.count\n        }\n"
+      },
+      {
+        "before": "            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = action == .lock ? .checkmark : .none\n        case (.doubleTapAction, _):\n            cell.textLabel?.text = \"打开指定App\"\n            if case .openApp = action {\n",
+        "after": "            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = action == .lock ? .checkmark : .none\n        case (.doubleTapAction, 1):\n            cell.textLabel?.text = \"打开指定App\"\n            if case .openApp = action {\n"
+      },
+      {
+        "before": "                cell.accessoryType = .disclosureIndicator\n            }\n        case (.applicationPicker, let row):\n            let choice = applications[row]\n",
+        "after": "                cell.accessoryType = .disclosureIndicator\n            }\n        case (.doubleTapAction, 2):\n            cell.textLabel?.text = \"打开控制中心\"\n            cell.accessoryType = action == .controlCenter ? .checkmark : .none\n        case (.applicationPicker, let row):\n            let choice = applications[row]\n"
+      },
+      {
+        "before": "            cell.imageView?.contentMode = .scaleAspectFit\n            cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none\n        }\n        return cell\n",
+        "after": "            cell.imageView?.contentMode = .scaleAspectFit\n            cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none\n        default:\n            break\n        }\n        return cell\n"
+      },
+      {
+        "before": "        case (.doubleTapAction, 1):\n            navigationController?.pushViewController(TapLockSettingsController(page: .applicationPicker), animated: true)\n        case (.applicationPicker, let row):\n            guard applications.indices.contains(row) else { return }\n",
+        "after": "        case (.doubleTapAction, 1):\n            navigationController?.pushViewController(TapLockSettingsController(page: .applicationPicker), animated: true)\n        case (.doubleTapAction, 2):\n            guard TapLockPreferences.writeAction(.controlCenter) else { showSaveError(); return }\n            navigationController?.popViewController(animated: true)\n        case (.applicationPicker, let row):\n            guard applications.indices.contains(row) else { return }\n"
+      },
+      {
+        "before": "                \"图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。\"\n        case .doubleTapAction:\n            return \"升级后默认保留系统锁屏。选择动作只保存设置，不会立即执行。目标App不可用时不执行其他动作。\"\n        case .applicationPicker:\n            return applications.isEmpty ? \"未找到可选App。请确认App已安装且当前系统允许读取应用列表。\" :\n",
+        "after": "                \"图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。\"\n        case .doubleTapAction:\n            return \"升级保留已保存动作，未配置时使用系统锁屏。选择动作只保存设置，不会立即执行。目标App或系统入口不可用时不执行其他动作。\"\n        case .applicationPicker:\n            return applications.isEmpty ? \"未找到可选App。请确认App已安装且当前系统允许读取应用列表。\" :\n"
+      }
+    ],
+    "Shared/Preferences.swift": [
+      {
+        "before": "        case lock\n        case openApp(String)\n        case unavailable\n    }\n",
+        "after": "        case lock\n        case openApp(String)\n        case controlCenter\n        case unavailable\n    }\n"
+      },
+      {
+        "before": "              let kind = record[\"kind\"] as? String else { return .unavailable }\n        if kind == \"lock\", record.count == 1 { return .lock }\n        if kind == \"openApp\", record.count == 2,\n           let identifier = record[\"bundleIdentifier\"] as? String,\n",
+        "after": "              let kind = record[\"kind\"] as? String else { return .unavailable }\n        if kind == \"lock\", record.count == 1 { return .lock }\n        if kind == \"controlCenter\", record.count == 1 { return .controlCenter }\n        if kind == \"openApp\", record.count == 2,\n           let identifier = record[\"bundleIdentifier\"] as? String,\n"
+      },
+      {
+        "before": "        case .lock:\n            record = [\"kind\": \"lock\"]\n        case .openApp(let identifier):\n            guard validBundleIdentifier(identifier) else { return false }\n",
+        "after": "        case .lock:\n            record = [\"kind\": \"lock\"]\n        case .controlCenter:\n            record = [\"kind\": \"controlCenter\"]\n        case .openApp(let identifier):\n            guard validBundleIdentifier(identifier) else { return false }\n"
+      }
+    ],
+    "Sources/HomeDoubleTap.swift": [
+      {
+        "before": "        case .openApp(let identifier):\n            AppAction.open(identifier: identifier)\n        case .unavailable:\n            break\n",
+        "after": "        case .openApp(let identifier):\n            AppAction.open(identifier: identifier)\n        case .controlCenter:\n            ControlCenterAction.open()\n        case .unavailable:\n            break\n"
+      }
+    ],
+    "control": [
+      {
+        "before": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.4\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock or open a selected App.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n",
+        "after": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.5\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock, open an App or show Control Center.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n"
+      }
+    ]
+  }
+}

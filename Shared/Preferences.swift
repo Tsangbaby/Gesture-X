@@ -53,6 +53,7 @@ enum TapLockPreferences {
     enum Action: Equatable {
         case lock
         case openApp(String)
+        case controlCenter
         case unavailable
     }
     static let actionKey = "DoubleTapAction"
@@ -74,6 +75,7 @@ enum TapLockPreferences {
               let record = value as? [String: Any],
               let kind = record["kind"] as? String else { return .unavailable }
         if kind == "lock", record.count == 1 { return .lock }
+        if kind == "controlCenter", record.count == 1 { return .controlCenter }
         if kind == "openApp", record.count == 2,
            let identifier = record["bundleIdentifier"] as? String,
            validBundleIdentifier(identifier) { return .openApp(identifier) }
@@ -86,6 +88,8 @@ enum TapLockPreferences {
         switch action {
         case .lock:
             record = ["kind": "lock"]
+        case .controlCenter:
+            record = ["kind": "controlCenter"]
         case .openApp(let identifier):
             guard validBundleIdentifier(identifier) else { return false }
             record = ["kind": "openApp", "bundleIdentifier": identifier]

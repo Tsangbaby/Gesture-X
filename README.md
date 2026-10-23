@@ -1,17 +1,17 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.4 原生启动与图标修正包已获用户反馈“测试已通过”，固化为当前回退基线。0.1.3 打开 115 网盘被报告整机卡死，仍为失败历史；不外推验收结论到其他系统。**
+**状态：0.1.4 已获用户反馈“测试已通过”并固化为回退基线；当前独立分支 0.1.5 只新增“打开控制中心”，仍待 exact-SHA 云端构建及设备验收，未合入 main。0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.4，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.5，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
-## 一条手势链，二选一动作
+## 一条手势链，三选一动作
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App（二选一）`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心（三选一）`
 
-动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
+锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
 - 只在已解锁、前台主屏幕、主显示器且界面为竖屏时允许识别。
 - 只接受根桌面列表自身命中的直接手指触摸；图标、文件夹、小组件、搜索控件、Dock 不在允许范围。
@@ -29,9 +29,10 @@
 └─ 主屏幕的手势
    ├─ 启用主屏双击
    └─ 选择双击动作（显示当前选择）
-      ├─ 系统锁屏（升级默认）
-      └─ 打开指定App
-         └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
+      ├─ 系统锁屏（未配置时默认）
+      ├─ 打开指定App
+      │  └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
+      └─ 打开控制中心
 ```
 
 按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留。新增动作与 Bundle ID 存入同一个 CFPreferences 属性列表值；保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。列表每次进入建立一次快照，不按行扫描全部 App；设置页只选择，不当场执行动作。
@@ -46,6 +47,7 @@ Sources/PrivateAPI.swift             已使用的固定类型私有调用与 ABI
 Sources/LockAction.swift             一次系统锁屏请求
 Shared/Preferences.swift             Settings/SpringBoard 共用开关与动作读写
 Sources/AppAction.swift              SpringBoard 原生单次启动；拒绝继承的 UIKit 客户端入口
+Sources/ControlCenterAction.swift    SpringBoard 原生单次打开控制中心；不切换、重试或回退
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
@@ -85,4 +87,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-最后按 `docs/Acceptance.md` 做当前变更的设备验收。已通过的系统按钮锁屏实现保持源码字节不变；“打开指定App”、选择持久化/即时生效与锁屏切回回归仍需用户真机确认。云端执行不等于设备验收。
+最后按 `docs/Acceptance.md` 做本次控制中心动作和旧动作保护项的集中设备验收。锁屏、原生 App 启动、图标、Hook 与过滤保持 0.1.4 的已接受实现；0.1.4 的用户反馈不覆盖新控制中心功能，云端执行也不等于设备验收。

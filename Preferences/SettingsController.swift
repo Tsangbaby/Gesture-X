@@ -68,6 +68,7 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
         switch action {
         case .lock: return "系统锁屏"
         case .openApp: return "打开指定App · " + (applicationName ?? "App不可用")
+        case .controlCenter: return "打开控制中心"
         case .unavailable: return "配置不可用，请重新选择"
         }
     }
@@ -77,7 +78,8 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch page {
         case .root: return 1
-        case .homeScreen, .doubleTapAction: return 2
+        case .homeScreen: return 2
+        case .doubleTapAction: return 3
         case .applicationPicker: return applications.count
         }
     }
@@ -109,7 +111,7 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
         case (.doubleTapAction, 0):
             cell.textLabel?.text = "系统锁屏"
             cell.accessoryType = action == .lock ? .checkmark : .none
-        case (.doubleTapAction, _):
+        case (.doubleTapAction, 1):
             cell.textLabel?.text = "打开指定App"
             if case .openApp = action {
                 cell.detailTextLabel?.text = applicationName ?? "App不可用"
@@ -118,6 +120,9 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
                 cell.detailTextLabel?.text = "选择App"
                 cell.accessoryType = .disclosureIndicator
             }
+        case (.doubleTapAction, 2):
+            cell.textLabel?.text = "打开控制中心"
+            cell.accessoryType = action == .controlCenter ? .checkmark : .none
         case (.applicationPicker, let row):
             let choice = applications[row]
             cell.textLabel?.text = choice.name
@@ -125,6 +130,8 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
             cell.imageView?.image = applicationIcons.image(identifier: choice.identifier)
             cell.imageView?.contentMode = .scaleAspectFit
             cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none
+        default:
+            break
         }
         return cell
     }
@@ -141,6 +148,9 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
             navigationController?.popViewController(animated: true)
         case (.doubleTapAction, 1):
             navigationController?.pushViewController(TapLockSettingsController(page: .applicationPicker), animated: true)
+        case (.doubleTapAction, 2):
+            guard TapLockPreferences.writeAction(.controlCenter) else { showSaveError(); return }
+            navigationController?.popViewController(animated: true)
         case (.applicationPicker, let row):
             guard applications.indices.contains(row) else { return }
             let choice = applications[row]
@@ -165,7 +175,7 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
             return "默认关闭。开启后，仅在已解锁、竖屏的主屏幕空白处双击执行所选动作。" +
                 "图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。"
         case .doubleTapAction:
-            return "升级后默认保留系统锁屏。选择动作只保存设置，不会立即执行。目标App不可用时不执行其他动作。"
+            return "升级保留已保存动作，未配置时使用系统锁屏。选择动作只保存设置，不会立即执行。目标App或系统入口不可用时不执行其他动作。"
         case .applicationPicker:
             return applications.isEmpty ? "未找到可选App。请确认App已安装且当前系统允许读取应用列表。" :
                 "仅列出已安装、允许启动且未隐藏的系统或用户App。选择后立即保存，不会在此处打开。"

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from test_source import source
 from open_app_baseline import FIXTURE, invert_open_app
+from control_center_baseline import invert_control_center
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'
@@ -50,22 +51,24 @@ class OpenAppContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_open_app(path, (ROOT / path).read_text())
+                restored = invert_open_app(path, (ROOT / path).read_text(), control_center=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = (ROOT / path).read_text()
+            # Test the historical stage after strictly inverting the new,
+            # independently mutation-tested candidate delta once.
+            text = invert_control_center(path, (ROOT / path).read_text())
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.assertRaises(AssertionError):
-                        invert_open_app(path, mutation)
+                        invert_open_app(path, mutation, control_center=False)
             if len(hunks) > 1:
                 swapped = text.replace(hunks[0]['after'], '__SWAP__', 1).replace(
                     hunks[-1]['after'], hunks[0]['after'], 1).replace('__SWAP__', hunks[-1]['after'], 1)
                 with self.assertRaises(AssertionError):
-                    invert_open_app(path, swapped)
-            restored = invert_open_app(path, text + '\n// unrelated drift\n')
+                    invert_open_app(path, swapped, control_center=False)
+            restored = invert_open_app(path, text + '\n// unrelated drift\n', control_center=False)
             self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['frozen'][path])
 
     def test_apple_runtime_and_behavioral_red_gate_precede_package_build(self):

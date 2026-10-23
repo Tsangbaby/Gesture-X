@@ -110,7 +110,7 @@ class SettingsConstructionContracts(unittest.TestCase):
             ],
         }
         for name, digest in frozen.items():
-            data = invert_open_app(name, (ROOT / name).read_text()).encode()
+            data = invert_open_app(name, (ROOT / name).read_text(), control_center=True).encode()
             if name == "Preferences/SettingsController.swift":
                 data = invert_settings_hierarchy(data.decode()).encode()
             if name == "Sources/LockAction.swift":
@@ -124,7 +124,7 @@ class SettingsConstructionContracts(unittest.TestCase):
             self.assertEqual(hashlib.sha256(data).hexdigest(), digest, name)
         self.assertFalse((ROOT / "Sources/Tweak.x.swift").exists())
         text = invert_settings_hierarchy(invert_open_app("Preferences/SettingsController.swift",
-            (ROOT / "Preferences/SettingsController.swift").read_text()))
+            (ROOT / "Preferences/SettingsController.swift").read_text(), control_center=True))
         suffix = text[text.index("    override func loadView() {"):]
         self.assertEqual(hashlib.sha256(suffix.encode()).hexdigest(),
                          "e4ffae1a0bb6059351f00f55281b8429b6563cd085c982ee55527554ffc4130c")
