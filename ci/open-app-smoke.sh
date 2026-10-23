@@ -49,3 +49,62 @@ print('OPEN_APP_BASELINE_EXPECTED_FAILURE: proxy-only admission rejects real rec
 PY
 compile_case "$ROOT/Shared/Applications.swift" current
 "$WORK/current-tests" | tee -a "$RUNNER_TEMP/OPEN_APP_TESTS.txt"
+
+# Separate SpringBoard native-entry regression. The prior production launcher
+# must fail at the LaunchServices boundary assertion, not at compilation.
+NATIVE_BASELINE=cb3f53b27e102b74cea93bf9a44d476cb873477a
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$NATIVE_BASELINE"
+git -C "$ROOT" show "$NATIVE_BASELINE:Shared/Applications.swift" > "$WORK/LegacyNativeApplications.swift"
+compile_native() {
+    local input="$1" label="$2"
+    python3 - "$input" "$WORK/$label-native.swift" "$WORK/$label-alias.swift" "$label" <<'PY'
+from pathlib import Path
+import sys
+original = Path(sys.argv[1]).read_text()
+if sys.argv[4] == 'baseline':
+    bindings = [('"LSApplicationProxy"', '"TLNativeProxyFixture"', 2),
+                ('"LSApplicationWorkspace"', '"TLNativeWorkspaceFixture"', 1),
+                ('"LSApplicationRecord"', '"TLNativeRecordFixture"', 1)]
+    alias = 'typealias AppAction = InstalledApplications\n'
+else:
+    bindings = [('"SpringBoard"', '"TLNativeSpringBoardFixture"', 1)]
+    alias = ''
+text = original
+for old, new, count in bindings:
+    assert original.count(old) == count and new not in original
+    text = text.replace(old, new)
+restored = text
+for old, new, count in bindings:
+    assert restored.count(new) == count
+    restored = restored.replace(new, old)
+assert restored == original
+Path(sys.argv[2]).write_text(text)
+Path(sys.argv[3]).write_text(alias)
+PY
+    xcrun swiftc -parse-as-library -swift-version 5 \
+        "$ROOT/Shared/Preferences.swift" "$ROOT/Sources/PrivateAPI.swift" \
+        "$WORK/$label-native.swift" "$WORK/$label-alias.swift" \
+        "$ROOT/Tests/NativeAppRuntimeTests.swift" -o "$WORK/$label-native-tests"
+}
+compile_native "$WORK/LegacyNativeApplications.swift" baseline
+python3 - "$WORK/baseline-native-tests" "$RUNNER_TEMP/NATIVE_APP_TESTS.txt" <<'PY'
+import subprocess, sys
+p = subprocess.run([sys.argv[1]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=60)
+print(p.stdout, end='', flush=True)
+if p.returncode != 1 or 'NATIVE_APP_RUNTIME_FAIL: SpringBoard action touched LaunchServices' not in p.stdout:
+    raise SystemExit('Prior LS launcher did not fail at the exact forbidden-service assertion')
+marker = 'NATIVE_APP_BASELINE_EXPECTED_FAILURE: prior production gesture launcher touches LaunchServices; not a reproduced device freeze'
+with open(sys.argv[2], 'w') as f:
+    f.write(p.stdout + marker + '\n')
+print(marker, flush=True)
+PY
+compile_native "$ROOT/Sources/AppAction.swift" current
+python3 - "$WORK/current-native-tests" "$RUNNER_TEMP/NATIVE_APP_TESTS.txt" <<'PY'
+import subprocess, sys
+p = subprocess.run([sys.argv[1]], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=60)
+print(p.stdout, end='', flush=True)
+if p.returncode or not any(line.startswith('NATIVE_APP_RUNTIME_PASS: ') for line in p.stdout.splitlines()):
+    raise SystemExit('Current native test failed: nonzero exit or missing verified completion marker')
+with open(sys.argv[2], 'a') as f:
+    f.write(p.stdout)
+PY

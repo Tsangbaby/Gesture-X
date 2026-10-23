@@ -202,7 +202,7 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
         case .lock:
             LockAction.requestLock()
         case .openApp(let identifier):
-            InstalledApplications.open(identifier: identifier)
+            AppAction.open(identifier: identifier)
         case .unavailable:
             break
         }

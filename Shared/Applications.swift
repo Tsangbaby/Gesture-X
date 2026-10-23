@@ -1,8 +1,8 @@
 import Foundation
 import ObjectiveC
 
-/// Fixed LaunchServices calls shared by the Settings picker and SpringBoard.
-/// Capability/ABI checks reject unsupported systems; no URL or launch fallback.
+/// Settings-only LaunchServices catalog. Excluded from the SpringBoard target.
+/// This code can select/validate a target, but never launches an application.
 enum InstalledApplications {
     struct Choice: Equatable {
         let identifier: String
@@ -39,17 +39,6 @@ enum InstalledApplications {
         return result
     }
 
-    @discardableResult
-    static func open(identifier: String) -> Bool {
-        let selector = NSSelectorFromString("openApplicationWithBundleID:")
-        guard Thread.isMainThread, choice(identifier: identifier) != nil,
-              let workspace = workspace(), let type = object_getClass(workspace),
-              let method = PrivateAPI.checkedMethod(in: type, selector: selector,
-                                                    returns: "B", arguments: ["@"]) else { return false }
-        typealias Open = @convention(c) (AnyObject, Selector, NSString) -> Bool
-        let invoke = unsafeBitCast(method_getImplementation(method), to: Open.self)
-        return invoke(workspace, selector, identifier as NSString)
-    }
 
     private static func workspace() -> NSObject? {
         guard let type = NSClassFromString("LSApplicationWorkspace"),

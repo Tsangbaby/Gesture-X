@@ -1,10 +1,10 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.2 设置分层包已有用户实机通过反馈；当前 0.1.3 为“打开指定App”功能验证候选，编译、产物与设备结果分别记录，尚未合入 main。**
+**状态：0.1.2 设置分层包已有用户实机通过反馈；0.1.3 打开 115 网盘被报告整机卡死，已判定失败。当前 0.1.4 是原生启动与图标修正候选，编译、产物与设备结果分别记录，未合入 main，尚待真机验收。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.3，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.4，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
 ## 一条手势链，二选一动作
@@ -18,7 +18,7 @@
 - 编辑桌面、原生滚动/长按/拖动正在进行、VoiceOver 开启时不触发。
 - 不注入普通 App，不接管底部/状态栏/实体按键，不增加全屏触摸罩。
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
-- 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过固定的 LaunchServices 接口执行，不走 URL Scheme。
+- 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
 设置分层基线 `7f35f9e51aa9d61d8bd052f0ab6b85127313d326` 已收到用户“测试已通过”反馈，不将其外推到新 App 动作或其他系统。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
 
@@ -31,7 +31,7 @@
    └─ 选择双击动作（显示当前选择）
       ├─ 系统锁屏（升级默认）
       └─ 打开指定App
-         └─ 选择App（名称 + Bundle ID，选中后保存）
+         └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
 ```
 
 按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留。新增动作与 Bundle ID 存入同一个 CFPreferences 属性列表值；保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。列表每次进入建立一次快照，不按行扫描全部 App；设置页只选择，不当场执行动作。
@@ -45,7 +45,9 @@ Sources/HomeDoubleTap.swift          识别器、生命周期、触摸/场景过
 Sources/PrivateAPI.swift             已使用的固定类型私有调用与 ABI 检查
 Sources/LockAction.swift             一次系统锁屏请求
 Shared/Preferences.swift             Settings/SpringBoard 共用开关与动作读写
-Shared/Applications.swift            已安装 App 快照、目标校验与一次启动
+Sources/AppAction.swift              SpringBoard 原生单次启动；拒绝继承的 UIKit 客户端入口
+Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
+Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
 Interfaces/TapLockPreferencesHost/    系统 PSViewController 声明及 module map
 Preferences/Resources/Info.plist     设置 bundle 身份
@@ -72,8 +74,8 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 `.github/workflows/build.yml` 在 `main` 的源码变更或手动触发时执行单个标准 `macos-15` RootHide 任务：
 
 1. 执行 Python 源码/CI 合同检查。
-2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；另执行当前动作存储、App 筛选/去重/排序、准确 Bundle ID 传递、恰好一次启动及错误 ABI/不可用目标拒绝测试。系统服务是测试替身，不证明设备灭屏/动画或 App 切换；失败就停止。
-3. 用真实生产设置页 Swift 与 UIKit 执行旧构造器预期失败、旧版缺少设置层级及 0.1.2 缺少 App 动作的预期失败；当前版实际进入模拟器应用列表、选择/持久保存、刷新选中与摘要并切回锁屏，保留开关和构造器回归。在同一临时模拟器实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 转发、挂载/移除和重复启动。Preferences 父类和 Hook 安装器是明确的测试替身，不冒充设备 SpringBoard/Settings。
+2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；另执行动作存储和设置 App 筛选，以及旧 LS 启动触及禁用服务边界的预期失败 / 当前原生单次启动的 receiver、ABI、继承客户端方法与非主线程拒绝测试。系统服务是测试替身，不证明设备灭屏/动画、App 切换或卡死已修复；失败就停止。
+3. 用真实生产设置页 Swift 与 UIKit 执行旧构造器、旧版缺少层级 / App 动作及真实 0.1.3 缺图标的预期失败；当前版实际进入模拟器应用列表，检查真实图标、32pt 画布、缓存和占位，并验证选择/持久保存、选中与摘要刷新、切回锁屏和原有开关回归。在同一临时模拟器实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 转发、挂载/移除和重复启动。Preferences 父类和 Hook 安装器是明确的测试替身，不冒充设备 SpringBoard/Settings。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
 6. 检查包内路径、版本、设置入口、Substrate 运行库链接、Orion 依赖不存在、每个架构的启动表/最低系统版本及嵌入签名结构。

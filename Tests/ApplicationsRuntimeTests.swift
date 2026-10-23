@@ -4,7 +4,7 @@ import ObjectiveC
 import Darwin
 
 // Only the OS service objects are fixtures. Compile the actual production
-// preference reader/writer, ABI gate, catalog/filter and launch implementation.
+// preference reader/writer, ABI gate and Settings-only catalog/filter.
 @objc(TLTapLockApplicationProxyFixture)
 class ApplicationProxyFixture: NSObject {
     static var records: [String: NSObject] = [:]
@@ -58,32 +58,11 @@ class ApplicationWorkspaceFixture: NSObject {
     static var current: NSObject?
     var proxies: [NSObject] = []
     var enumerations = 0
-    var launches: [String] = []
+
     @objc class func defaultWorkspace() -> NSObject? { current }
     @objc func allApplications() -> NSArray { enumerations += 1; return proxies as NSArray }
 }
 
-class WorkingWorkspaceFixture: ApplicationWorkspaceFixture {
-    var result = true
-    @objc func openApplicationWithBundleID(_ identifier: NSString) -> Bool {
-        launches.append(identifier as String)
-        return result
-    }
-}
-
-class WrongReturnWorkspaceFixture: ApplicationWorkspaceFixture {
-    @objc func openApplicationWithBundleID(_ identifier: NSString) -> Int64 {
-        launches.append(identifier as String)
-        return 1
-    }
-}
-
-class WrongArgumentWorkspaceFixture: ApplicationWorkspaceFixture {
-    @objc func openApplicationWithBundleID(_ identifier: Int32) -> Bool {
-        launches.append("wrong argument invoked")
-        return true
-    }
-}
 
 @main
 struct ApplicationsRuntimeTests {
@@ -142,7 +121,7 @@ struct ApplicationsRuntimeTests {
         let hidden = InstalledProxyFixture("com.example.hidden", "Hidden"); hidden.tags = [" hidden "]
         let plugin = InstalledProxyFixture("com.example.plugin", "Plugin"); plugin.category = "Plugin"
         let badABI = WrongInstalledABIFixture()
-        let workspace = WorkingWorkspaceFixture()
+        let workspace = ApplicationWorkspaceFixture()
         workspace.proxies = [chat, settings, chat, removed, blocked, hidden, plugin, badABI, NSObject()]
         ApplicationProxyFixture.records = [chat.identifier: chat, settings.identifier: settings,
             removed.identifier: removed, blocked.identifier: blocked, hidden.identifier: hidden,
@@ -156,43 +135,36 @@ struct ApplicationsRuntimeTests {
         require(InstalledApplications.choice(identifier: chat.identifier)?.name == chat.name,
                 "selected App name lookup failed")
         require(workspace.enumerations == 1, "name lookup rescanned all applications")
-        require(InstalledApplications.open(identifier: chat.identifier), "valid App did not launch")
-        require(workspace.launches == [chat.identifier], "launch must pass the exact Bundle ID once")
-        workspace.result = false
-        require(!InstalledApplications.open(identifier: chat.identifier), "launch failure reported success")
-        require(workspace.launches == [chat.identifier, chat.identifier], "failed launch retried")
+
         for identifier in [removed.identifier, blocked.identifier, hidden.identifier, plugin.identifier,
                            "com.example.missing", "com.example.bad", "bad/id"] {
-            require(!InstalledApplications.open(identifier: identifier), "unavailable App was launched")
+            require(InstalledApplications.choice(identifier: identifier) == nil, "unavailable App was admitted")
         }
-        require(workspace.launches.count == 2, "unavailable target reached the launch service")
+
         ApplicationProxyFixture.records[chat.identifier] = settings
-        require(!InstalledApplications.open(identifier: chat.identifier), "lookup returned a different App identity")
+        require(InstalledApplications.choice(identifier: chat.identifier) == nil, "lookup returned a different App identity")
         ApplicationProxyFixture.records[chat.identifier] = chat
         for unavailableRecord in [nil, NSObject(), settings.record] as [NSObject?] {
             chat.providedRecord = unavailableRecord
-            require(!InstalledApplications.open(identifier: chat.identifier), "missing/wrong/mismatched App record accepted")
+            require(InstalledApplications.choice(identifier: chat.identifier) == nil, "missing/wrong/mismatched App record accepted")
         }
         chat.providedRecord = chat.record
-        for incompatible in [ApplicationWorkspaceFixture(), WrongReturnWorkspaceFixture(), WrongArgumentWorkspaceFixture()] {
-            ApplicationWorkspaceFixture.current = incompatible
-            require(!InstalledApplications.open(identifier: chat.identifier), "missing/wrong ABI was accepted")
-            require(incompatible.launches.isEmpty, "incompatible launch method was invoked")
-        }
+
         ApplicationWorkspaceFixture.current = NSObject()
-        require(InstalledApplications.choices().isEmpty && !InstalledApplications.open(identifier: chat.identifier),
+        require(InstalledApplications.choices().isEmpty,
                 "wrong workspace identity was accepted")
         ApplicationWorkspaceFixture.current = nil
-        require(InstalledApplications.choices().isEmpty && !InstalledApplications.open(identifier: chat.identifier),
+        require(InstalledApplications.choices().isEmpty,
                 "missing workspace was accepted")
         ApplicationWorkspaceFixture.current = workspace
         let done = DispatchSemaphore(value: 0)
         DispatchQueue.global().async {
-            _ = InstalledApplications.open(identifier: chat.identifier)
+            require(InstalledApplications.choices().isEmpty, "off-main catalog query was accepted")
+            require(InstalledApplications.choice(identifier: chat.identifier) == nil, "off-main name lookup was accepted")
             done.signal()
         }
         require(done.wait(timeout: .now() + 5) == .success, "off-main test timed out")
-        require(workspace.launches.count == 2, "off-main launch was invoked")
+        require(workspace.enumerations == 1, "off-main catalog enumeration was invoked")
         print("OPEN_APP_RUNTIME_PASS: \(assertions) assertions against production Swift; OS services are fixtures, NOT device launch proof")
     }
 }

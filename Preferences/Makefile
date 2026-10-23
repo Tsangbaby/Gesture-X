@@ -4,7 +4,7 @@ TARGET = iphone:clang:latest:15.0
 include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = TapLockPrefs
-TapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift SettingsController.swift
+TapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift ApplicationIcons.swift SettingsController.swift
 TapLockPrefs_FRAMEWORKS = Foundation UIKit
 TapLockPrefs_PRIVATE_FRAMEWORKS = Preferences
 TapLockPrefs_SWIFT_VERSION = 5

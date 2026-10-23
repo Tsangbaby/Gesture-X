@@ -172,12 +172,17 @@ class SettingsAndBuildContracts(unittest.TestCase):
             return {(parent / item).resolve() for item in match[1].split()}
         self.assertEqual(members("Makefile", "TapLock"),
                          {p.resolve() for directory in ("Shared", "Sources")
-                          for p in (ROOT / directory).glob("*.swift")})
+                          for p in (ROOT / directory).glob("*.swift")
+                          if p != ROOT / "Shared/Applications.swift"})
         self.assertEqual(members("Preferences/Makefile", "TapLockPrefs"),
                          {(ROOT / "Shared/Preferences.swift").resolve(),
                           (ROOT / "Shared/Applications.swift").resolve(),
                           (ROOT / "Sources/PrivateAPI.swift").resolve(),
+                          (ROOT / "Preferences/ApplicationIcons.swift").resolve(),
                           (ROOT / "Preferences/SettingsController.swift").resolve()})
+        self.assertEqual(members("Makefile", "TapLock") | members("Preferences/Makefile", "TapLockPrefs"),
+                         {p.resolve() for directory in ("Shared", "Sources", "Preferences")
+                          for p in (ROOT / directory).glob("*.swift")})
         for makefile in ("Makefile", "Preferences/Makefile"):
             self.assertIn("iphone:clang:latest:15.0", source(makefile))
             self.assertIn("arm64 arm64e", source(makefile))

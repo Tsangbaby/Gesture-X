@@ -59,6 +59,18 @@ class MachOStartupParserTests(unittest.TestCase):
         for record in verifier.macho(fixture(kind=0)):
             self.assertEqual(record.get("initializers"), [])
 
+    def test_required_selector_must_exist_in_every_slice_not_only_the_fat_file(self):
+        data = fixture()
+        records = verifier.macho(data)
+        selector = b"__mod_init_func"
+        verifier.require_selector_per_slice(data, records, selector)
+        last = records[-1]
+        start, size = last["slice_offset"], last["slice_bytes"]
+        altered = data[:start] + data[start:start + size].replace(selector, b"x" * len(selector))
+        self.assertIn(selector, altered)
+        with self.assertRaisesRegex(ValueError, "arm64e"):
+            verifier.require_selector_per_slice(altered, records, selector)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

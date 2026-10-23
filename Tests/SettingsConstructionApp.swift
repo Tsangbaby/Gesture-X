@@ -193,6 +193,39 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 guard let identifier = target.detailTextLabel?.text, let name = target.textLabel?.text else {
                     require(false, "App picker lost name/Bundle ID"); return false
                 }
+                #if APP_ICONS
+                require(target.imageView?.image != nil, "App picker icon missing")
+                require(target.imageView?.image?.size == CGSize(width: 32, height: 32),
+                        "App picker icon canvas must be 32 points")
+                require(target.imageView?.contentMode == .scaleAspectFit, "App icon must preserve aspect ratio")
+                let firstIcon = target.imageView?.image
+                for _ in 0..<20 {
+                    let cell = picker.tableView(pickerTable, cellForRowAt: IndexPath(row: 0, section: 0))
+                    require(cell.imageView?.image === firstIcon,
+                            "repeated App cell rendering must reuse the cached icon")
+                }
+                #endif
+                #if APP_ICON_LOADER_TESTS
+                // Real UIKit icon selector, not a UIImage fixture or symbol-only replacement.
+                require(ApplicationIcons.load(identifier: identifier) != nil,
+                        "actual UIKit loader did not return the installed App icon")
+                let iconCache = ApplicationIcons()
+                let icon = iconCache.image(identifier: identifier)
+                require(icon != nil && iconCache.image(identifier: identifier) === icon,
+                        "real icon loader/cache failed")
+                require(iconCache.image(identifier: "bad/id") == nil, "invalid icon identifier accepted")
+                let missingIcon = iconCache.image(identifier: "com.tsangbaby.taplock.not-installed")
+                require(missingIcon?.size == CGSize(width: 32, height: 32),
+                        "missing App icon must use a fixed-size placeholder")
+                require(ApplicationIcons.normalized(nil) == nil, "nil image cannot be rendered")
+                let wide = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40)).image { context in
+                    UIColor.red.setFill()
+                    context.fill(CGRect(x: 0, y: 0, width: 80, height: 40))
+                }
+                require(ApplicationIcons.normalized(wide)?.size == CGSize(width: 32, height: 32),
+                        "wide image was not fitted to the icon canvas")
+                print("APP_ICON_UIKIT_PASS: actual installed-App icon + cache + placeholder + 32pt renderer")
+                #endif
                 // Rendering cells uses the cached snapshot. It must not reset selection.
                 for _ in 0..<20 { _ = picker.tableView(pickerTable, cellForRowAt: IndexPath(row: 0, section: 0)) }
                 require(TapLockPreferences.readAction() == .lock, "entering/cancelling picker changed the action")

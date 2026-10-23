@@ -109,29 +109,28 @@ class OpenAppContracts(unittest.TestCase):
         body = text.split('func recognized(', 1)[1].split('\n    }', 1)[0]
         self.assertIn('switch action', body)
         self.assertEqual(body.count('LockAction.requestLock()'), 1)
-        self.assertEqual(body.count('InstalledApplications.open(identifier: identifier)'), 1)
+        self.assertEqual(body.count('AppAction.open(identifier: identifier)'), 1)
         self.assertIn('case .unavailable:', body)
         self.assertNotIn('readAction()', body)
         self.assertLess(body.index('isEligible(in: host)'), body.index('switch action'))
         self.assertLess(body.index('isBlankHit(in: host'), body.index('switch action'))
 
-    def test_catalog_uses_checked_launchservices_without_urls_or_fallback_actions(self):
+    def test_settings_catalog_uses_checked_launchservices_but_cannot_launch(self):
         path = ROOT / 'Shared/Applications.swift'
-        self.assertTrue(path.is_file(), 'Missing installed-App catalog/launch implementation')
+        self.assertTrue(path.is_file(), 'Missing Settings-only installed-App catalog')
         text = source('Shared/Applications.swift')
         for token in ('"LSApplicationWorkspace"', '"defaultWorkspace"', '"allApplications"',
                       '"LSApplicationProxy"', '"applicationProxyForIdentifier:"',
-                      '"openApplicationWithBundleID:"', '"isInstalled"',
+                      '"isInstalled"',
                       '"isLaunchProhibited"', '"appTags"', '"hidden"',
                       'returns: "@", arguments: ["@"]',
-                      'returns: "B", arguments: ["@"]',
-                      '@convention(c) (AnyObject, Selector, NSString) -> Bool',
-                      'choice(identifier: identifier) != nil', 'Thread.isMainThread'):
+                      'Thread.isMainThread'):
             self.assertIn(token, text)
         for forbidden in ('URL(', 'openURL', 'LockAction', 'asyncAfter', 'Timer(', 'perform('):
             self.assertNotIn(forbidden, text)
         self.assertEqual(text.count('"allApplications"'), 1)
-        self.assertEqual(text.count('invoke(workspace, selector, identifier as NSString)'), 1)
+        self.assertNotIn('static func open(', text)
+        self.assertNotIn('openApplicationWithBundleID:', text)
 
     def test_action_is_one_atomic_preference_with_upgrade_lock_and_invalid_rejection(self):
         text = source('Shared/Preferences.swift')

@@ -13,13 +13,13 @@
     "Makefile": [
       {
         "before": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n",
-        "after": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n"
+        "after": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n"
       }
     ],
     "Preferences/Makefile": [
       {
         "before": "\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift SettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\n",
-        "after": "\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift SettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\n"
+        "after": "\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift ApplicationIcons.swift SettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\n"
       }
     ],
     "Shared/Preferences.swift": [
@@ -39,13 +39,13 @@
       },
       {
         "before": "\n    @objc private func recognized(_ sender: UITapGestureRecognizer) {\n        guard Thread.isMainThread, sender.state == .ended, !isDispatchingLock,\n              recognizers.contains(sender), let host = sender.view,\n              isEligible(in: host),\n              isBlankHit(in: host, point: sender.location(in: host)) else { return }\n        isDispatchingLock = true\n        defer { isDispatchingLock = false }\n        LockAction.requestLock()\n    }\n}\n",
-        "after": "\n    @objc private func recognized(_ sender: UITapGestureRecognizer) {\n        guard Thread.isMainThread, sender.state == .ended, !isDispatchingAction,\n              recognizers.contains(sender), let host = sender.view,\n              isEligible(in: host),\n              isBlankHit(in: host, point: sender.location(in: host)) else { return }\n        isDispatchingAction = true\n        defer { isDispatchingAction = false }\n        switch action {\n        case .lock:\n            LockAction.requestLock()\n        case .openApp(let identifier):\n            InstalledApplications.open(identifier: identifier)\n        case .unavailable:\n            break\n        }\n    }\n}\n"
+        "after": "\n    @objc private func recognized(_ sender: UITapGestureRecognizer) {\n        guard Thread.isMainThread, sender.state == .ended, !isDispatchingAction,\n              recognizers.contains(sender), let host = sender.view,\n              isEligible(in: host),\n              isBlankHit(in: host, point: sender.location(in: host)) else { return }\n        isDispatchingAction = true\n        defer { isDispatchingAction = false }\n        switch action {\n        case .lock:\n            LockAction.requestLock()\n        case .openApp(let identifier):\n            AppAction.open(identifier: identifier)\n        case .unavailable:\n            break\n        }\n    }\n}\n"
       }
     ],
     "Preferences/SettingsController.swift": [
       {
         "before": "@objc(TapLockSettingsController)\nfinal class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {\n    private enum Page { case root, homeScreen, doubleTapAction }\n    private var page: Page = .root\n    private let enabledSwitch = UISwitch()\n\n    // Some Settings factories prefer this selector. It must not call a missing\n",
-        "after": "@objc(TapLockSettingsController)\nfinal class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {\n    private enum Page { case root, homeScreen, doubleTapAction, applicationPicker }\n    private var page: Page = .root\n    private let enabledSwitch = UISwitch()\n    private var action: TapLockPreferences.Action = .lock\n    private var applicationName: String?\n    private var applications: [InstalledApplications.Choice] = []\n\n    // Some Settings factories prefer this selector. It must not call a missing\n"
+        "after": "@objc(TapLockSettingsController)\nfinal class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {\n    private enum Page { case root, homeScreen, doubleTapAction, applicationPicker }\n    private var page: Page = .root\n    private let enabledSwitch = UISwitch()\n    private var action: TapLockPreferences.Action = .lock\n    private var applicationName: String?\n    private var applications: [InstalledApplications.Choice] = []\n    private let applicationIcons = ApplicationIcons()\n\n    // Some Settings factories prefer this selector. It must not call a missing\n"
       },
       {
         "before": "        case .doubleTapAction:\n            title = \"选择双击动作\"\n        }\n    }\n",
@@ -61,7 +61,7 @@
       },
       {
         "before": "        case (.homeScreen, _):\n            cell.textLabel?.text = \"选择双击动作\"\n            cell.detailTextLabel?.text = \"系统锁屏\"\n            cell.accessoryType = .disclosureIndicator\n        case (.doubleTapAction, _):\n            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = .checkmark\n        }\n        return cell\n",
-        "after": "        case (.homeScreen, _):\n            cell.textLabel?.text = \"选择双击动作\"\n            cell.detailTextLabel?.text = actionSummary\n            cell.accessoryType = .disclosureIndicator\n        case (.doubleTapAction, 0):\n            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = action == .lock ? .checkmark : .none\n        case (.doubleTapAction, _):\n            cell.textLabel?.text = \"打开指定App\"\n            if case .openApp = action {\n                cell.detailTextLabel?.text = applicationName ?? \"App不可用\"\n                cell.accessoryType = .checkmark\n            } else {\n                cell.detailTextLabel?.text = \"选择App\"\n                cell.accessoryType = .disclosureIndicator\n            }\n        case (.applicationPicker, let row):\n            let choice = applications[row]\n            cell.textLabel?.text = choice.name\n            cell.detailTextLabel?.text = choice.identifier\n            cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none\n        }\n        return cell\n"
+        "after": "        case (.homeScreen, _):\n            cell.textLabel?.text = \"选择双击动作\"\n            cell.detailTextLabel?.text = actionSummary\n            cell.accessoryType = .disclosureIndicator\n        case (.doubleTapAction, 0):\n            cell.textLabel?.text = \"系统锁屏\"\n            cell.accessoryType = action == .lock ? .checkmark : .none\n        case (.doubleTapAction, _):\n            cell.textLabel?.text = \"打开指定App\"\n            if case .openApp = action {\n                cell.detailTextLabel?.text = applicationName ?? \"App不可用\"\n                cell.accessoryType = .checkmark\n            } else {\n                cell.detailTextLabel?.text = \"选择App\"\n                cell.accessoryType = .disclosureIndicator\n            }\n        case (.applicationPicker, let row):\n            let choice = applications[row]\n            cell.textLabel?.text = choice.name\n            cell.detailTextLabel?.text = choice.identifier\n            cell.imageView?.image = applicationIcons.image(identifier: choice.identifier)\n            cell.imageView?.contentMode = .scaleAspectFit\n            cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none\n        }\n        return cell\n"
       },
       {
         "before": "            navigationController?.pushViewController(TapLockSettingsController(page: .doubleTapAction), animated: true)\n        case (.doubleTapAction, 0):\n            navigationController?.popViewController(animated: true)\n        default:\n",
@@ -79,13 +79,13 @@
     "control": [
       {
         "before": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.2\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to request a system lock.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n",
-        "after": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.3\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock or open a selected App.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n"
+        "after": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.4\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock or open a selected App.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n"
       }
     ],
     "Preferences/Resources/Info.plist": [
       {
         "before": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.2</string>\n    <key>CFBundleVersion</key><string>0.1.2</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n",
-        "after": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.3</string>\n    <key>CFBundleVersion</key><string>0.1.3</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n"
+        "after": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.4</string>\n    <key>CFBundleVersion</key><string>0.1.4</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n"
       }
     ]
   }

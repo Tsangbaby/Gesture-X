@@ -10,6 +10,7 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
     private var action: TapLockPreferences.Action = .lock
     private var applicationName: String?
     private var applications: [InstalledApplications.Choice] = []
+    private let applicationIcons = ApplicationIcons()
 
     // Some Settings factories prefer this selector. It must not call a missing
     // PSViewController implementation; use the supported UIKit initializer.
@@ -121,6 +122,8 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
             let choice = applications[row]
             cell.textLabel?.text = choice.name
             cell.detailTextLabel?.text = choice.identifier
+            cell.imageView?.image = applicationIcons.image(identifier: choice.identifier)
+            cell.imageView?.contentMode = .scaleAspectFit
             cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none
         }
         return cell

@@ -1,6 +1,18 @@
 # 验证分层记录
 
-## 当前阶段：打开指定App 功能候选 0.1.3
+## 当前阶段：原生 App 启动与图标修正候选 0.1.4
+
+- 用户报告 `cb3f53b27e102b74cea93bf9a44d476cb873477a` 对应 0.1.3 在 iOS 15.4.1 / RootHide 选择 115 网盘后，双击导致整机按键无响应，只能强制重启；同时 App 列表缺图标。该版为严重实机失败，不再要求重复触发。没有现场线程栈，不能把同步调用嫌疑写成已确诊的死锁或内核故障，也不归咎于目标 App / 越狱。
+- 授权范围仅为原生单次启动与设置真实图标，不新增诊断采集、延时、重试、备用启动入口或通用动作引擎。新分支 `fix/native-app-launch-icons` 基于该失败源码；main 和旧分支保留，不自动合并或发布正式 Release。
+- SpringBoard 编译图完全移除 `Shared/Applications.swift`。手势既有通过门之后只调用 `AppAction.open`：校验主线程和 Bundle ID 语法，取得实际 SpringBoard 单例，要求启动方法归属于 SpringBoard / 其实际子类而非继承 UIKit 客户端方法，并检查返回 BOOL / 对象 + BOOL 参数的精确 ABI 后仅调用一次 `launchApplicationWithIdentifier:suspended:`，固定 suspended=false。此路径不再做任何 LaunchServices 目标查询或启动；目标可用性由原生系统接收者处理，不声称能在触发前保证 App 仍可启动。
+- LaunchServices 列表/状态校验只留在设置目标，并移除旧 `openApplicationWithBundleID:` 实现。设置 App 行按需加载真实 UIKit 图标，严格检查 int32 format / CGFloat scale ABI，等比画入 32pt 透明画布，按控制器缓存；拿不到图标才用同尺寸占位图，不逐行扫描 App 列表。
+- `PrivateAPI`、`LockAction`、`NativeHook`、`Bootstrap`、共享偏好存储保持失败版/已接受链的字节；手势 owner 只有一处 App 派发调用替换。历史基线哈希及全部 before-hunk 保持不变，仅更新授权 after-hunk 的精确逆变换，缺失/重复/错序/无关漂移仍必须被拒绝。
+- 本地已观察新原生入口/编译图和图标接线在实现前失败；这只是源码合同 RED，不是复现设备卡死。云端必须另对冻结的 0.1.3 启动代码执行同一 Swift harness，使其在“触及 LaunchServices”断言失败，当前入口须通过实际 receiver/ABI/父类入口拒绝/单次调用/错误线程测试；类名重绑定必须可逐字节还原。
+- 同一 UIKit harness 另对真实 0.1.3 设置源复现缺图标断言失败，再以当前设置源验证实际模拟器 App 图标加载、32pt 画布、缓存复用、占位及原有全部导航/持久化回归。仍使用明确的 Preferences 父类替身；模拟器不是用户 iOS 15.4.1 / RootHide。
+- 原始 RootHide 双架构包增加二进制边界门：tweak 必须包含原生启动 selector，且不含 LS catalog/client selector 或图标 loader；图标 loader 仅存在于 Preferences。实际构建结果由 exact-SHA Actions、`NATIVE_APP_TESTS.txt`、UIKit / 启动记录和原包核验报告决定，不能预先宣告成功。
+- 这是有源码依据但仍待设备验收的修正候选。没有可靠设备冻结线程证据，也未复现或实测修复 115 的卡死；不得把 CI / 二进制门通过写作真机修复通过。
+
+## 历史：打开指定App 功能候选 0.1.3（实机失败）
 
 - 用户报告 0.1.2 设置分层包测试通过，绑定已交付源码 `7f35f9e51aa9d61d8bd052f0ab6b85127313d326` 和成功运行 `39919548688`。这是用户报告的该阶段验收，不外推到新 App 功能。
 - 新候选在 `feat/open-selected-app` 开发，保留已接受分支和 main；仅增加“系统锁屏 / 打开指定App”二选一、已安装 App 选择、单值原子动作配置与一次 LaunchServices 启动。无通用动作引擎、URL Scheme 回退或生产日志。

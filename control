@@ -1,6 +1,6 @@
 Package: com.tsangbaby.taplock
 Name: TapLock
-Version: 0.1.3
+Version: 0.1.4
 Architecture: iphoneos-arm
 Description: Double-tap blank portrait Home Screen space to lock or open a selected App.
 Maintainer: Tsangbaby

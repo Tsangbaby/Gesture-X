@@ -132,12 +132,20 @@ def macho(data):
             require(any(block[start:start + count_bytes]), "Empty initializer table")
             initializers.append(dict(section, count=count_bytes // width))
         results.append({"arch": "arm64e" if subtype == 2 else "arm64",
+                        "slice_offset": offset, "slice_bytes": size,
                         "minimum_os": "15.0", "structural_signature": True,
                         "dependencies": dependencies, "sections": sections,
                         "initializers": initializers})
     require(sorted(x["arch"] for x in results) == ["arm64", "arm64e"],
             "Expected one arm64 and one arm64e slice")
     return results
+
+
+def require_selector_per_slice(data, records, selector):
+    for record in records:
+        start, size = record["slice_offset"], record["slice_bytes"]
+        require(selector in data[start:start + size],
+                f"Required selector missing from {record['arch']} slice: {selector!r}")
 
 
 def verify(package):
@@ -180,6 +188,15 @@ def verify(package):
             if script.name in ("postinst", "preinst", "prerm", "postrm"):
                 require(script.stat().st_mode & 0o777 == 0o755, f"Non-executable {script.name}")
         binaries = {name: macho((dest / name).read_bytes()) for name in (required[0], required[2])}
+        tweak_bytes = (dest / required[0]).read_bytes()
+        for forbidden in (b"LSApplicationWorkspace", b"LSApplicationProxy", b"LSApplicationRecord",
+                          b"openApplicationWithBundleID:",
+                          b"_applicationIconImageForBundleIdentifier:format:scale:"):
+            require(forbidden not in tweak_bytes, f"Settings/client API leaked into SpringBoard binary: {forbidden!r}")
+        require_selector_per_slice(tweak_bytes, binaries[required[0]],
+                                   b"launchApplicationWithIdentifier:suspended:")
+        require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
+                                   b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:
             require(not any("Orion.framework" in item for item in record["dependencies"]),
                     "Retired Orion dependency in tweak")
@@ -190,6 +207,7 @@ def verify(package):
     return {"file": package.name, "bytes": package.stat().st_size,
             "sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
             "control": fields, "required_files": required, "binaries": binaries,
+            "launch_boundary": "native SpringBoard selector present; LS client/catalog absent from tweak; icon loader in Settings only",
             "device_tested": False}
 
 

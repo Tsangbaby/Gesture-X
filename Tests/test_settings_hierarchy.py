@@ -17,7 +17,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines()
                       if ': ' in line)
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
-        self.assertEqual(fields['Version'], '0.1.3')
+        self.assertEqual(fields['Version'], '0.1.4')
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])
         self.assertEqual(fields['Package'], 'com.tsangbaby.taplock')
