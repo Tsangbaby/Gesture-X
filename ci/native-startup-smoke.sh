@@ -52,7 +52,7 @@ with open(sys.argv[1], 'wb') as f:
         LSRequiresIPhoneOS=True, UIDeviceFamily=[1], UILaunchScreen={}), f)
 PY
 xcrun swiftc -parse-as-library -swift-version 5 -O -target "$TARGET" -sdk "$SDK" \
-    -import-objc-header "$ROOT/Tests/NativeHookFixture.h" \
+    -I "$ROOT/Interfaces" -import-objc-header "$ROOT/Tests/NativeHookFixture.h" \
     "$ROOT/Tests/NativeStartupApp.swift" -L "$LIBS" -lTapLockHookFixture \
     -Xlinker -rpath -Xlinker @executable_path/Frameworks -o "$APP/NativeStartup"
 codesign --force --sign - "$APP"

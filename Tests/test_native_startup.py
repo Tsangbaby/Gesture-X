@@ -62,6 +62,8 @@ class NativeStartupContracts(unittest.TestCase):
                       "Tests/NativeHookFixture.m", "Tests/NativeStartupApp.swift",
                       "NATIVE_STARTUP_PASS", "NATIVE_STARTUP_TESTS.txt", "simctl", "--console"):
             self.assertIn(token, smoke)
+        self.assertEqual(smoke.count('-I "$ROOT/Interfaces"'), 2,
+                         "Both the dylib and its test app must load the declaration module map")
         app = (ROOT / "Tests/NativeStartupApp.swift").read_text()
         for token in ("dlopen", "TLHookInstallCount", "originalCalls", "recognizersBeforeOriginal",
                       "numberOfTapsRequired", "removeFromSuperview", "NATIVE_STARTUP_PASS"):

@@ -2,10 +2,11 @@
 
 ## Apple 编译 / 产物
 
-- tweak 和 Preferences 完整源图均经 Apple Swift 编译器通过，包含 Orion 生成入口。
+- tweak 和 Preferences 完整源图均经 Apple Swift 编译器通过；生产启动入口不依赖 Orion。
+- 优化、dead-strip 后的生产入口由 dyld 自动执行；原方法恰好调用一次，挂载/移除及重复启动在 UIKit 测试替身上通过。测试替身不等于真实 SpringBoard/Hook 后端。
 - arm64、arm64e 切片均符合对应越狱环境的 ABI；实际最低系统版本为 15.0。
 - 设置入口 detail、bundle 的 NSPrincipalClass、Objective-C 运行时类名一致，真实 PSViewController 的 initForContentSize: 创建路径可用。
-- 正确的 scheme、安装位置、Orion 与 PreferenceLoader 依赖、最终包内资源及哈希独立检查。
+- 正确的 scheme、安装位置、Substrate/PreferenceLoader 依赖、无 Orion 链接、最终包内资源及哈希独立检查。
 
 ## 首批设备集中验收
 
