@@ -11,6 +11,17 @@ ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'
 
 
 class OpenAppContracts(unittest.TestCase):
+    def test_runtime_fixture_names_cannot_collide_with_system_launchservices(self):
+        app = (ROOT / 'Tests/ApplicationsRuntimeTests.swift').read_text()
+        self.assertNotIn('@objc(LSApplicationProxy)', app)
+        self.assertNotIn('@objc(LSApplicationWorkspace)', app)
+        for name in ('TLTapLockApplicationProxyFixture', 'TLTapLockApplicationWorkspaceFixture'):
+            self.assertIn('@objc(' + name + ')', app)
+        script = (ROOT / 'ci/open-app-smoke.sh').read_text()
+        for token in ('original.count(old) == count', 'restored == original',
+                      '"LSApplicationProxy"', '"LSApplicationWorkspace"'):
+            self.assertIn(token, script)
+
     def test_authorized_delta_restores_exact_device_accepted_bytes(self):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():

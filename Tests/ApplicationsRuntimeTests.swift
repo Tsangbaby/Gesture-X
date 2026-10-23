@@ -5,7 +5,7 @@ import Darwin
 
 // Only the OS service objects are fixtures. Compile the actual production
 // preference reader/writer, ABI gate, catalog/filter and launch implementation.
-@objc(LSApplicationProxy)
+@objc(TLTapLockApplicationProxyFixture)
 class ApplicationProxyFixture: NSObject {
     static var records: [String: NSObject] = [:]
     @objc class func applicationProxyForIdentifier(_ identifier: NSString) -> NSObject? {
@@ -38,7 +38,7 @@ class WrongInstalledABIFixture: ApplicationProxyFixture {
     @objc func isInstalled() -> Int64 { calls += 1; return 1 }
 }
 
-@objc(LSApplicationWorkspace)
+@objc(TLTapLockApplicationWorkspaceFixture)
 class ApplicationWorkspaceFixture: NSObject {
     static var current: NSObject?
     var proxies: [NSObject] = []
