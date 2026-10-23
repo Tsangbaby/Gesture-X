@@ -21,6 +21,11 @@ final class NativeStartupApp: UIResponder, UIApplicationDelegate {
     private var image: UnsafeMutableRawPointer?
     private var passed = 0
 
+    private func checkpoint(_ name: String) {
+        print("NATIVE_STARTUP_CHECKPOINT: \(name)")
+        fflush(stdout)
+    }
+
     private func check(_ value: @autoclosure () -> Bool, _ name: String) {
         guard value() else {
             print("NATIVE_STARTUP_FAIL: \(name)")
@@ -32,6 +37,7 @@ final class NativeStartupApp: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        checkpoint("application launched")
         let window = UIWindow(frame: UIScreen.main.bounds)
         window.rootViewController = UIViewController()
         self.window = window
@@ -45,7 +51,9 @@ final class NativeStartupApp: UIResponder, UIApplicationDelegate {
               ObjectIdentifier(IconListFixture.self), "explicit system-class fixture")
         check(TLHookInstallCount() == 0, "no test-side installation before dlopen")
         let path = Bundle.main.bundlePath + "/Frameworks/TapLockStartup.dylib"
+        checkpoint("before dlopen")
         image = dlopen(path, RTLD_NOW | RTLD_LOCAL)
+        checkpoint("after dlopen")
         if image == nil {
             let reason = dlerror().map { String(cString: $0) } ?? "unknown loader error"
             check(false, "dlopen: \(reason)")
@@ -55,6 +63,7 @@ final class NativeStartupApp: UIResponder, UIApplicationDelegate {
     }
 
     private func verifyHook() {
+        checkpoint("verify hook")
         check(TLHookInstallCount() == 1, "dyld initializer automatically installed native hook")
         let host = window!.rootViewController!.view!
         let list = IconListFixture(frame: CGRect(x: 10, y: 100, width: 250, height: 350))

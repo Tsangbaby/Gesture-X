@@ -59,11 +59,29 @@ codesign --force --sign - "$APP"
 xcrun simctl install "$DEVICE" "$APP"
 python3 - "$DEVICE" "$BUNDLE" "$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt" <<'PY'
 import subprocess, sys
+from pathlib import Path
 p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
                     sys.argv[1], sys.argv[2]], stdout=subprocess.PIPE,
                    stderr=subprocess.STDOUT, text=True, timeout=120)
+print('simctl exit status:', p.returncode, flush=True)
 print(p.stdout, flush=True)
 if p.returncode or 'NATIVE_STARTUP_PASS:' not in p.stdout:
+    # CI-only evidence; retain the hard failure and never retry a product action.
+    roots = [Path.home() / 'Library/Logs/DiagnosticReports',
+             Path.home() / 'Library/Developer/CoreSimulator/Devices' / sys.argv[1] /
+             'data/Library/Logs/CrashReporter']
+    reports = [path for root in roots for path in root.glob('NativeStartup*') if path.is_file()]
+    for path in sorted(reports, key=lambda item: item.stat().st_mtime, reverse=True)[:2]:
+        print('NativeStartup crash report:', path.name, flush=True)
+        print(path.read_text(errors='replace')[:24000], flush=True)
+    try:
+        logs = subprocess.run(['xcrun', 'simctl', 'spawn', sys.argv[1], 'log', 'show',
+                               '--last', '2m', '--style', 'compact', '--predicate',
+                               'process == "NativeStartup"'], stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True, timeout=30)
+        print(logs.stdout[-18000:], flush=True)
+    except subprocess.TimeoutExpired:
+        print('CI-only simulator log read timed out', flush=True)
     raise SystemExit('Native startup test failed: no executed completion marker / nonzero exit')
 with open(sys.argv[3], 'w') as f:
     f.write(p.stdout)

@@ -51,6 +51,17 @@ class NativeStartupContracts(unittest.TestCase):
         self.assertIn('location as String == "SBIconLocationRootWithWidgets"', text)
         self.assertNotIn('contains("SBIconLocationRoot")', text)
 
+    def test_startup_smoke_reports_checkpoints_and_failure_details(self):
+        app = (ROOT / "Tests/NativeStartupApp.swift").read_text()
+        for token in ("NATIVE_STARTUP_CHECKPOINT:", 'checkpoint("application launched")',
+                      'checkpoint("before dlopen")', 'checkpoint("after dlopen")',
+                      'checkpoint("verify hook")'):
+            self.assertIn(token, app)
+        script = (ROOT / "ci/native-startup-smoke.sh").read_text()
+        for token in ("simctl exit status:", "DiagnosticReports", "CrashReporter",
+                      "NativeStartup", "log', 'show'", "timeout=30"):
+            self.assertIn(token, script)
+
     def test_real_startup_and_original_forwarding_are_executed_before_package(self):
         import json
         workflow = json.loads((ROOT / ".github/workflows/build.yml").read_text())
