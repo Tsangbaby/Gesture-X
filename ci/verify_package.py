@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+"""Inspect the actual RootHide deb; signatures are structural, not device proof.
+
+Run on macOS or Linux with dpkg-deb. SHA256SUMS.txt is emitted by build.sh.
+"""
+import argparse
+import hashlib
+import json
+import plistlib
+import struct
+import subprocess
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def command(*args):
+    return subprocess.check_output(args, text=True)
+
+
+def control_fields(text):
+    return dict(line.split(": ", 1) for line in text.splitlines()
+                if ": " in line and not line[0].isspace())
+
+
+def macho(data):
+    """Bound all FAT slices, load commands and embedded signature containers."""
+    if data[:4] == b"\xca\xfe\xba\xbe":
+        count = struct.unpack_from(">I", data, 4)[0]
+        require(0 < count <= 8 and len(data) >= 8 + 20 * count, "Invalid FAT table")
+        regions = []
+        for i in range(count):
+            _, _, offset, size, _ = struct.unpack_from(">IIIII", data, 8 + 20 * i)
+            require(offset >= 8 + 20 * count and size >= 32 and
+                    offset + size <= len(data), "Invalid FAT slice bounds")
+            require(all(offset + size <= a or a + b <= offset for a, b in regions),
+                    "Overlapping FAT slices")
+            regions.append((offset, size))
+    else:
+        regions = [(0, len(data))]
+    results = []
+    for offset, size in regions:
+        block = data[offset:offset + size]
+        require(len(block) >= 32 and block[:4] == b"\xcf\xfa\xed\xfe", "Expected MH_MAGIC_64")
+        _, cpu, subtype, _, ncmds, cmdbytes, _, _ = struct.unpack_from("<8I", block)
+        require(cpu == 0x0100000C, "Not ARM64")
+        subtype &= 0x00FFFFFF
+        require(subtype in (0, 2), "Unexpected ARM64 subtype")
+        require(ncmds <= 4096 and 32 + cmdbytes <= len(block), "Bad load-command bounds")
+        cursor = 32
+        minimum = None
+        signed = False
+        dependencies = []
+        for _ in range(ncmds):
+            require(cursor + 8 <= 32 + cmdbytes, "Truncated load command")
+            cmd, length = struct.unpack_from("<II", block, cursor)
+            end = cursor + length
+            require(length >= 8 and end <= 32 + cmdbytes, "Bad command length")
+            if cmd == 0x32:  # LC_BUILD_VERSION
+                require(length >= 24, "Truncated build version")
+                platform, minimum = struct.unpack_from("<II", block, cursor + 8)
+                require(platform == 2, "Not an iOS device binary")
+            elif cmd == 0x25:  # LC_VERSION_MIN_IPHONEOS
+                require(length >= 16, "Truncated minimum OS")
+                minimum = struct.unpack_from("<I", block, cursor + 8)[0]
+            elif cmd == 0x1D:  # LC_CODE_SIGNATURE
+                require(length >= 16, "Truncated signature command")
+                start, sigsize = struct.unpack_from("<II", block, cursor + 8)
+                require(sigsize >= 12 and start >= 32 + cmdbytes and
+                        start + sigsize <= len(block), "Out-of-bounds signature")
+                magic, declared, count = struct.unpack_from(">III", block, start)
+                require(magic == 0xFADE0CC0 and 12 + count * 8 <= declared <= sigsize,
+                        "Invalid embedded signature SuperBlob")
+                code_directory = False
+                for i in range(count):
+                    _, rel = struct.unpack_from(">II", block, start + 12 + 8 * i)
+                    require(rel >= 12 + count * 8 and rel + 8 <= declared,
+                            "Bad signature child offset")
+                    childmagic, childsize = struct.unpack_from(">II", block, start + rel)
+                    require(8 <= childsize <= declared - rel, "Bad signature child length")
+                    code_directory |= childmagic == 0xFADE0C02
+                require(code_directory, "Missing CodeDirectory")
+                signed = True
+            elif cmd in (0xC, 0x18, 0x80000018, 0x8000001F):
+                require(length >= 24, "Truncated dylib command")
+                nameoff = struct.unpack_from("<I", block, cursor + 8)[0]
+                require(24 <= nameoff < length, "Bad dependency offset")
+                name = block[cursor + nameoff:end].split(b"\0", 1)[0].decode()
+                require(not name.startswith("/var/jb/"), "Rootless dependency in RootHide binary")
+                dependencies.append(name)
+            cursor = end
+        require(cursor == 32 + cmdbytes, "Load-command count mismatch")
+        require(minimum == 0x000F0000, "Expected compiled iOS 15.0 minimum")
+        require(signed, "Missing embedded signature")
+        results.append({"arch": "arm64e" if subtype == 2 else "arm64",
+                        "minimum_os": "15.0", "structural_signature": True,
+                        "dependencies": dependencies})
+    require(sorted(x["arch"] for x in results) == ["arm64", "arm64e"],
+            "Expected one arm64 and one arm64e slice")
+    return results
+
+
+def verify(package):
+    fields = control_fields(command("dpkg-deb", "-f", str(package)))
+    expected = control_fields((ROOT / "control").read_text())
+    for key in ("Package", "Name", "Version"):
+        require(fields.get(key) == expected[key], f"Wrong {key}: {fields.get(key)}")
+    require(fields["Architecture"] == "iphoneos-arm64e", "Not a RootHide package")
+    depends = fields.get("Depends", "")
+    require("${" not in depends and "orion" in depends.lower() and
+            "preferenceloader" in depends and "firmware (>= 15.0)" in depends,
+            f"Unresolved/missing runtime dependencies: {depends}")
+    listing = command("dpkg-deb", "-c", str(package))
+    require("./var/jb/" not in listing, "Rootless payload in RootHide package")
+    with tempfile.TemporaryDirectory(prefix="taplock-verify-") as directory:
+        dest = Path(directory)
+        command("dpkg-deb", "-x", str(package), str(dest))
+        command("dpkg-deb", "-e", str(package), str(dest / "DEBIAN"))
+        required = ["Library/MobileSubstrate/DynamicLibraries/TapLock.dylib",
+                    "Library/MobileSubstrate/DynamicLibraries/TapLock.plist",
+                    "Library/PreferenceBundles/TapLockPrefs.bundle/TapLockPrefs",
+                    "Library/PreferenceBundles/TapLockPrefs.bundle/Info.plist",
+                    "Library/PreferenceLoader/Preferences/TapLock.plist"]
+        for name in required:
+            require((dest / name).is_file(), f"Missing payload: {name}")
+        tweak = plistlib.loads((dest / required[1]).read_bytes())
+        info = plistlib.loads((dest / required[3]).read_bytes())
+        entry = plistlib.loads((dest / required[4]).read_bytes())["entry"]
+        require(tweak["Filter"] == {"Bundles": ["com.apple.springboard"]}, "Wrong injection filter")
+        require(info["NSPrincipalClass"] == entry["detail"] == "TapLockSettingsController",
+                "Settings detail/principal mismatch")
+        require(info["CFBundleIdentifier"] == "com.tsangbaby.taplock.preferences", "Wrong bundle ID")
+        require(info["CFBundleExecutable"] == entry["bundle"] == "TapLockPrefs", "Wrong bundle executable")
+        require(info["CFBundleVersion"] == info["CFBundleShortVersionString"] == expected["Version"],
+                "Wrong Settings version")
+        for script in (dest / "DEBIAN").iterdir():
+            if script.name in ("postinst", "preinst", "prerm", "postrm"):
+                require(script.stat().st_mode & 0o777 == 0o755, f"Non-executable {script.name}")
+        binaries = {name: macho((dest / name).read_bytes()) for name in (required[0], required[2])}
+        for record in binaries[required[0]]:
+            require(any(".jbroot/Library/Frameworks/Orion.framework/Orion" in item
+                        for item in record["dependencies"]), "Wrong/missing RootHide Orion link")
+    return {"file": package.name, "bytes": package.stat().st_size,
+            "sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+            "control": fields, "required_files": required, "binaries": binaries,
+            "device_tested": False}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("package", type=Path)
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    packages = list(args.package.glob("*.deb")) if args.package.is_dir() else [args.package]
+    require(len(packages) == 1, f"Expected exactly one deb, got {len(packages)}")
+    report = verify(packages[0])
+    text = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    if args.report:
+        args.report.write_text(text)
+    print(text, end="")
+
+
+if __name__ == "__main__":
+    main()

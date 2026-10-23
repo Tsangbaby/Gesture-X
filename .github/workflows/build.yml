@@ -1,0 +1,53 @@
+{
+  "name": "Build TapLock — cloud Mac / RootHide",
+  "on": {
+    "push": {"branches": ["main"], "paths-ignore": ["docs/**", "README.md"]},
+    "workflow_dispatch": {}
+  },
+  "permissions": {"contents": "read"},
+  "jobs": {
+    "roothide": {
+      "name": "RootHide · Swift + UIKit · arm64 / arm64e",
+      "runs-on": "macos-15",
+      "timeout-minutes": 35,
+      "env": {
+        "THEOS_PACKAGE_SCHEME": "roothide",
+        "THEOS_REF": "cfba89a53a05b4a1b822121158acc3669c20602f",
+        "SDK_REF": "0222fd5413cf4b9af096f37b4621afa2688572f7",
+        "DEVELOPER_DIR": "/Applications/Xcode_16.4.app/Contents/Developer",
+        "HOMEBREW_NO_AUTO_UPDATE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "steps": [
+        {
+          "name": "Checkout exact source",
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {"persist-credentials": false}
+        },
+        {
+          "name": "Source and real Swift runtime tests",
+          "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p 'test_*.py' -v\nxcodebuild -version\nxcrun swift --version\nxcrun swiftc -swift-version 5 Sources/PrivateAPI.swift Tests/PrivateAPIRuntimeTests.swift -o \"$RUNNER_TEMP/private-api-tests\"\n\"$RUNNER_TEMP/private-api-tests\""
+        },
+        {
+          "name": "Install packaging tools and pinned RootHide Theos",
+          "run": "set -euo pipefail\nbrew install make dpkg ldid xz\nprintf '%s\\n' \"$(brew --prefix make)/libexec/gnubin\" >> \"$GITHUB_PATH\"\nexport THEOS=\"$RUNNER_TEMP/theos\"\nprintf 'THEOS=%s\\n' \"$THEOS\" >> \"$GITHUB_ENV\"\ngit init \"$THEOS\"\ngit -C \"$THEOS\" remote add origin https://github.com/roothide/theos.git\ngit -C \"$THEOS\" fetch --depth=1 origin \"$THEOS_REF\"\ngit -C \"$THEOS\" checkout --detach FETCH_HEAD\ngit -C \"$THEOS\" submodule update --init --recursive --depth=1\ntest \"$(git -C \"$THEOS\" rev-parse HEAD)\" = \"$THEOS_REF\"\ngit -C \"$THEOS\" submodule status --recursive\ngit init \"$RUNNER_TEMP/sdks\"\ngit -C \"$RUNNER_TEMP/sdks\" remote add origin https://github.com/theos/sdks.git\ngit -C \"$RUNNER_TEMP/sdks\" sparse-checkout init --cone\ngit -C \"$RUNNER_TEMP/sdks\" sparse-checkout set iPhoneOS16.5.sdk\ngit -C \"$RUNNER_TEMP/sdks\" fetch --depth=1 --filter=blob:none origin \"$SDK_REF\"\ngit -C \"$RUNNER_TEMP/sdks\" checkout --detach FETCH_HEAD\ntest \"$(git -C \"$RUNNER_TEMP/sdks\" rev-parse HEAD)\" = \"$SDK_REF\"\nmkdir -p \"$THEOS/sdks\"\ncp -R \"$RUNNER_TEMP/sdks/iPhoneOS16.5.sdk\" \"$THEOS/sdks/\""
+        },
+        {
+          "name": "Compile and package RootHide",
+          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh"
+        },
+        {
+          "name": "Upload original verified deb and provenance",
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "taplock-roothide-${{ github.sha }}",
+            "path": "${{ runner.temp }}/taplock-artifacts/*",
+            "if-no-files-found": "error",
+            "retention-days": 14,
+            "compression-level": 0
+          }
+        }
+      ]
+    }
+  }
+}

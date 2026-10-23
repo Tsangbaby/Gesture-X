@@ -1,0 +1,5 @@
+module TapLockPreferencesHost {
+    header "PSViewController.h"
+    link framework "Preferences"
+    export *
+}
