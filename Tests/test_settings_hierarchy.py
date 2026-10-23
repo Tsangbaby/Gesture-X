@@ -1,8 +1,11 @@
 """Settings hierarchy wiring only; real UIKit execution is a separate CI gate."""
 import hashlib
 import plistlib
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 from settings_hierarchy_baseline import FIXTURE, invert_settings_hierarchy
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +63,30 @@ class SettingsHierarchyContracts(unittest.TestCase):
         self.assertNotRegex(app, r'\b(?:controller|home|action)\.tableView\([^\n]*didSelectRowAt:')
         for table in ('table', 'homeTable', 'actionTable'):
             self.assertIn(table + '.delegate?.tableView?(', app)
+
+    def test_simctl_guard_checks_the_exact_marker_and_transport_status_not_child_exit(self):
+        script = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
+        block = script.split('python3 - "$DEVICE"', 1)[1].split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+        negative = 'SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势'
+        positive = 'FIXED_CONSTRUCTION_PASS'
+        # Explicit transport fixtures: the observed simulator launcher returns
+        # zero even when the test app exits 1 after its expected assertion.
+        for code, output, marker, accepted in (
+                (0, negative, negative, True), (0, positive, positive, True),
+                (1, positive, positive, False), (0, '', positive, False),
+                (0, negative, positive, False)):
+            with self.subTest(code=code, marker=marker, output=output), tempfile.TemporaryDirectory() as tmp:
+                argv = ['runner', 'device', 'bundle', '--expect-fixed', marker, str(Path(tmp) / 'report'), '1']
+                # The trailing legacy child-exit argument reproduces the
+                # failed command; the corrected guard must not consume it.
+                with mock.patch('sys.argv', argv), mock.patch('builtins.print'), mock.patch(
+                        'subprocess.run', return_value=SimpleNamespace(returncode=code, stdout=output)):
+                    failed = False
+                    try:
+                        exec(compile(block, '<actual simctl completion guard>', 'exec'), {})
+                    except SystemExit:
+                        failed = True
+                self.assertEqual(not failed, accepted)
 
     def test_same_uikit_harness_rejects_the_old_layout_before_testing_current_navigation(self):
         script = (ROOT / 'ci/settings-construction-smoke.sh').read_text()

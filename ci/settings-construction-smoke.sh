@@ -85,7 +85,7 @@ with open(sys.argv[1], 'w') as f:
 PY
 
 run_case() {
-    local source_root="$1" label="$2" mode="$3" marker="$4" expected_exit="${5:-0}"
+    local source_root="$1" label="$2" mode="$3" marker="$4"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
     mkdir -p "$app/Frameworks"
     cp -R "$FRAMEWORK" "$app/Frameworks/"
@@ -108,20 +108,22 @@ PY
         -o "$app/SettingsConstruction"
     codesign --force --sign - "$app"
     xcrun simctl install "$DEVICE" "$app"
-    python3 - "$DEVICE" "$bundle" "$mode" "$marker" "$RESULTS" "$expected_exit" <<'PY'
+    python3 - "$DEVICE" "$bundle" "$mode" "$marker" "$RESULTS" <<'PY'
 import subprocess, sys
 p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
                     sys.argv[1], sys.argv[2], sys.argv[3]],
                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
 print(p.stdout, flush=True)
-print('Constructor launch exit:', p.returncode, 'expected:', sys.argv[6], flush=True)
-if p.returncode != int(sys.argv[6]) or sys.argv[4] not in p.stdout:
+print('simctl launch exit:', p.returncode, flush=True)
+# simctl reports transport success, not the app's exit status. Every case
+# still requires its own exact terminal assertion/completion marker.
+if p.returncode or sys.argv[4] not in p.stdout:
     raise SystemExit('Constructor test failed: missing verified completion marker / nonzero exit')
 with open(sys.argv[5], 'a') as f:
     f.write(p.stdout + '\n')
 PY
 }
 run_case "$OLD" baseline --expect-legacy-failure BASELINE_EXPECTED_FAILURE
-run_case "$STABLE" accepted --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势' 1
+run_case "$STABLE" accepted --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势'
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"
