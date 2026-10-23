@@ -11,6 +11,15 @@ ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'
 
 
 class OpenAppContracts(unittest.TestCase):
+    def test_launch_admission_reads_the_corresponding_record_not_missing_proxy_properties(self):
+        text = source('Shared/Applications.swift')
+        for token in ('"LSApplicationRecord"', '"correspondingApplicationRecord"',
+                      'record.isKind(of: recordType)',
+                      'PrivateAPI.bool(record, "isLaunchProhibited") == false',
+                      'PrivateAPI.object(record, "appTags")', '$0.contains("hidden")'):
+            self.assertIn(token, text)
+        self.assertNotIn('PrivateAPI.bool(proxy, "isLaunchProhibited")', text)
+
     def test_empty_real_catalog_is_diagnosed_without_changing_the_success_gate(self):
         app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
         for token in ('LS_PROBE:', 'method_getTypeEncoding', 'isLaunchProhibited',
@@ -29,7 +38,8 @@ class OpenAppContracts(unittest.TestCase):
         app = (ROOT / 'Tests/ApplicationsRuntimeTests.swift').read_text()
         self.assertNotIn('@objc(LSApplicationProxy)', app)
         self.assertNotIn('@objc(LSApplicationWorkspace)', app)
-        for name in ('TLTapLockApplicationProxyFixture', 'TLTapLockApplicationWorkspaceFixture'):
+        for name in ('TLTapLockApplicationProxyFixture', 'TLTapLockApplicationWorkspaceFixture',
+                     'TLTapLockApplicationRecordFixture'):
             self.assertIn('@objc(' + name + ')', app)
         script = (ROOT / 'ci/open-app-smoke.sh').read_text()
         for token in ('original.count(old) == count', 'restored == original',
@@ -71,6 +81,8 @@ class OpenAppContracts(unittest.TestCase):
         self.assertLess(ui.index('run_case "$APP_OLD"'), ui.index('run_case "$ROOT"'))
         for token in ('-DOPEN_APP_ROWS', '-DOPEN_APP_FEATURE', 'Shared/Applications.swift', 'Sources/PrivateAPI.swift'):
             self.assertIn(token, ui)
+        self.assertIn('OPEN_APP_BASELINE_EXPECTED_FAILURE', smoke)
+        self.assertIn('filter, sort or deduplication failed', smoke)
 
     def test_settings_exposes_only_lock_and_installed_app_choice_without_launching(self):
         text = source('Preferences/SettingsController.swift')

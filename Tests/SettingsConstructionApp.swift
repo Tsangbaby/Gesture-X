@@ -43,6 +43,13 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     String(describing: PrivateAPI.object(proxy, selector))
                 print("LS_PROBE: \(selector) ABI=\(signature(proxy, selector)) value=\(value)")
             }
+            if let record = PrivateAPI.object(proxy, "correspondingApplicationRecord") {
+                for selector in ["isLaunchProhibited", "appTags", "bundleIdentifier"] {
+                    let value = selector.hasPrefix("is") ? String(describing: PrivateAPI.bool(record, selector)) :
+                        String(describing: PrivateAPI.object(record, selector))
+                    print("LS_PROBE: record \(type(of: record)) \(selector) ABI=\(signature(record, selector)) value=\(value)")
+                }
+            }
         }
         fflush(stdout)
     }

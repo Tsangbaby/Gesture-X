@@ -13,24 +13,39 @@ class ApplicationProxyFixture: NSObject {
     }
 }
 
+@objc(TLTapLockApplicationRecordFixture)
+class ApplicationRecordFixture: NSObject {
+    let identifier: String
+    var prohibited = false
+    var tags: [String] = []
+    init(_ identifier: String) { self.identifier = identifier; super.init() }
+    @objc func bundleIdentifier() -> NSString { identifier as NSString }
+    @objc func isLaunchProhibited() -> Bool { prohibited }
+    @objc func appTags() -> NSArray { tags as NSArray }
+}
+
 class InstalledProxyFixture: ApplicationProxyFixture {
     let identifier: String
     let name: String
     var installed = true
-    var prohibited = false
-    var tags: [String] = []
+    let record: ApplicationRecordFixture
+    var providedRecord: NSObject?
+    var prohibited: Bool { get { record.prohibited } set { record.prohibited = newValue } }
+    var tags: [String] { get { record.tags } set { record.tags = newValue } }
     var category = "User"
     init(_ identifier: String, _ name: String) {
         self.identifier = identifier
         self.name = name
+        let record = ApplicationRecordFixture(identifier)
+        self.record = record
+        self.providedRecord = record
         super.init()
     }
     @objc func bundleIdentifier() -> NSString { identifier as NSString }
     @objc func localizedName() -> NSString { name as NSString }
     @objc func applicationType() -> NSString { category as NSString }
     @objc func isInstalled() -> Bool { installed }
-    @objc func isLaunchProhibited() -> Bool { prohibited }
-    @objc func appTags() -> NSArray { tags as NSArray }
+    @objc func correspondingApplicationRecord() -> NSObject? { providedRecord }
 }
 
 class WrongInstalledABIFixture: ApplicationProxyFixture {
@@ -124,7 +139,7 @@ struct ApplicationsRuntimeTests {
         settings.category = "System"
         let removed = InstalledProxyFixture("com.example.removed", "Removed"); removed.installed = false
         let blocked = InstalledProxyFixture("com.example.blocked", "Blocked"); blocked.prohibited = true
-        let hidden = InstalledProxyFixture("com.example.hidden", "Hidden"); hidden.tags = ["hidden"]
+        let hidden = InstalledProxyFixture("com.example.hidden", "Hidden"); hidden.tags = [" hidden "]
         let plugin = InstalledProxyFixture("com.example.plugin", "Plugin"); plugin.category = "Plugin"
         let badABI = WrongInstalledABIFixture()
         let workspace = WorkingWorkspaceFixture()
@@ -154,6 +169,11 @@ struct ApplicationsRuntimeTests {
         ApplicationProxyFixture.records[chat.identifier] = settings
         require(!InstalledApplications.open(identifier: chat.identifier), "lookup returned a different App identity")
         ApplicationProxyFixture.records[chat.identifier] = chat
+        for unavailableRecord in [nil, NSObject(), settings.record] as [NSObject?] {
+            chat.providedRecord = unavailableRecord
+            require(!InstalledApplications.open(identifier: chat.identifier), "missing/wrong/mismatched App record accepted")
+        }
+        chat.providedRecord = chat.record
         for incompatible in [ApplicationWorkspaceFixture(), WrongReturnWorkspaceFixture(), WrongArgumentWorkspaceFixture()] {
             ApplicationWorkspaceFixture.current = incompatible
             require(!InstalledApplications.open(identifier: chat.identifier), "missing/wrong ABI was accepted")

@@ -61,13 +61,17 @@ enum InstalledApplications {
     private static func choice(_ proxy: NSObject, type: AnyClass) -> Choice? {
         guard proxy.isKind(of: type),
               PrivateAPI.bool(proxy, "isInstalled") == true,
-              PrivateAPI.bool(proxy, "isLaunchProhibited") == false,
+              let recordType = NSClassFromString("LSApplicationRecord"),
+              let record = PrivateAPI.object(proxy, "correspondingApplicationRecord"),
+              record.isKind(of: recordType),
+              PrivateAPI.bool(record, "isLaunchProhibited") == false,
               let category = PrivateAPI.object(proxy, "applicationType") as? String,
               category == "User" || category == "System",
               let identifier = PrivateAPI.object(proxy, "bundleIdentifier") as? String,
-              TapLockPreferences.validBundleIdentifier(identifier) else { return nil }
-        let tags = PrivateAPI.object(proxy, "appTags") as? [String] ?? []
-        guard !tags.contains("hidden") else { return nil }
+              TapLockPreferences.validBundleIdentifier(identifier),
+              PrivateAPI.object(record, "bundleIdentifier") as? String == identifier else { return nil }
+        let tags = PrivateAPI.object(record, "appTags") as? [String] ?? []
+        guard !tags.contains(where: { $0.contains("hidden") }) else { return nil }
         let name = (PrivateAPI.object(proxy, "localizedName") as? String).flatMap { $0.isEmpty ? nil : $0 }
         return Choice(identifier: identifier, name: name ?? identifier)
     }
