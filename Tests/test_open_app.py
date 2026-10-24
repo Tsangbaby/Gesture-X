@@ -51,14 +51,14 @@ class OpenAppContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_open_app(path, (ROOT / path).read_text(), control_center=True, notification_center=True)
+                restored = invert_open_app(path, (ROOT / path).read_text(), control_center=True, notification_center=True, screenshot=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
             # Test the historical stage after strictly inverting the new,
             # independently mutation-tested candidate delta once.
-            text = invert_control_center(path, (ROOT / path).read_text(), notification_center=True)
+            text = invert_control_center(path, (ROOT / path).read_text(), notification_center=True, screenshot=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.assertRaises(AssertionError):

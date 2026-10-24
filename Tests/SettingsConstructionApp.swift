@@ -163,7 +163,9 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     require(false, "action table missing")
                     return false
                 }
-                #if NOTIFICATION_CENTER_ROWS
+                #if SCREENSHOT_ROWS
+                let expectedActionRows = 5
+                #elseif NOTIFICATION_CENTER_ROWS
                 let expectedActionRows = 4
                 #elseif CONTROL_CENTER_ROWS
                 let expectedActionRows = 3
@@ -172,7 +174,9 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 #else
                 let expectedActionRows = 1
                 #endif
-                #if NOTIFICATION_CENTER_ROWS
+                #if SCREENSHOT_ROWS
+                let rowFailure = "Screenshot action row missing"
+                #elseif NOTIFICATION_CENTER_ROWS
                 let rowFailure = "Notification Center action row missing"
                 #elseif CONTROL_CENTER_ROWS
                 let rowFailure = "Control Center action row missing"
@@ -311,7 +315,7 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 guard let savedTable = savedPage.view as? UITableView else {
                     require(false, "reopened Notification Center action table missing"); return false
                 }
-                for row in 0..<4 {
+                for row in 0..<expectedActionRows {
                     let selected = savedPage.tableView(savedTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
                     require(selected == (row == 3), "Notification Center selection was lost or not exclusive")
                 }
@@ -327,12 +331,62 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 guard let restoredTable = restoredPage.view as? UITableView else {
                     require(false, "restored Control Center table missing"); return false
                 }
-                for row in 0..<4 {
+                for row in 0..<expectedActionRows {
                     let selected = restoredPage.tableView(restoredTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
                     require(selected == (row == 2), "restored Control Center selection was not exclusive")
                 }
                 restoredTable.delegate?.tableView?(restoredTable, didSelectRowAt: IndexPath(row: 0, section: 0))
                 print("NOTIFICATION_CENTER_UIKIT_PASS: selection + persistent reentry + four-way exclusivity + summary + Control Center/lock restoration #\(iteration)")
+                #endif
+                #if SCREENSHOT_FEATURE
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let screenshotPage = navigation.topViewController as? TapLockSettingsController,
+                      screenshotPage !== home else { require(false, "Screenshot page did not push"); return false }
+                screenshotPage.loadViewIfNeeded()
+                screenshotPage.viewWillAppear(false)
+                guard let screenshotTable = screenshotPage.view as? UITableView else {
+                    require(false, "Screenshot action table missing"); return false
+                }
+                let screenshotRow = screenshotPage.tableView(screenshotTable, cellForRowAt: IndexPath(row: 4, section: 0))
+                require(screenshotRow.textLabel?.text == "系统截图" && screenshotRow.accessoryType == .none,
+                        "Screenshot label/initial selection incorrect")
+                screenshotTable.delegate?.tableView?(screenshotTable, didSelectRowAt: IndexPath(row: 4, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .screenshot,
+                        "Screenshot selection did not save and return home")
+                home.viewWillAppear(false)
+                require(home.tableView(homeTable, cellForRowAt: IndexPath(row: 1, section: 0)).detailTextLabel?.text ==
+                        "系统截图", "Screenshot home summary did not refresh")
+                require(TapLockPreferences.readEnabled() == !original, "Screenshot selection changed enable state")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let savedScreenshotPage = navigation.topViewController as? TapLockSettingsController,
+                      savedScreenshotPage !== screenshotPage else { require(false, "Screenshot page was not reconstructed"); return false }
+                savedScreenshotPage.loadViewIfNeeded()
+                savedScreenshotPage.viewWillAppear(false)
+                guard let savedScreenshotTable = savedScreenshotPage.view as? UITableView else {
+                    require(false, "reopened Screenshot action table missing"); return false
+                }
+                for row in 0..<5 {
+                    let selected = savedScreenshotPage.tableView(savedScreenshotTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 4), "Screenshot selection was lost or not exclusive")
+                }
+                savedScreenshotTable.delegate?.tableView?(savedScreenshotTable, didSelectRowAt: IndexPath(row: 3, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .notificationCenter,
+                        "Screenshot could not switch back to Notification Center")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let restoredScreenshotPage = navigation.topViewController as? TapLockSettingsController else {
+                    require(false, "restored Notification Center page missing"); return false
+                }
+                restoredScreenshotPage.loadViewIfNeeded()
+                restoredScreenshotPage.viewWillAppear(false)
+                guard let restoredScreenshotTable = restoredScreenshotPage.view as? UITableView else {
+                    require(false, "restored Notification Center table missing"); return false
+                }
+                for row in 0..<5 {
+                    let selected = restoredScreenshotPage.tableView(restoredScreenshotTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 3), "restored Notification Center selection was not exclusive")
+                }
+                restoredScreenshotTable.delegate?.tableView?(restoredScreenshotTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                print("SCREENSHOT_UIKIT_PASS: selection + persistent reentry + five-way exclusivity + summary + Notification Center/lock restoration #\(iteration)")
                 #endif
                 require(navigation.topViewController === home, "selecting current action must return home")
                 require(TapLockPreferences.readEnabled() == !original, "action navigation changed enable state")

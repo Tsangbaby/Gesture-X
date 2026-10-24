@@ -213,6 +213,11 @@ def verify(package):
             require_selector_per_slice(tweak_bytes, binaries[required[0]], name)
         require(b"SBCoverSheetPresentationManager" not in (dest / required[2]).read_bytes(),
                 "Notification Center provider leaked into Settings binary")
+        # takeScreenshot is a short Swift lookup string and need not remain
+        # contiguous in optimized code; Apple target compilation and executed
+        # production receiver/ABI tests are its positive membership evidence.
+        require(b"takeScreenshot" not in (dest / required[2]).read_bytes(),
+                "Screenshot provider leaked into Settings binary")
         require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
                                    b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:

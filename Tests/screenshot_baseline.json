@@ -1,0 +1,85 @@
+{
+  "baseline": "078b98fb67582422a577b70ae3335ecc0d1e2ab9",
+  "frozen": {
+    "Interfaces/TapLockNativeRuntime/NativeRuntime.h": "e763895e3f1429884ee3d5101bee0601ad899fb50f950db7df2a57d9a2afa760",
+    "Interfaces/TapLockNativeRuntime/module.modulemap": "e22a94cbcef24d41a163d6e1214644d2ebc4ffa445456c572aef7e8dcfaf7a21",
+    "Interfaces/TapLockPreferencesHost/PSViewController.h": "e1694c2e656c15ec16a92236159a6bd31d9a1125625ca80e154530b953074cf0",
+    "Interfaces/TapLockPreferencesHost/module.modulemap": "a8eaa6b0f7925ffa1ec469469e2f694abc02448ca89cfd1d5cbe2e4d4257b303",
+    "Makefile": "b96f3ccc6071a67bbe2ae46ba284e557e18684a26fad21177e7d841860c9b8d5",
+    "Preferences/ApplicationIcons.swift": "946826d36c54e9e9bb21dd2054e7265f5b1a8b8424419f6a1a3101156ebfe9d7",
+    "Preferences/Makefile": "48ab9b33dea920d96e2202c654f2b7f9169b2fcbf212f2995ae1cd675a683d4e",
+    "Preferences/Resources/Info.plist": "48c136c615709ed45ab8562fc25b6695e2c6d6b97f8de2cb266b6fb93dda0d8e",
+    "Preferences/SettingsController.swift": "e49b93056ebe05781ff636ffed00f923670f6a966a827abc95481a4861dc005f",
+    "Shared/Applications.swift": "67445a7a11dfacba116e7fd7699bb96e0bf221d6a1c042b99ad182db8788b0cd",
+    "Shared/Preferences.swift": "11db8944458ba92051d6189ed788d20fd2ebd9f1fc2e1272591577f24ff5c6ed",
+    "Sources/AppAction.swift": "aea806214ee0c17b919d3a3b61932309cd1803af4f3286e310ad57bf064a2e0b",
+    "Sources/Bootstrap.swift": "c06f200f456f8103990378d60888e7810e0185ec3152a1026759e429c68d8e07",
+    "Sources/ControlCenterAction.swift": "9b3559acc7f975b31b95353e23e598e80a00c4705f25b61a7e48fbd5862cc99f",
+    "Sources/HomeDoubleTap.swift": "43abaefa406e362b1db51797936d7e9cb5ab990c93c3f5621967d1cd1af274bd",
+    "Sources/LockAction.swift": "8c902edd37e44ea4b5afc4e21b078fa6415b22e6efc55264b4af6d2d66e07387",
+    "Sources/NativeHook.swift": "45f6dbe10dcdceb201edf0bb8ba539b7e8be6e1f5f968ddc76ecdb2753edccba",
+    "Sources/NotificationCenterAction.swift": "181358bca4c03e11e243e4a78cbcb23a53a5f2db6da46f60d720d1ccae67ea10",
+    "Sources/PrivateAPI.swift": "a2b9fdeed907801f2259175f88e328123c6f0c759c9a3f1008b521a9f9db6aa7",
+    "TapLock.plist": "22957c2b6df0a9dd9c7deba18639321701aadf1e6452b86d9be434e48c7f454f",
+    "control": "2a510d345dfa51c8676cc4d24ffeb0bb319fc30d564dcddd2e2929285c187334",
+    "layout/Library/PreferenceLoader/Preferences/TapLock.plist": "e534efb724cb83b9c20a0a0ec24f72718dea22e29c6728f965d8c6da3cdd195a"
+  },
+  "hunks": {
+    "Makefile": [
+      {
+        "before": "TWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/NotificationCenterAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\n",
+        "after": "TWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/NotificationCenterAction.swift Sources/ScreenshotAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\n"
+      }
+    ],
+    "Preferences/Resources/Info.plist": [
+      {
+        "before": "    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.6</string>\n    <key>CFBundleVersion</key><string>0.1.6</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n",
+        "after": "    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.7</string>\n    <key>CFBundleVersion</key><string>0.1.7</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n"
+      }
+    ],
+    "Preferences/SettingsController.swift": [
+      {
+        "before": "        case .notificationCenter: return \"打开通知中心\"\n        case .unavailable: return \"配置不可用，请重新选择\"\n",
+        "after": "        case .notificationCenter: return \"打开通知中心\"\n        case .screenshot: return \"系统截图\"\n        case .unavailable: return \"配置不可用，请重新选择\"\n"
+      },
+      {
+        "before": "        case .homeScreen: return 2\n        case .doubleTapAction: return 4\n        case .applicationPicker: return applications.count\n",
+        "after": "        case .homeScreen: return 2\n        case .doubleTapAction: return 5\n        case .applicationPicker: return applications.count\n"
+      },
+      {
+        "before": "            cell.accessoryType = action == .notificationCenter ? .checkmark : .none\n        case (.applicationPicker, let row):\n",
+        "after": "            cell.accessoryType = action == .notificationCenter ? .checkmark : .none\n        case (.doubleTapAction, 4):\n            cell.textLabel?.text = \"系统截图\"\n            cell.accessoryType = action == .screenshot ? .checkmark : .none\n        case (.applicationPicker, let row):\n"
+      },
+      {
+        "before": "            guard TapLockPreferences.writeAction(.notificationCenter) else { showSaveError(); return }\n            navigationController?.popViewController(animated: true)\n",
+        "after": "            guard TapLockPreferences.writeAction(.notificationCenter) else { showSaveError(); return }\n            navigationController?.popViewController(animated: true)\n        case (.doubleTapAction, 4):\n            guard TapLockPreferences.writeAction(.screenshot) else { showSaveError(); return }\n            navigationController?.popViewController(animated: true)\n"
+      }
+    ],
+    "Shared/Preferences.swift": [
+      {
+        "before": "        case notificationCenter\n        case unavailable\n",
+        "after": "        case notificationCenter\n        case screenshot\n        case unavailable\n"
+      },
+      {
+        "before": "        if kind == \"notificationCenter\", record.count == 1 { return .notificationCenter }\n        if kind == \"openApp\", record.count == 2,\n",
+        "after": "        if kind == \"notificationCenter\", record.count == 1 { return .notificationCenter }\n        if kind == \"screenshot\", record.count == 1 { return .screenshot }\n        if kind == \"openApp\", record.count == 2,\n"
+      },
+      {
+        "before": "            record = [\"kind\": \"notificationCenter\"]\n        case .openApp(let identifier):\n",
+        "after": "            record = [\"kind\": \"notificationCenter\"]\n        case .screenshot:\n            record = [\"kind\": \"screenshot\"]\n        case .openApp(let identifier):\n"
+      }
+    ],
+    "Sources/HomeDoubleTap.swift": [
+      {
+        "before": "            NotificationCenterAction.open()\n        case .unavailable:\n",
+        "after": "            NotificationCenterAction.open()\n        case .screenshot:\n            ScreenshotAction.capture()\n        case .unavailable:\n"
+      }
+    ],
+    "control": [
+      {
+        "before": "Name: TapLock\nVersion: 0.1.6\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock, open an App or show Control/Notification Center.\nMaintainer: Tsangbaby\n",
+        "after": "Name: TapLock\nVersion: 0.1.7\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock, open an App, show Control/Notification Center or take a system screenshot.\nMaintainer: Tsangbaby\n"
+      }
+    ]
+  }
+}

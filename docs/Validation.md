@@ -1,5 +1,16 @@
 # 验证分层记录
 
+## 当前候选：系统截图 0.1.7
+
+- 用户授权先固化已通过的 0.1.6，再只增加系统截图。main 的纯验收文档提交是 `5cb04fbd295dbf3892230be4d02fb20800a38363`，运行字节与已验收源码 `078b98fb67582422a577b70ae3335ecc0d1e2ab9` 相同；原分支和原包保留，没有重编 0.1.6 或发布 Tag / Release。
+- `feat/system-screenshot` 仅新增第五个互斥动作、单值偏好、设置摘要和一个手势分派。旧手势过滤/生命周期、锁屏、App 启动、控制中心、通知中心、应用目录和图标均保护不变。截图专用精确计数/顺序逆变换恢复 22 个已验收运行文件；所有历史 frozen 摘要保持不变，旧逆变换默认仍严格，当前调用点必须显式选择截图逆变换。
+- 声明证据：Runtime-Headers commit `f15f8ebf05b6da366045a4eec985c9dda7c5f456` 的 `iOS/15/15.2.tar.gz` 中 `15.2/System/Library/PrivateFrameworks/SpringBoard.framework/SpringBoard/SpringBoard.h`，提取头 SHA-256 `6121ca4fc3ab15d56fe0bfe79991072db5b41f681f85681970bd204330440b14`，第 426 行声明 `- (void)takeScreenshot;`。iOS 15.5 头仓库 `lechium/iPhone_OS_15.5@0f4def7da3cad33a6ea5a4224f4ec3526f3e73f8` 的 `System/Library/PrivateFrameworks/SpringBoard/SpringBoard.h`，核验 blob `00708a292a6c6497bb494bd9871a3bfff575cd79`，亦声明同一实例入口。
+- 接收者/调用模式参考：`hieuvh/HalFiPad@4e22eea486e55f99fd64e457c69b19cfea654112` 的 `TweakSB.xm`，核验 blob `781605f2dfb1fb0650d0d905949ed34a39bf52bc`，第 677 行向 `[UIApplication sharedApplication]` 的 SpringBoard 实例发送 `takeScreenshot`；`FreZZyBuilds/ReachOptions@ede5c9710577577e9a12b31b71f04916fd7b1964` 的 `Tweak/Actions/ROScreenshot.x`，核验 blob `35d00d57c26806efaa41a5a31d5c395acb888679`，第 9 行相同。公开第三方调用不是本项目实机成功证明，邻近系统声明不等于 iOS 15.4.1 的实时 ABI。
+- 新提供者要求主线程、原有解锁门、实际 SpringBoard 类链和 `sharedApplication` 对象，精确检查 `takeScreenshot` 的 `v@:` 零显式参数 ABI，满足时同步调用一次。返回 true 仅指请求已提交；不检查或读取相册，不自行截图/保存/上传，不回退 `SBScreenShotter` / screenshotManager、HID、锁屏、定时器或备用入口，不添加诊断采集。
+- 本地先观察到动作/版本两个源码合同 RED，最小实现后转 GREEN；CI 执行接线及包进程边界合同另观察到两个 RED。最终本地完整执行 81 项源码/资源合同并全部通过，shell、内嵌 Python、plist 和 workflow 解析通过。本机没有 Swift / Apple SDK，这些检查不是 Swift 编译或截图成功证明。
+- 云端要求同一真实偏好 harness 在未修改的 0.1.6 失败于“新截图动作不可用”，当前真实 Swift 再通过；仅在临时源副本精确、可逆重绑定固定 OS 类名，方法体与 ABI 门不改。覆盖单次调用、类型/ABI、线程/锁定状态、旧偏好和损坏数据。UIKit 同一 harness 证明旧版缺第五行，再执行截图选择、返回、重进、摘要、五动作互斥及旧 App/图标/通知中心回归；随后 Apple arm64 / arm64e 编译完整生产图和核验原始 RootHide 包。
+- 本节冻结于交付前：最终执行结果绑定 exact-SHA Actions 和原始报告，不预先宣告云端通过。0.1.7 实机尚待反馈；不合入 main，不创建 Tag / Release，不外推其他系统。
+
 ## 当前基线：打开通知中心 0.1.6（用户反馈通过）
 
 - 用户对已交付的 0.1.6 RootHide 功能包反馈“测试已通过”。绑定源码 `078b98fb67582422a577b70ae3335ecc0d1e2ab9`、成功 Actions `40066822391`、原包 SHA-256 `fda2c0cd9b4fe63d85984da3c658e1fe3e81aec59fdf387d4a29976835bb366a`；环境沿用此前报告的 iOS 15.4.1 / RootHide。这是用户实机反馈，不是助手独立设备复测，不自动将未逐项反馈的子项标为执行，也不外推其他系统。

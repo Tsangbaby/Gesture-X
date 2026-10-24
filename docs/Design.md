@@ -39,6 +39,12 @@
 
 四动作互斥保存为单个属性列表；新动作只接受单键 `kind=notificationCenter`，没有 target 或额外字段。缺失配置仍默认锁屏，已有配置不迁移或重置，损坏配置不执行其他动作。设置页第四行只写偏好，不链接通知中心提供者。手势层只加一个 case，先前的过滤、监听与生命周期不改。
 
+## 系统截图动作
+
+0.1.7 的第五个互斥动作复用桌面双击，仅使用实际 `SpringBoard.sharedApplication` 对象的 `takeScreenshot`，精确 ABI 为 `v@:`，没有显式参数。先过主线程和原有解锁门，再校验对象类链、返回/隐式参数/参数总数，只同步请求一次；缺失或 ABI 不符则不执行其他动作。设置只保存单键 `kind=screenshot` 并返回，不链接提供者。缺失配置仍默认锁屏，损坏值不执行，已有四个动作不迁移或重置。
+
+不向 UIApplication 猜测实例方法，不自行抓取屏幕、绘制/写入相册、上传内容、发送 HID，不拼动画、增加计时器、延时补发或备用入口。入口声明与调用模式的固定 SHA / blob 见 `Validation.md`。返回 true 只证明提交了请求，不证明图片已经进入相册、原生缩略图出现或桌面保持响应；这些都是独立实机验收项。
+
 ## 设置契约
 
 PreferenceLoader 原始源码的 `controllerForSpecifier:` 检查 PSViewController 继承关系，优先调用 `initForContentSize:`，随后写入 root/parent/specifier。不能只用同名 UITableViewController 替代。

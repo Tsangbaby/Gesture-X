@@ -1,15 +1,15 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.6“打开通知中心”原始 RootHide 包已获用户反馈“测试已通过”，固化为当前回退基线。验收环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
+**状态：0.1.6“打开通知中心”原始 RootHide 包已获用户反馈“测试已通过”并固化到 main。独立候选 0.1.7 只增加“系统截图”，待 exact-SHA 云端构建及实机验收，不合入 main。验收基线环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.6，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.7，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
-## 一条手势链，四选一动作
+## 一条手势链，五选一动作
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心 / 打开通知中心（四选一）`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心 / 打开通知中心 / 系统截图（五选一）`
 
 锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
@@ -18,6 +18,7 @@
 - 编辑桌面、原生滚动/长按/拖动正在进行、VoiceOver 开启时不触发。
 - 不注入普通 App，不接管底部/状态栏/实体按键，不增加全屏触摸罩。
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
+- 0.1.7 只新增“系统截图”：设置选择只保存，桌面双击向实际 SpringBoard 对象提交一次 `takeScreenshot` 请求。不自行绘制、保存或上传截图，不加延时重试、HID 或自定义动画；相册保存和系统缩略图待实机验收。
 - 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
 当前已验收原包绑定源码 `078b98fb67582422a577b70ae3335ecc0d1e2ab9`、成功 Actions `40066822391`、SHA-256 `fda2c0cd9b4fe63d85984da3c658e1fe3e81aec59fdf387d4a29976835bb366a`。`feat/open-notification-center` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。旧回退分支及原包也保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
@@ -33,7 +34,8 @@
       ├─ 打开指定App
       │  └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
       ├─ 打开控制中心
-      └─ 打开通知中心
+      ├─ 打开通知中心
+      └─ 系统截图
 ```
 
 按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留。新增动作与 Bundle ID 存入同一个 CFPreferences 属性列表值；保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。列表每次进入建立一次快照，不按行扫描全部 App；设置页只选择，不当场执行动作。
@@ -50,6 +52,7 @@ Shared/Preferences.swift             Settings/SpringBoard 共用开关与动作�
 Sources/AppAction.swift              SpringBoard 原生单次启动；拒绝继承的 UIKit 客户端入口
 Sources/ControlCenterAction.swift    SpringBoard 原生单次打开控制中心；不切换、重试或回退
 Sources/NotificationCenterAction.swift 解锁态 Cover Sheet 单次打开；BOOL/Block ABI 与转场门
+Sources/ScreenshotAction.swift        单次原生 takeScreenshot 请求；不自绘、保存或上传
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
@@ -89,4 +92,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-最后按 `docs/Acceptance.md` 做本次通知中心动作和旧动作保护项的集中设备验收。锁屏、原生 App 启动、控制中心、图标、Hook 与过滤保持 0.1.5 的已接受实现；0.1.5 的用户反馈不覆盖新通知中心功能，云端执行也不等于设备验收。
+最后按 `docs/Acceptance.md` 做本次系统截图动作和旧动作保护项的集中设备验收。锁屏、原生 App 启动、控制中心、通知中心、图标、Hook 与过滤保持 0.1.6 的已接受实现；0.1.6 的用户反馈不覆盖新截图功能，云端执行也不等于设备验收。

@@ -10,6 +10,7 @@ OPEN_APP_BASELINE=7f35f9e51aa9d61d8bd052f0ab6b85127313d326
 ICON_BASELINE=cb3f53b27e102b74cea93bf9a44d476cb873477a
 CONTROL_CENTER_BASELINE=b8d6994be7defcc37ceac3bb158c5526c952ac3a
 NOTIFICATION_CENTER_BASELINE=1b6615b46242abeb5b8ef0f0bf4afba14db18e2a
+SCREENSHOT_BASELINE=078b98fb67582422a577b70ae3335ecc0d1e2ab9
 WORK="$(mktemp -d "$RUNNER_TEMP/taplock-settings.XXXXXX")"
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ARCH="$(uname -m)"
@@ -127,6 +128,16 @@ for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAP
     git -C "$ROOT" show "$NOTIFICATION_CENTER_BASELINE:$path" > "$NC_OLD/$path"
 done
 
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$SCREENSHOT_BASELINE"
+SCREENSHOT_OLD="$WORK/accepted-no-screenshot"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap; do
+    mkdir -p "$SCREENSHOT_OLD/$(dirname "$path")"
+    git -C "$ROOT" show "$SCREENSHOT_BASELINE:$path" > "$SCREENSHOT_OLD/$path"
+done
+
 run_case() {
     local source_root="$1" label="$2" mode="$3" marker="$4"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
@@ -143,22 +154,25 @@ with open(sys.argv[1], 'wb') as f:
 PY
     local compile_sources=("$source_root/Shared/Preferences.swift" "$source_root/Preferences/SettingsController.swift")
     local compile_flags=(-parse-as-library -swift-version 5)
-    if [ "$label" = app-baseline ] || [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = app-baseline ] || [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DOPEN_APP_ROWS)
     fi
-    if [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DOPEN_APP_FEATURE -DAPP_ICONS)
         compile_sources+=("$source_root/Shared/Applications.swift" "$source_root/Sources/PrivateAPI.swift")
     fi
-    if [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DCONTROL_CENTER_ROWS)
         compile_sources+=("$source_root/Preferences/ApplicationIcons.swift")
     fi
-    if [ "$label" = notification-center-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DNOTIFICATION_CENTER_ROWS)
     fi
+    if [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
+        compile_flags+=(-DSCREENSHOT_ROWS)
+    fi
     if [ "$label" = fixed ]; then
-        compile_flags+=(-DAPP_ICON_LOADER_TESTS -DCONTROL_CENTER_FEATURE -DNOTIFICATION_CENTER_FEATURE)
+        compile_flags+=(-DAPP_ICON_LOADER_TESTS -DCONTROL_CENTER_FEATURE -DNOTIFICATION_CENTER_FEATURE -DSCREENSHOT_FEATURE)
     fi
     xcrun swiftc "${compile_flags[@]}" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
@@ -208,5 +222,6 @@ run_case "$APP_OLD" app-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: uni
 run_case "$ICON_OLD" icon-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: App picker icon missing'
 run_case "$CC_OLD" control-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Control Center action row missing'
 run_case "$NC_OLD" notification-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Notification Center action row missing'
+run_case "$SCREENSHOT_OLD" screenshot-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Screenshot action row missing'
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

@@ -1,11 +1,14 @@
 """Invert only exact counted Notification Center hunks; defaults stay strict."""
 import json
 from pathlib import Path
+from screenshot_baseline import invert_screenshot
 
 FIXTURE = json.loads(Path(__file__).with_suffix('.json').read_text())
 
 
-def invert_notification_center(relative, text):
+def invert_notification_center(relative, text, *, screenshot=False):
+    if screenshot:
+        text = invert_screenshot(relative, text)
     hunks = FIXTURE['hunks'].get(relative, [])
     cursor = -1
     for hunk in hunks:

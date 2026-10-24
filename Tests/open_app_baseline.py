@@ -3,11 +3,14 @@ import json
 from pathlib import Path
 from notification_center_baseline import invert_notification_center
 from control_center_baseline import invert_control_center
+from screenshot_baseline import invert_screenshot
 
 FIXTURE = json.loads(Path(__file__).with_suffix('.json').read_text())
 
 
-def invert_open_app(relative, text, *, control_center=False, notification_center=False):
+def invert_open_app(relative, text, *, control_center=False, notification_center=False, screenshot=False):
+    if screenshot:
+        text = invert_screenshot(relative, text)
     if notification_center:
         text = invert_notification_center(relative, text)
     if control_center:

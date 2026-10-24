@@ -55,6 +55,7 @@ enum TapLockPreferences {
         case openApp(String)
         case controlCenter
         case notificationCenter
+        case screenshot
         case unavailable
     }
     static let actionKey = "DoubleTapAction"
@@ -78,6 +79,7 @@ enum TapLockPreferences {
         if kind == "lock", record.count == 1 { return .lock }
         if kind == "controlCenter", record.count == 1 { return .controlCenter }
         if kind == "notificationCenter", record.count == 1 { return .notificationCenter }
+        if kind == "screenshot", record.count == 1 { return .screenshot }
         if kind == "openApp", record.count == 2,
            let identifier = record["bundleIdentifier"] as? String,
            validBundleIdentifier(identifier) { return .openApp(identifier) }
@@ -94,6 +96,8 @@ enum TapLockPreferences {
             record = ["kind": "controlCenter"]
         case .notificationCenter:
             record = ["kind": "notificationCenter"]
+        case .screenshot:
+            record = ["kind": "screenshot"]
         case .openApp(let identifier):
             guard validBundleIdentifier(identifier) else { return false }
             record = ["kind": "openApp", "bundleIdentifier": identifier]

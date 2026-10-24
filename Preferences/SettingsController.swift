@@ -70,6 +70,7 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
         case .openApp: return "打开指定App · " + (applicationName ?? "App不可用")
         case .controlCenter: return "打开控制中心"
         case .notificationCenter: return "打开通知中心"
+        case .screenshot: return "系统截图"
         case .unavailable: return "配置不可用，请重新选择"
         }
     }
@@ -80,7 +81,7 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
         switch page {
         case .root: return 1
         case .homeScreen: return 2
-        case .doubleTapAction: return 4
+        case .doubleTapAction: return 5
         case .applicationPicker: return applications.count
         }
     }
@@ -127,6 +128,9 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
         case (.doubleTapAction, 3):
             cell.textLabel?.text = "打开通知中心"
             cell.accessoryType = action == .notificationCenter ? .checkmark : .none
+        case (.doubleTapAction, 4):
+            cell.textLabel?.text = "系统截图"
+            cell.accessoryType = action == .screenshot ? .checkmark : .none
         case (.applicationPicker, let row):
             let choice = applications[row]
             cell.textLabel?.text = choice.name
@@ -157,6 +161,9 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
             navigationController?.popViewController(animated: true)
         case (.doubleTapAction, 3):
             guard TapLockPreferences.writeAction(.notificationCenter) else { showSaveError(); return }
+            navigationController?.popViewController(animated: true)
+        case (.doubleTapAction, 4):
+            guard TapLockPreferences.writeAction(.screenshot) else { showSaveError(); return }
             navigationController?.popViewController(animated: true)
         case (.applicationPicker, let row):
             guard applications.indices.contains(row) else { return }

@@ -23,12 +23,12 @@ class ControlCenterContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_control_center(path, (ROOT / path).read_text(), notification_center=True)
+                restored = invert_control_center(path, (ROOT / path).read_text(), notification_center=True, screenshot=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_candidate_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = invert_notification_center(path, (ROOT / path).read_text())
+            text = invert_notification_center(path, (ROOT / path).read_text(), screenshot=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.assertRaises(AssertionError):
@@ -78,7 +78,7 @@ class ControlCenterContracts(unittest.TestCase):
     def test_settings_adds_a_third_row_and_saves_without_invoking_the_action(self):
         # Inspect this historical stage after inverting only the new action.
         text = invert_notification_center('Preferences/SettingsController.swift',
-                                          source('Preferences/SettingsController.swift'))
+                                          source('Preferences/SettingsController.swift'), screenshot=True)
         for token in ('case .doubleTapAction: return 3', 'case (.doubleTapAction, 2):',
                       '"打开控制中心"', 'action == .controlCenter ? .checkmark : .none',
                       'TapLockPreferences.writeAction(.controlCenter)'):
