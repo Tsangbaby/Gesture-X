@@ -3,6 +3,8 @@ import re
 import unittest
 from pathlib import Path
 from test_source import source
+from settings_layout_baseline import accepted_source
+from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +22,7 @@ class AppSwitcherContracts(unittest.TestCase):
                      'ScreenshotAction.capture()', 'AppSwitcherAction.open()'):
             self.assertEqual(body.count(call), 1)
         self.assertLess(body.index('isBlankHit(in: host'), body.index('switch action'))
-        settings = source('Preferences/SettingsController.swift')
+        settings = source('Preferences/SettingsController.swift', settings_layout=True)
         for token in ('case .doubleTapAction: return 6', 'case (.doubleTapAction, 5):',
                       '"打开多任务"', 'action == .appSwitcher ? .checkmark : .none',
                       'TapLockPreferences.writeAction(.appSwitcher)'):
@@ -51,10 +53,10 @@ class AppSwitcherContracts(unittest.TestCase):
         self.assertNotIn('AppSwitcherAction', (ROOT / 'Preferences/Makefile').read_text())
 
 
-    def test_candidate_version_is_018_and_bundle_versions_match(self):
+    def test_candidate_version_matches_active_release_and_bundle_versions_match(self):
         import plistlib
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines() if ': ' in line)
-        self.assertEqual(fields['Version'], '0.1.8')
+        self.assertEqual(fields['Version'], EXPECTED_RELEASE_VERSION)
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])
@@ -67,14 +69,14 @@ class AppSwitcherContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], 'fc79961bd6a1003aab36f43d0ab010a9bb6b1859')
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_app_switcher(path, (ROOT / path).read_text())
+                restored = invert_app_switcher(path, accepted_source(path))
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_new_inverse_rejects_missing_duplicate_reordered_hunks_and_retains_unrelated_drift(self):
         import hashlib
         from app_switcher_baseline import FIXTURE, invert_app_switcher
         for path, hunks in FIXTURE['hunks'].items():
-            text = (ROOT / path).read_text()
+            text = accepted_source(path)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.subTest(path=path), self.assertRaises(AssertionError):
@@ -91,8 +93,9 @@ class AppSwitcherContracts(unittest.TestCase):
         from app_switcher_baseline import FIXTURE
         from screenshot_baseline import invert_screenshot
         for path in FIXTURE['hunks']:
+            text = accepted_source(path)
             with self.subTest(path=path), self.assertRaises(AssertionError):
-                invert_screenshot(path, (ROOT / path).read_text())
+                invert_screenshot(path, text)
 
     def test_executed_swift_uikit_and_package_gates_are_wired_before_upload(self):
         import json

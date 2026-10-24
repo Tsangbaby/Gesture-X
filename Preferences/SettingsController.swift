@@ -1,27 +1,117 @@
 import UIKit
 import TapLockPreferencesHost
 
+// Reference IDs identify rows only. They are never preference keys.
+private struct SettingsReference: Decodable {
+    struct Row: Decodable {
+        let id: String
+        let title: String
+        let kind: String
+        let available: Bool
+        let defaultValue: Bool?
+        let destination: String?
+        let phoneOnly: Bool?
+    }
+    struct Section: Decodable {
+        let id: String
+        let header: String?
+        let footer: String?
+        let rows: [Row]
+    }
+    struct Category: Decodable {
+        let id: String
+        let title: String
+        let available: Bool
+        let destination: String?
+    }
+    struct BasicAction: Decodable {
+        let id: String
+        let title: String
+        let image: String?
+        let referenceSlot: Int
+        let available: Bool
+        let actionKind: String?
+
+        var action: TapLockPreferences.Action? {
+            guard available else { return nil }
+            switch actionKind {
+            case "screenshot": return .screenshot
+            case "controlCenter": return .controlCenter
+            case "notificationCenter": return .notificationCenter
+            case "lock": return .lock
+            case "appSwitcher": return .appSwitcher
+            default: return nil
+            }
+        }
+    }
+    let schemaVersion: Int
+    let referencePackageSHA256: String
+    let referenceBinarySHA256: String
+    let titles: [String: String]
+    let rootSections: [Section]
+    let homeSections: [Section]
+    let actionCategories: [Category]
+    let basicActions: [BasicAction]
+    let originalSelectedFooter: String
+    let phaseNotice: String
+    let excludedReferenceSurfaces: [String]
+
+    static func load() -> SettingsReference? {
+        let bundle = Bundle(for: TapLockSettingsController.self)
+        guard let url = bundle.url(forResource: "SettingsReference", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let reference = try? JSONDecoder().decode(SettingsReference.self, from: data),
+              reference.isValid else { return nil }
+        return reference
+    }
+
+    private var isValid: Bool {
+        let rootRows = rootSections.flatMap { $0.rows }
+        let homeRows = homeSections.flatMap { $0.rows }
+        let requiredTitles = ["root", "home", "actions", "basic", "application", "selected", "choose"]
+        guard schemaVersion == 1,
+              referencePackageSHA256 == "240362fc1846f697025122e4788d04bbd1920b8f5102bcfc5642a9a14b62837a",
+              referenceBinarySHA256 == "a3e95d0028907909bc521a687934fa362cef18c4c813a787ff2a4b9e0eba6586",
+              requiredTitles.allSatisfy({ !(titles[$0] ?? "").isEmpty }),
+              !phaseNotice.isEmpty, !originalSelectedFooter.isEmpty else { return false }
+        guard rootRows.contains(where: { $0.id == "homescreenOptions" && $0.kind == "link" }),
+              homeRows.count == 21, Set(homeRows.map { $0.id }).count == 21,
+              Set(rootRows.map { $0.id }).count == rootRows.count,
+              homeRows.contains(where: { $0.id == "homescreenDoubleTapEnabled" && $0.kind == "switch" }),
+              homeRows.contains(where: { $0.id == "homescreenDoubleTap" && $0.kind == "link" }),
+              (rootRows + homeRows).allSatisfy({ ["switch", "link", "button"].contains($0.kind) }) else { return false }
+        guard actionCategories.count == 6, Set(actionCategories.map { $0.id }).count == 6,
+              basicActions.count == 68, Set(basicActions.map { $0.id }).count == 68,
+              basicActions.map({ $0.referenceSlot }) == Array(0..<68),
+              basicActions.compactMap({ $0.action }).count == 5 else { return false }
+        return Set(basicActions.filter { $0.available }.compactMap { $0.actionKind }) ==
+            Set(["screenshot", "controlCenter", "notificationCenter", "lock", "appSwitcher"])
+    }
+}
+
 /// Real Preferences base class, with an owned legacy factory entry point.
 @objc(TapLockSettingsController)
-final class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate {
-    private enum Page { case root, homeScreen, doubleTapAction, applicationPicker }
+final class TapLockSettingsController: PSViewController, UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating {
+    private enum Page { case root, homeScreen, doubleTapAction, basicActions, applicationPicker }
     private var page: Page = .root
-    private let enabledSwitch = UISwitch()
-    private var action: TapLockPreferences.Action = .lock
+    private var reference = SettingsReference.load()
+    private var switches: [String: UISwitch] = [:]
+    private var action: TapLockPreferences.Action = .unavailable
     private var applicationName: String?
     private var applications: [InstalledApplications.Choice] = []
     private let applicationIcons = ApplicationIcons()
+    private var searchController: UISearchController?
 
-    // Some Settings factories prefer this selector. It must not call a missing
-    // PSViewController implementation; use the supported UIKit initializer.
+    // Do not invoke the absent PSViewController legacy initializer.
     @objc(initForContentSize:)
     convenience init(contentSize: CGSize) {
         self.init(nibName: nil, bundle: nil)
     }
 
-    private convenience init(page: Page) {
+    private convenience init(page: Page, reference: SettingsReference) {
         self.init(nibName: nil, bundle: nil)
         self.page = page
+        self.reference = reference
     }
 
     override func loadView() {
@@ -35,175 +125,283 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        guard let reference = reference else { title = "TapLock · 设置不可用"; return }
         switch page {
-        case .root:
-            title = "TapLock"
-        case .homeScreen:
-            title = "主屏幕的手势"
-            enabledSwitch.accessibilityLabel = "启用主屏双击"
-            enabledSwitch.addTarget(self, action: #selector(changeEnabled(_:)), for: .valueChanged)
+        case .root: title = reference.titles["root"]
+        case .homeScreen: title = reference.titles["home"]
         case .doubleTapAction:
-            title = "选择双击动作"
+            title = reference.titles["actions"]
+            let edit = UIBarButtonItem(barButtonSystemItem: .edit, target: nil, action: nil)
+            edit.isEnabled = false
+            edit.accessibilityHint = "多选、编辑、删除和排序尚未实现"
+            navigationItem.rightBarButtonItem = edit
+        case .basicActions:
+            title = reference.titles["basic"]
+            let search = UISearchController(searchResultsController: nil)
+            search.obscuresBackgroundDuringPresentation = false
+            search.searchResultsUpdater = self
+            search.searchBar.placeholder = "搜索基础动作"
+            navigationItem.searchController = search
+            navigationItem.hidesSearchBarWhenScrolling = false
+            definesPresentationContext = true
+            searchController = search
         case .applicationPicker:
-            title = "选择App"
-            // One render snapshot, never enumerate LaunchServices per table cell.
+            title = reference.titles["application"]
+            // One render snapshot; neither reuse nor reappearance enumerates apps.
             applications = InstalledApplications.choices()
         }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if page == .homeScreen {
-            enabledSwitch.isOn = TapLockPreferences.readEnabled()
-        }
+        refreshSelection()
+        (view as? UITableView)?.reloadData()
+    }
+
+    private func refreshSelection() {
         action = TapLockPreferences.readAction()
         applicationName = nil
         if case .openApp(let identifier) = action {
             applicationName = InstalledApplications.choice(identifier: identifier)?.name
         }
-        (view as? UITableView)?.reloadData()
+        switches["homescreenDoubleTapEnabled"]?.isOn = TapLockPreferences.readEnabled()
     }
 
     private var actionSummary: String {
-        switch action {
-        case .lock: return "系统锁屏"
-        case .openApp: return "打开指定App · " + (applicationName ?? "App不可用")
-        case .controlCenter: return "打开控制中心"
-        case .notificationCenter: return "打开通知中心"
-        case .screenshot: return "系统截图"
-        case .appSwitcher: return "打开多任务"
-        case .unavailable: return "配置不可用，请重新选择"
+        if case .openApp = action { return "打开应用 · " + (applicationName ?? "App不可用") }
+        if action == .unavailable { return "配置不可用，请重新选择" }
+        return reference?.basicActions.first { $0.action == action }?.title ?? "配置不可用，请重新选择"
+    }
+
+    private var sections: [SettingsReference.Section] {
+        guard let reference = reference else { return [] }
+        let source = page == .root ? reference.rootSections : reference.homeSections
+        return source.map { section in
+            SettingsReference.Section(id: section.id, header: section.header, footer: section.footer,
+                rows: section.rows.filter { $0.phoneOnly != true || UIDevice.current.userInterfaceIdiom == .phone })
         }
     }
 
-    func numberOfSections(in tableView: UITableView) -> Int { return 1 }
+    private func row(at indexPath: IndexPath) -> SettingsReference.Row? {
+        let current = sections
+        guard current.indices.contains(indexPath.section),
+              current[indexPath.section].rows.indices.contains(indexPath.row) else { return nil }
+        return current[indexPath.section].rows[indexPath.row]
+    }
+
+    private func rowIsAvailable(_ row: SettingsReference.Row) -> Bool {
+        guard reference != nil, row.available else { return false }
+        switch page {
+        case .root: return row.id == "homescreenOptions" && row.kind == "link"
+        case .homeScreen:
+            return (row.id == "homescreenDoubleTapEnabled" && row.kind == "switch") ||
+                (row.id == "homescreenDoubleTap" && row.kind == "link")
+        default: return false
+        }
+    }
+
+    private var filteredBasicActions: [SettingsReference.BasicAction] {
+        let query = searchController?.searchBar.text ?? ""
+        let all = reference?.basicActions ?? []
+        return query.isEmpty ? all : all.filter { $0.title.range(of: query, options: .caseInsensitive) != nil }
+    }
+
+    func updateSearchResults(for searchController: UISearchController) {
+        refreshSelection()
+        (view as? UITableView)?.reloadData()
+    }
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        guard reference != nil else { return 1 }
+        switch page {
+        case .root, .homeScreen: return sections.count
+        case .doubleTapAction: return 2
+        case .basicActions, .applicationPicker: return 1
+        }
+    }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        guard reference != nil else { return section == 0 ? 1 : 0 }
         switch page {
-        case .root: return 1
-        case .homeScreen: return 2
-        case .doubleTapAction: return 6
-        case .applicationPicker: return applications.count
+        case .root, .homeScreen: return sections.indices.contains(section) ? sections[section].rows.count : 0
+        case .doubleTapAction: return section == 0 ? 1 : (section == 1 ? reference!.actionCategories.count : 0)
+        case .basicActions: return section == 0 ? filteredBasicActions.count : 0
+        case .applicationPicker: return section == 0 ? applications.count : 0
         }
+    }
+
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool { return false }
+
+    func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool { return false }
+
+    private func disable(_ cell: UITableViewCell) {
+        cell.isUserInteractionEnabled = false
+        cell.selectionStyle = .none
+        cell.textLabel?.textColor = .tertiaryLabel
+        cell.detailTextLabel?.textColor = .tertiaryLabel
+        cell.imageView?.tintColor = .tertiaryLabel
+        cell.accessibilityTraits.insert(.notEnabled)
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell: UITableViewCell
-        if page == .applicationPicker {
-            cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
-        } else {
-            cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-        }
+        let cell = UITableViewCell(style: page == .applicationPicker ? .subtitle : .value1, reuseIdentifier: nil)
         for label in [cell.textLabel, cell.detailTextLabel] {
             label?.font = .preferredFont(forTextStyle: .body)
             label?.adjustsFontForContentSizeCategory = true
             label?.numberOfLines = 0
         }
-        switch (page, indexPath.row) {
-        case (.root, _):
-            cell.textLabel?.text = "主屏幕的手势"
-            cell.accessoryType = .disclosureIndicator
-        case (.homeScreen, 0):
-            cell.textLabel?.text = "启用主屏双击"
-            cell.selectionStyle = .none
-            cell.accessoryView = enabledSwitch
-        case (.homeScreen, _):
-            cell.textLabel?.text = "选择双击动作"
-            cell.detailTextLabel?.text = actionSummary
-            cell.accessoryType = .disclosureIndicator
-        case (.doubleTapAction, 0):
-            cell.textLabel?.text = "系统锁屏"
-            cell.accessoryType = action == .lock ? .checkmark : .none
-        case (.doubleTapAction, 1):
-            cell.textLabel?.text = "打开指定App"
-            if case .openApp = action {
-                cell.detailTextLabel?.text = applicationName ?? "App不可用"
-                cell.accessoryType = .checkmark
+        guard let reference = reference else {
+            cell.textLabel?.text = "设置不可用"
+            cell.detailTextLabel?.text = "设置资源缺失或损坏，未更改任何偏好。"
+            disable(cell)
+            return cell
+        }
+        switch page {
+        case .root, .homeScreen:
+            guard let row = row(at: indexPath) else { disable(cell); return cell }
+            let available = rowIsAvailable(row)
+            cell.accessibilityIdentifier = row.id
+            cell.textLabel?.text = row.title
+            if row.kind == "switch" {
+                let toggle = switches[row.id] ?? UISwitch()
+                switches[row.id] = toggle
+                toggle.accessibilityIdentifier = row.id
+                toggle.accessibilityLabel = row.title
+                toggle.isEnabled = available
+                toggle.isOn = available ? TapLockPreferences.readEnabled() : (row.defaultValue ?? false)
+                toggle.removeTarget(self, action: #selector(changeEnabled(_:)), for: .valueChanged)
+                toggle.addTarget(self, action: #selector(changeEnabled(_:)), for: .valueChanged)
+                cell.accessoryView = toggle
+                cell.selectionStyle = .none
             } else {
-                cell.detailTextLabel?.text = "选择App"
-                cell.accessoryType = .disclosureIndicator
+                cell.accessoryType = row.kind == "link" ? .disclosureIndicator : .none
+                if row.id == "homescreenDoubleTap" && available { cell.detailTextLabel?.text = actionSummary }
             }
-        case (.doubleTapAction, 2):
-            cell.textLabel?.text = "打开控制中心"
-            cell.accessoryType = action == .controlCenter ? .checkmark : .none
-        case (.doubleTapAction, 3):
-            cell.textLabel?.text = "打开通知中心"
-            cell.accessoryType = action == .notificationCenter ? .checkmark : .none
-        case (.doubleTapAction, 4):
-            cell.textLabel?.text = "系统截图"
-            cell.accessoryType = action == .screenshot ? .checkmark : .none
-        case (.doubleTapAction, 5):
-            cell.textLabel?.text = "打开多任务"
-            cell.accessoryType = action == .appSwitcher ? .checkmark : .none
-        case (.applicationPicker, let row):
-            let choice = applications[row]
+            if !available {
+                cell.detailTextLabel?.text = "尚未实现"
+                disable(cell)
+            }
+        case .doubleTapAction:
+            if indexPath.section == 0 {
+                cell.textLabel?.text = actionSummary
+                cell.accessoryType = action == .unavailable ? .none : .checkmark
+                disable(cell)
+            } else if indexPath.section == 1, reference.actionCategories.indices.contains(indexPath.row) {
+                let category = reference.actionCategories[indexPath.row]
+                cell.accessibilityIdentifier = category.id
+                cell.textLabel?.text = category.title
+                cell.accessoryType = .disclosureIndicator
+                if !category.available || indexPath.row > 1 {
+                    cell.detailTextLabel?.text = "尚未实现"
+                    disable(cell)
+                }
+            } else { disable(cell) }
+        case .basicActions:
+            let entries = filteredBasicActions
+            guard indexPath.section == 0, entries.indices.contains(indexPath.row) else { disable(cell); return cell }
+            let entry = entries[indexPath.row]
+            cell.accessibilityIdentifier = entry.id
+            cell.textLabel?.text = entry.title
+            if let symbol = entry.image { cell.imageView?.image = UIImage(systemName: symbol) }
+            cell.accessoryType = entry.action != nil && entry.action == action ? .checkmark : .none
+            if entry.action == nil { cell.detailTextLabel?.text = "尚未实现"; disable(cell) }
+        case .applicationPicker:
+            guard indexPath.section == 0, applications.indices.contains(indexPath.row) else { disable(cell); return cell }
+            let choice = applications[indexPath.row]
             cell.textLabel?.text = choice.name
             cell.detailTextLabel?.text = choice.identifier
             cell.imageView?.image = applicationIcons.image(identifier: choice.identifier)
             cell.imageView?.contentMode = .scaleAspectFit
             cell.accessoryType = action == .openApp(choice.identifier) ? .checkmark : .none
-        default:
-            break
         }
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        switch (page, indexPath.row) {
-        case (.root, 0):
-            navigationController?.pushViewController(TapLockSettingsController(page: .homeScreen), animated: true)
-        case (.homeScreen, 1):
-            navigationController?.pushViewController(TapLockSettingsController(page: .doubleTapAction), animated: true)
-        case (.doubleTapAction, 0):
-            guard TapLockPreferences.writeAction(.lock) else { showSaveError(); return }
-            navigationController?.popViewController(animated: true)
-        case (.doubleTapAction, 1):
-            navigationController?.pushViewController(TapLockSettingsController(page: .applicationPicker), animated: true)
-        case (.doubleTapAction, 2):
-            guard TapLockPreferences.writeAction(.controlCenter) else { showSaveError(); return }
-            navigationController?.popViewController(animated: true)
-        case (.doubleTapAction, 3):
-            guard TapLockPreferences.writeAction(.notificationCenter) else { showSaveError(); return }
-            navigationController?.popViewController(animated: true)
-        case (.doubleTapAction, 4):
-            guard TapLockPreferences.writeAction(.screenshot) else { showSaveError(); return }
-            navigationController?.popViewController(animated: true)
-        case (.doubleTapAction, 5):
-            guard TapLockPreferences.writeAction(.appSwitcher) else { showSaveError(); return }
-            navigationController?.popViewController(animated: true)
-        case (.applicationPicker, let row):
-            guard applications.indices.contains(row) else { return }
-            let choice = applications[row]
+        guard let reference = reference else { return }
+        switch page {
+        case .root, .homeScreen:
+            guard let row = row(at: indexPath), rowIsAvailable(row), row.kind == "link" else { return }
+            switch row.destination {
+            case "home" where page == .root: push(.homeScreen, reference: reference)
+            case "actions" where page == .homeScreen: push(.doubleTapAction, reference: reference)
+            default: return
+            }
+        case .doubleTapAction:
+            guard indexPath.section == 1, reference.actionCategories.indices.contains(indexPath.row),
+                  reference.actionCategories[indexPath.row].available, indexPath.row < 2 else { return }
+            switch reference.actionCategories[indexPath.row].destination {
+            case "basic" where indexPath.row == 0: push(.basicActions, reference: reference)
+            case "application" where indexPath.row == 1: push(.applicationPicker, reference: reference)
+            default: return
+            }
+        case .basicActions:
+            let entries = filteredBasicActions
+            guard indexPath.section == 0, entries.indices.contains(indexPath.row),
+                  let selected = entries[indexPath.row].action else { return }
+            save(selected)
+        case .applicationPicker:
+            guard indexPath.section == 0, applications.indices.contains(indexPath.row) else { return }
+            let choice = applications[indexPath.row]
             guard InstalledApplications.choice(identifier: choice.identifier) != nil else {
-                let alert = UIAlertController(title: "App不可用", message: "该App已卸载或不允许启动，请重新进入列表选择。", preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "好", style: .default))
-                present(alert, animated: true)
+                showAlert(title: "App不可用", message: "该App已卸载或不允许启动，请重新进入列表选择。")
                 return
             }
-            guard TapLockPreferences.writeAction(.openApp(choice.identifier)) else { showSaveError(); return }
-            navigationController?.popViewController(animated: true)
-        default:
-            break
+            save(.openApp(choice.identifier))
+        }
+    }
+
+    private func push(_ page: Page, reference: SettingsReference) {
+        navigationController?.pushViewController(TapLockSettingsController(page: page, reference: reference), animated: true)
+    }
+
+    private func save(_ selected: TapLockPreferences.Action) {
+        guard reference != nil else { return }
+        guard TapLockPreferences.writeAction(selected) else { showSaveError(); return }
+        navigationController?.popViewController(animated: true)
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        guard let reference = reference else { return nil }
+        switch page {
+        case .root, .homeScreen: return sections.indices.contains(section) ? sections[section].header : nil
+        case .doubleTapAction: return reference.titles[section == 0 ? "selected" : "choose"]
+        default: return nil
         }
     }
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        guard let reference = reference else { return "设置资源不可用，所有设置操作已禁用。" }
         switch page {
-        case .root:
-            return "当前开放主屏幕双击手势，其他手势将在逐项实现和验证后加入。"
-        case .homeScreen:
-            return "默认关闭。开启后，仅在已解锁、竖屏的主屏幕空白处双击执行所选动作。" +
-                "图标、文件夹、小组件、Dock 及应用内不触发；编辑桌面或启用 VoiceOver 时不触发。修改立即生效，无需注销。"
+        case .root, .homeScreen:
+            guard sections.indices.contains(section) else { return nil }
+            let footer = sections[section].footer
+            if section == sections.count - 1 {
+                return [footer, reference.phaseNotice, page == .homeScreen ?
+                    "默认关闭。仅已解锁、竖屏主屏幕空白处双击执行；图标、文件夹、小组件、Dock、应用内、编辑桌面或 VoiceOver 时不触发。修改立即生效，无需注销。" : nil]
+                    .compactMap { $0 }.joined(separator: "\n")
+            }
+            return footer
         case .doubleTapAction:
-            return "升级保留已保存动作，未配置时使用系统锁屏。选择动作只保存设置，不会立即执行。目标App或系统入口不可用时不执行其他动作。"
+            if section == 0 {
+                return reference.phaseNotice + "\n原版说明（非本阶段功能）：\n" + reference.originalSelectedFooter
+            }
+            return reference.phaseNotice + "\n选择动作只保存设置，不会立即执行。未配置时使用系统锁屏；损坏配置不回退。"
+        case .basicActions:
+            return "原版68项主目录；未实现项禁用。原版设备与外部插件条件过滤及条件追加项尚未实现。选择后替换当前单个动作并返回，不会立即执行。"
         case .applicationPicker:
             return applications.isEmpty ? "未找到可选App。请确认App已安装且当前系统允许读取应用列表。" :
-                "仅列出已安装、允许启动且未隐藏的系统或用户App。选择后立即保存，不会在此处打开。"
+                "仅列出已安装、允许启动且未隐藏的系统或用户App。选择后替换当前单个动作并返回，不会在此处打开。"
         }
     }
 
     @objc private func changeEnabled(_ sender: UISwitch) {
+        // Disabled controls must remain inert even for direct sendActions calls.
+        guard reference != nil, page == .homeScreen, sender.isEnabled,
+              switches["homescreenDoubleTapEnabled"] === sender,
+              let row = sections.flatMap({ $0.rows }).first(where: { $0.id == "homescreenDoubleTapEnabled" }),
+              rowIsAvailable(row) else { return }
         guard TapLockPreferences.writeEnabled(sender.isOn) else {
             sender.isOn = TapLockPreferences.readEnabled()
             showSaveError()
@@ -212,9 +410,11 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
     }
 
     private func showSaveError() {
-        let alert = UIAlertController(title: "未能保存设置",
-                                      message: "设置未能持久保存，请稍后再试。",
-                                      preferredStyle: .alert)
+        showAlert(title: "未能保存设置", message: "设置未能持久保存，请稍后再试。")
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "好", style: .default))
         present(alert, animated: true)
     }

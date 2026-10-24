@@ -1,5 +1,14 @@
 # 验证分层记录
 
+## 0.1.9 设置层候选：构建前冻结记录
+
+- 用户明确选择仅还原设置展示；单动作存储和六个执行器保持0.1.8字节，多动作、编辑/排序执行模型与Siri不纳入。候选分支`feat/reference-settings-layout`，main仍为`3a63f2c25b30da1c882428de9b85def045c1e250`，不自动合并或发布。
+- 原包及arm64e Preferences薄片SHA分别为`240362fc1846f697025122e4788d04bbd1920b8f5102bcfc5642a9a14b62837a`与`a3e95d0028907909bc521a687934fa362cef18c4c813a787ff2a4b9e0eba6586`。实际指令核对9个功能导航、主屏7组三行/21控件、动作两节/6分类及68项主目录构造顺序；中文取包内原文，不用本地化表排序。独立oracle SHA=`a0f639ae24ece250a155ee2f88dcb3bc109c56501a05ae2f5f0a366ac4b82fd8`。原二进制未执行、不随工程分发。
+- 只有`Preferences/SettingsController.swift`改生产Swift，新增声明式JSON展示资源；包/Bundle版本同步0.1.9。24个原生产输入受冻结保护，授权UI和metadata用精确全文件candidate摘要还原，再执行全部旧阶段inverse；12个旧baseline Python/JSON字节未改。未知Spotlight图标不猜填；原版条件过滤/追加项与原作者授权/购买/推广均明确不在本阶段移植范围。
+- 本地实际完整运行125项Python合同，125通过、零失败；27个Python文件和33个shell内嵌Python块解析、shell/workflow语法、JSON、原git baseline字节及diff检查通过。资源与新UI接线均保留真实源码合同RED→GREEN，不能称为UIKit行为RED。当前Linux无swift/xcrun，尚未在本机执行Apple编译。
+- 云端同一新harness必须让原0.1.8在根导航行为断言失败，再让当前完整真实UIKit矩阵通过；只在一次性模拟器App内探测资源缺失/损坏并恢复，日志/替身不进入包。旧UIKit断言在明确冻结0.1.8上执行，不能冒充新UI通过。完成guard拒绝零断言、缺失、重复、混合或错误标记及非零传输，已有独立正反例。
+- 本节是构建前状态，不预先宣告Apple/UIKit/包通过；最终证据须绑定Actions exact head SHA、`REFERENCE_SETTINGS_TESTS.txt`、源码仓库/commit标记、包内原JSON及每个Mach-O切片的独立核验。实机设置层验收仍待新原始RootHide功能验证包，不增加诊断采集或要求无故重复安装。
+
 ## 当前基线：打开多任务 0.1.8（用户反馈通过）
 
 - 用户对已交付的 0.1.8 原始 RootHide 功能包反馈“测试已通过”。绑定源码 `f3a2e138fa9ac93d250645e9c66226b074d429ee`、成功 Actions `40071355783` 第 2 次 attempt（job `120807255325`）、原包 SHA-256 `f297c7c9db3c71e3f7f2681d3d854c3daa2086a185d47083fc3ee286d93e08f8`；环境沿用此前报告的 iOS 15.4.1 / RootHide。这是用户实机反馈，不是助手独立设备复测，不将整体反馈扩展为所有子项均已逐项执行，不外推其他系统。

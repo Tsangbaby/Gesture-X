@@ -148,6 +148,19 @@ def require_selector_per_slice(data, records, selector):
                 f"Required selector missing from {record['arch']} slice: {selector!r}")
 
 
+def verify_settings_reference_resource(payload, expected):
+    require(payload == expected, "Settings reference resource does not match exact source bytes")
+    reference = json.loads(payload)
+    require(reference["schemaVersion"] == 1, "Wrong Settings reference schema version")
+    home_controls = sum(len(section["rows"]) for section in reference["homeSections"])
+    categories = len(reference["actionCategories"])
+    basic_catalog = len(reference["basicActions"])
+    require((home_controls, categories, basic_catalog) == (21, 6, 68),
+            "Incomplete original Settings reference resource")
+    return {"sha256": hashlib.sha256(payload).hexdigest(), "home_controls": home_controls,
+            "categories": categories, "basic_catalog": basic_catalog}
+
+
 def verify(package):
     fields = control_fields(command("dpkg-deb", "-f", str(package)))
     expected = control_fields((ROOT / "control").read_text())
@@ -171,12 +184,15 @@ def verify(package):
                     "Library/MobileSubstrate/DynamicLibraries/TapLock.plist",
                     "Library/PreferenceBundles/TapLockPrefs.bundle/TapLockPrefs",
                     "Library/PreferenceBundles/TapLockPrefs.bundle/Info.plist",
-                    "Library/PreferenceLoader/Preferences/TapLock.plist"]
+                    "Library/PreferenceLoader/Preferences/TapLock.plist",
+                    "Library/PreferenceBundles/TapLockPrefs.bundle/SettingsReference.json"]
         for name in required:
             require((dest / name).is_file(), f"Missing payload: {name}")
         tweak = plistlib.loads((dest / required[1]).read_bytes())
         info = plistlib.loads((dest / required[3]).read_bytes())
         entry = plistlib.loads((dest / required[4]).read_bytes())["entry"]
+        settings_reference = verify_settings_reference_resource((dest / required[5]).read_bytes(),
+            (ROOT / "Preferences/Resources/SettingsReference.json").read_bytes())
         require(tweak["Filter"] == {"Bundles": ["com.apple.springboard"]}, "Wrong injection filter")
         require(info["NSPrincipalClass"] == entry["detail"] == "TapLockSettingsController",
                 "Settings detail/principal mismatch")
@@ -238,6 +254,7 @@ def verify(package):
             "control_center_binary_long_names": [name.decode() for name in control_center_names if len(name) > 15],
             "notification_center_binary_long_names": [name.decode() for name in notification_center_names],
             "app_switcher_binary_selector": app_switcher_selector.decode(),
+            "settings_reference_resource": settings_reference,
             "device_tested": False}
 
 

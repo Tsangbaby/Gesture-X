@@ -9,6 +9,8 @@ from test_source import source
 from screenshot_baseline import FIXTURE, invert_screenshot
 from notification_center_baseline import invert_notification_center
 from app_switcher_baseline import invert_app_switcher
+from settings_layout_baseline import accepted_source
+from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = '078b98fb67582422a577b70ae3335ecc0d1e2ab9'
@@ -19,18 +21,19 @@ class ScreenshotContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_screenshot(path, (ROOT / path).read_text(), app_switcher=True)
+                restored = invert_screenshot(path, accepted_source(path), app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_historical_inverse_requires_explicit_screenshot_opt_in(self):
         for path in ('Shared/Preferences.swift', 'Sources/HomeDoubleTap.swift',
                      'Preferences/SettingsController.swift', 'Makefile'):
+            text = accepted_source(path)
             with self.subTest(path=path), self.assertRaises(AssertionError):
-                invert_notification_center(path, (ROOT / path).read_text())
+                invert_notification_center(path, text)
 
     def test_inverse_rejects_missing_duplicate_reordered_hunks_and_does_not_hide_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = invert_app_switcher(path, (ROOT / path).read_text())
+            text = invert_app_switcher(path, accepted_source(path))
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.subTest(path=path), self.assertRaises(AssertionError):
@@ -94,7 +97,7 @@ class ScreenshotContracts(unittest.TestCase):
             self.assertEqual(body.count(call), 1)
         self.assertIn('case .screenshot:', body)
         self.assertLess(body.index('isBlankHit(in: host'), body.index('switch action'))
-        settings = invert_app_switcher('Preferences/SettingsController.swift', source('Preferences/SettingsController.swift'))
+        settings = invert_app_switcher('Preferences/SettingsController.swift', source('Preferences/SettingsController.swift', settings_layout=True))
         for token in ('case .doubleTapAction: return 5', 'case (.doubleTapAction, 4):',
                       '"系统截图"', 'action == .screenshot ? .checkmark : .none',
                       'TapLockPreferences.writeAction(.screenshot)'):
@@ -108,7 +111,7 @@ class ScreenshotContracts(unittest.TestCase):
 
     def test_authorized_candidate_version_matches_every_active_surface(self):
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines() if ': ' in line)
-        self.assertEqual(fields['Version'], '0.1.8')
+        self.assertEqual(fields['Version'], EXPECTED_RELEASE_VERSION)
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])

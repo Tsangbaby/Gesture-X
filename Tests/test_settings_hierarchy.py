@@ -1,4 +1,7 @@
-"""Settings hierarchy wiring only; real UIKit execution is a separate CI gate."""
+"""Historical hierarchy wiring over explicitly restored 0.1.8 source.
+
+The old UIKit harness checks frozen 0.1.8; new navigation has a separate gate.
+"""
 import hashlib
 import plistlib
 import tempfile
@@ -8,6 +11,8 @@ from types import SimpleNamespace
 from unittest import mock
 from settings_hierarchy_baseline import FIXTURE, invert_settings_hierarchy
 from open_app_baseline import invert_open_app
+from settings_layout_baseline import accepted_source
+from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,13 +22,13 @@ class SettingsHierarchyContracts(unittest.TestCase):
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines()
                       if ': ' in line)
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
-        self.assertEqual(fields['Version'], '0.1.8')
+        self.assertEqual(fields['Version'], EXPECTED_RELEASE_VERSION)
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])
         self.assertEqual(fields['Package'], 'com.tsangbaby.taplock')
 
     def test_accepted_lock_is_reachable_through_the_home_screen_category(self):
-        text = (ROOT / "Preferences/SettingsController.swift").read_text()
+        text = accepted_source("Preferences/SettingsController.swift")
         for token in ('case root, homeScreen, doubleTapAction',
                       '"主屏幕的手势"', '"启用主屏双击"',
                       '"选择双击动作"', '"系统锁屏"',
@@ -43,15 +48,15 @@ class SettingsHierarchyContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], '94b384d64ce44705e754f4695c98661110db76ff')
         for relative, digest in FIXTURE['frozen'].items():
             with self.subTest(path=relative):
-                text = invert_open_app(relative, (ROOT / relative).read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+                text = invert_open_app(relative, accepted_source(relative), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), digest)
         restored = invert_settings_hierarchy(invert_open_app('Preferences/SettingsController.swift',
-            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
+            accepted_source('Preferences/SettingsController.swift'), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
         self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
     def test_exact_inverse_rejects_missing_or_duplicate_ui_hunks(self):
         text = invert_open_app('Preferences/SettingsController.swift',
-            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+            accepted_source('Preferences/SettingsController.swift'), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
         for hunk in FIXTURE['hunks']:
             for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                 with self.assertRaises(AssertionError):
@@ -59,7 +64,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
 
     def test_exact_inverse_does_not_hide_unrelated_drift(self):
         text = invert_open_app('Preferences/SettingsController.swift',
-            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+            accepted_source('Preferences/SettingsController.swift'), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
         restored = invert_settings_hierarchy(text + '\n// unrelated drift\n')
         self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
@@ -97,7 +102,10 @@ class SettingsHierarchyContracts(unittest.TestCase):
         script = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         self.assertIn('HIERARCHY_BASELINE=' + FIXTURE['baseline'], script)
         self.assertIn('show "$HIERARCHY_BASELINE:$path"', script)
-        self.assertLess(script.index('run_case "$STABLE"'), script.index('run_case "$ROOT"'))
+        # This is the old harness over frozen 0.1.8, not a current-UI regression.
+        self.assertIn('run_case "$ACCEPTED_UI" fixed', script)
+        self.assertLess(script.index('run_case "$STABLE"'), script.index('run_case "$ACCEPTED_UI" fixed'))
+        self.assertNotIn('run_case "$ROOT" fixed', script)
         self.assertIn('SETTINGS_CONSTRUCTION_FAIL: root must link to 主屏幕的手势', script)
         app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
         for token in ('real switch did not persist', 'reentry lost the persisted gesture value',

@@ -1,4 +1,7 @@
-"""Open-App source contracts; executed Swift/UIKit evidence is separate."""
+"""Open-App source contracts; UI assertions explicitly restore frozen 0.1.8.
+
+These are historical guards, not current 0.1.9 UIKit execution evidence.
+"""
 import unittest
 import hashlib
 import json
@@ -6,6 +9,7 @@ from pathlib import Path
 from test_source import source
 from open_app_baseline import FIXTURE, invert_open_app
 from control_center_baseline import invert_control_center
+from settings_layout_baseline import accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'
@@ -51,14 +55,14 @@ class OpenAppContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_open_app(path, (ROOT / path).read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+                restored = invert_open_app(path, accepted_source(path), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
             # Test the historical stage after strictly inverting the new,
             # independently mutation-tested candidate delta once.
-            text = invert_control_center(path, (ROOT / path).read_text(), notification_center=True, screenshot=True, app_switcher=True)
+            text = invert_control_center(path, accepted_source(path), notification_center=True, screenshot=True, app_switcher=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.assertRaises(AssertionError):
@@ -81,14 +85,16 @@ class OpenAppContracts(unittest.TestCase):
             self.assertIn(path, smoke)
         ui = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         self.assertIn('OPEN_APP_BASELINE=' + ACCEPTED, ui)
-        self.assertLess(ui.index('run_case "$APP_OLD"'), ui.index('run_case "$ROOT"'))
+        # Historical UIKit regressions use frozen 0.1.8, not the rewritten UI.
+        self.assertIn('run_case "$ACCEPTED_UI" fixed', ui)
+        self.assertLess(ui.index('run_case "$APP_OLD"'), ui.index('run_case "$ACCEPTED_UI" fixed'))
         for token in ('-DOPEN_APP_ROWS', '-DOPEN_APP_FEATURE', 'Shared/Applications.swift', 'Sources/PrivateAPI.swift'):
             self.assertIn(token, ui)
         self.assertIn('OPEN_APP_BASELINE_EXPECTED_FAILURE', smoke)
         self.assertIn('filter, sort or deduplication failed', smoke)
 
     def test_settings_exposes_only_lock_and_installed_app_choice_without_launching(self):
-        text = source('Preferences/SettingsController.swift')
+        text = source('Preferences/SettingsController.swift', settings_layout=True)
         for token in ('applicationPicker', '"打开指定App"', '"选择App"',
                       'InstalledApplications.choices()', 'TapLockPreferences.readAction()',
                       'TapLockPreferences.writeAction(.lock)',

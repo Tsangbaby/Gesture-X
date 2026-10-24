@@ -8,6 +8,7 @@ from test_source import source
 from control_center_baseline import FIXTURE, invert_control_center
 from open_app_baseline import invert_open_app
 from notification_center_baseline import invert_notification_center
+from settings_layout_baseline import accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = 'b8d6994be7defcc37ceac3bb158c5526c952ac3a'
@@ -16,19 +17,20 @@ ACCEPTED = 'b8d6994be7defcc37ceac3bb158c5526c952ac3a'
 class ControlCenterContracts(unittest.TestCase):
     def test_historical_inverse_does_not_silently_accept_the_new_candidate(self):
         for path in FIXTURE['hunks']:
+            text = accepted_source(path)
             with self.subTest(path=path), self.assertRaises(AssertionError):
-                invert_open_app(path, (ROOT / path).read_text())
+                invert_open_app(path, text)
 
     def test_only_the_exact_authorized_delta_changes_device_accepted_runtime_bytes(self):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_control_center(path, (ROOT / path).read_text(), notification_center=True, screenshot=True, app_switcher=True)
+                restored = invert_control_center(path, accepted_source(path), notification_center=True, screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_candidate_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = invert_notification_center(path, (ROOT / path).read_text(), screenshot=True, app_switcher=True)
+            text = invert_notification_center(path, accepted_source(path), screenshot=True, app_switcher=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.assertRaises(AssertionError):
@@ -78,7 +80,7 @@ class ControlCenterContracts(unittest.TestCase):
     def test_settings_adds_a_third_row_and_saves_without_invoking_the_action(self):
         # Inspect this historical stage after inverting only the new action.
         text = invert_notification_center('Preferences/SettingsController.swift',
-                                          source('Preferences/SettingsController.swift'), screenshot=True, app_switcher=True)
+                                          source('Preferences/SettingsController.swift', settings_layout=True), screenshot=True, app_switcher=True)
         for token in ('case .doubleTapAction: return 3', 'case (.doubleTapAction, 2):',
                       '"打开控制中心"', 'action == .controlCenter ? .checkmark : .none',
                       'TapLockPreferences.writeAction(.controlCenter)'):

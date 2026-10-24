@@ -1,15 +1,15 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.8“打开多任务”原始 RootHide 包已获用户反馈“测试已通过”，经授权固化到 main；原分支、原包和 0.1.7 回退点保留，不重编相同功能，不自动创建 Tag / Release。下一候选先依据用户补发的 SquidGesture Pro 2.7.6-1 原包核对并还原设置结构，再处理已同意的 Siri 动作；当前设置不能宣称完整复刻。验收基线环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
+**状态：main 仍是已实机接受的 0.1.8 基线。当前 `feat/reference-settings-layout` 为 0.1.9 设置层候选：依据用户补发的 SquidGesture Pro 2.7.6-1 恢复功能设置结构、文案及顺序，未实现项禁用；不迁移多动作、不增加 Siri，不改六个动作执行器。构建前本地125项检查通过；Apple/UIKit/包和设备证据须分别以对应 exact-SHA 记录为准，不能宣称完整产品或像素复刻。原分支、原包和0.1.7回退点保留，不自动合入main或创建Tag/Release。已验收环境仍只记录用户报告的 iOS 15.4.1 / RootHide；0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.8，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，当前候选源码版本 0.1.9，已验收基线0.1.8，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
 ## 一条手势链，六选一动作
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心 / 打开通知中心 / 系统截图 / 打开多任务（六选一）`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开应用 / 控制中心 / 通知中心 / 系统截屏 / 应用切换界面（保持单个动作）`
 
 锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
@@ -27,20 +27,32 @@
 ## 当前设置入口
 
 ```text
-设置首页
-└─ 主屏幕的手势
-   ├─ 启用主屏双击
-   └─ 选择双击动作（显示当前选择）
-      ├─ 系统锁屏（未配置时默认）
-      ├─ 打开指定App
-      │  └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
-      ├─ 打开控制中心
-      ├─ 打开通知中心
-      ├─ 系统截图
-      └─ 打开多任务
+TapLock（保留自己的身份）
+├─ 总开关／启用插件（原版位置保留，独立总开关未实现并禁用）
+├─ Dock手势设置（禁用）
+├─ 状态栏的手势（禁用）
+├─ 主屏幕的手势
+│  ├─ 主屏双击：启用主屏双击／选择双击动作／启用动作流模式
+│  │  └─ 仅前两项可用；动作流禁用
+│  ├─ 主屏三击、锁定界面双击、锁定界面三击（各三项，禁用）
+│  └─ 左／中／右下划（各三项，禁用）；共21个控件始终可见
+├─ 底部上划手势／便捷访问手势（原版手机条件，禁用）
+├─ 实体按键手势（禁用）
+├─ 自定高级设置／编辑预设链接／自定面板界面（禁用）
+└─ 杂项：注销设备生效／备份所有设置／还原设置备份／重置所有设置（禁用）
+
+选择双击动作 → 选择动作
+├─ 已选择：当前单个动作（编辑、删除、排序未实现）
+└─ 选择动作
+   ├─ 基础动作 → 选择基础动作（可搜索，原68项主目录顺序）
+   │  └─ 可用：系统截屏、控制中心、通知中心、系统锁屏、应用切换界面
+   ├─ 打开应用 → 选择应用（真实图标 + 名称 + Bundle ID）
+   └─ 快捷方式／快捷指令／打开链接／预设链接（禁用）
 ```
 
-按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留。新增动作与 Bundle ID 存入同一个 CFPreferences 属性列表值；保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。列表每次进入建立一次快照，不按行扫描全部 App；设置页只选择，不当场执行动作。
+原版页面由编译控制器构造，不用本地化表顺序代替实际行顺序。声明式资源与独立冻结的原指令/中文oracle核对；原作者授权、购买、联系及推广身份不移植。68项仅指已恢复的主目录构造数组：原版设备/外部插件条件过滤和条件追加条目尚未实现，不能称为原包所有设备固定可见数；Spotlight图标尚未解出，保留未知，不猜填。原多动作说明保留并明确标注非本阶段功能。完整范围与例外见 `docs/SettingsParity.md`。
+
+原开关的存储域、key、默认值及已保存值保留；原版specifier ID只是UI身份，不作为新偏好key。单个动作与 Bundle ID 仍存入同一个 CFPreferences 属性列表值，保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。App列表每次进入建立一次快照，不按行扫描全部 App；设置页只保存并返回，不当场执行动作。灰色行即使直接调用delegate或发送switch事件也不写偏好、不导航。
 
 ## 源码结构
 
@@ -59,6 +71,7 @@ Sources/AppSwitcherAction.swift       单次原生打开多任务；精确 BOOL/
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
+Preferences/Resources/SettingsReference.json 原包绑定的设置展示数据（不是动作执行引擎）
 Interfaces/TapLockPreferencesHost/    系统 PSViewController 声明及 module map
 Preferences/Resources/Info.plist     设置 bundle 身份
 layout/Library/PreferenceLoader/     设置入口
@@ -85,7 +98,7 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 1. 执行 Python 源码/CI 合同检查。
 2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；另执行动作存储和设置 App 筛选，以及旧 LS 启动触及禁用服务边界的预期失败 / 当前原生单次启动的 receiver、ABI、继承客户端方法与非主线程拒绝测试。系统服务是测试替身，不证明设备灭屏/动画、App 切换或卡死已修复；失败就停止。
-3. 用真实生产设置页 Swift 与 UIKit 执行旧构造器、旧版缺少层级 / App 动作及真实 0.1.3 缺图标的预期失败；当前版实际进入模拟器应用列表，检查真实图标、32pt 画布、缓存和占位，并验证选择/持久保存、选中与摘要刷新、切回锁屏和原有开关回归。在同一临时模拟器实际加载优化后的完整 tweak dylib，检查 dyld 自动启动与 Hook 转发、挂载/移除和重复启动。Preferences 父类和 Hook 安装器是明确的测试替身，不冒充设备 SpringBoard/Settings。
+3. 历史UIKit harness继续对逐字节核验的0.1.8执行所有原断言。新 `ReferenceSettingsApp.swift` 则同编旧0.1.8与当前UI：旧版须实际在原版根页布局断言RED，当前版须完成两路构造、21控件/6类别/68目录与搜索、禁用项无写入或导航、五基础+App单值保存/返回/重入、真实32pt图标、默认与损坏配置、资源失效安全。缺失、重复或错误完成标记均失败；不把模拟器传输成功当测试通过。在同一临时模拟器实际加载优化后的完整tweak dylib，保持dyld启动、Hook转发/挂载/移除回归。Preferences父类与Hook后端仍是明确替身，不冒充设备系统或像素一致性。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
 6. 检查包内路径、版本、设置入口、Substrate 运行库链接、Orion 依赖不存在、每个架构的启动表/最低系统版本及嵌入签名结构。

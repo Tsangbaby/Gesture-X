@@ -12,12 +12,14 @@ CONTROL_CENTER_BASELINE=b8d6994be7defcc37ceac3bb158c5526c952ac3a
 NOTIFICATION_CENTER_BASELINE=1b6615b46242abeb5b8ef0f0bf4afba14db18e2a
 SCREENSHOT_BASELINE=078b98fb67582422a577b70ae3335ecc0d1e2ab9
 APP_SWITCHER_BASELINE=fc79961bd6a1003aab36f43d0ab010a9bb6b1859
+REFERENCE_BASELINE=f3a2e138fa9ac93d250645e9c66226b074d429ee
 WORK="$(mktemp -d "$RUNNER_TEMP/taplock-settings.XXXXXX")"
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ARCH="$(uname -m)"
 TARGET="$ARCH-apple-ios15.0-simulator"
 DEVICE=""
 RESULTS="$RUNNER_TEMP/SETTINGS_CONSTRUCTION_TESTS.txt"
+REFERENCE_RESULTS="$RUNNER_TEMP/REFERENCE_SETTINGS_TESTS.txt"
 cleanup() {
     if [ -n "$DEVICE" ]; then
         xcrun simctl shutdown "$DEVICE" || true
@@ -162,6 +164,36 @@ with open(sys.argv[2], 'a') as f:
     f.write('APP_SWITCHER_UIKIT_BASELINE_BYTES_VERIFIED: exact unmodified device-accepted 0.1.7 preferences and Settings controller\n')
 PY
 
+# Preserve every historical UIKit assertion on the exact accepted 0.1.8 UI.
+# The new resource-driven UI has its own same-harness behavioral RED/GREEN.
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$REFERENCE_BASELINE"
+ACCEPTED_UI="$WORK/accepted-018-ui"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap; do
+    mkdir -p "$ACCEPTED_UI/$(dirname "$path")"
+    git -C "$ROOT" show "$REFERENCE_BASELINE:$path" > "$ACCEPTED_UI/$path"
+done
+python3 - "$ACCEPTED_UI" "$ROOT" "$RESULTS" "$REFERENCE_RESULTS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+accepted, root = map(Path, sys.argv[1:3])
+manifest = json.loads((root / 'Tests/settings_layout_baseline.json').read_text())
+paths = sorted(path for path in accepted.rglob('*') if path.is_file())
+assert len(paths) == 7
+for path in paths:
+    relative = str(path.relative_to(accepted))
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == manifest['frozen'][relative], relative
+with open(sys.argv[3], 'a') as stream:
+    stream.write('REFERENCE_UIKIT_BASELINE_BYTES_VERIFIED: frozen 0.1.8 UI plus unchanged Shared/icon/host dependencies\n')
+with open(sys.argv[4], 'w') as stream:
+    stream.write('Boundary: real UIKit, native Preferences superclass fixture; NOT handset Settings or pixel parity\n')
+    stream.write('Behavioral RED source: ' + manifest['baseline'] + '\n')
+    for relative in ('Tests/ReferenceSettingsApp.swift', 'Preferences/Resources/SettingsReference.json'):
+        stream.write(relative + ' SHA256: ' + hashlib.sha256((root / relative).read_bytes()).hexdigest() + '\n')
+PY
+
 run_case() {
     local source_root="$1" label="$2" mode="$3" marker="$4"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
@@ -251,5 +283,33 @@ run_case "$CC_OLD" control-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION
 run_case "$NC_OLD" notification-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Notification Center action row missing'
 run_case "$SCREENSHOT_OLD" screenshot-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Screenshot action row missing'
 run_case "$APP_SWITCHER_OLD" app-switcher-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: App Switcher action row missing'
-run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
+run_case "$ACCEPTED_UI" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
+
+run_reference_case() {
+    local source_root="$1" label="$2" mode="$3"
+    local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.$label"
+    mkdir -p "$app/Frameworks"
+    cp -R "$FRAMEWORK" "$app/Frameworks/"
+    cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
+    python3 - "$app/Info.plist" "$bundle" <<'PY'
+import plistlib, sys
+with open(sys.argv[1], 'wb') as stream:
+    plistlib.dump(dict(CFBundleExecutable='ReferenceSettings', CFBundleIdentifier=sys.argv[2],
+        CFBundleName='ReferenceSettings', CFBundlePackageType='APPL', CFBundleVersion='1',
+        CFBundleShortVersionString='1', MinimumOSVersion='15.0', LSRequiresIPhoneOS=True,
+        UIDeviceFamily=[1], UILaunchScreen={}), stream)
+PY
+    xcrun swiftc -parse-as-library -swift-version 5 -target "$TARGET" -sdk "$SDK" \
+        -I "$source_root/Interfaces" -F "$WORK/frameworks" \
+        -import-objc-header "$ROOT/Tests/SettingsConstructionFixture.h" \
+        "$source_root/Shared/Preferences.swift" "$source_root/Shared/Applications.swift" \
+        "$source_root/Sources/PrivateAPI.swift" "$source_root/Preferences/ApplicationIcons.swift" \
+        "$source_root/Preferences/SettingsController.swift" "$ROOT/Tests/ReferenceSettingsApp.swift" \
+        -Xlinker -rpath -Xlinker @executable_path/Frameworks -o "$app/ReferenceSettings"
+    codesign --force --sign - "$app"
+    xcrun simctl install "$DEVICE" "$app"
+    python3 -B "$ROOT/ci/reference_settings_guard.py" "$DEVICE" "$bundle" "$mode" "$REFERENCE_RESULTS"
+}
+run_reference_case "$ACCEPTED_UI" reference-baseline --expect-reference-baseline-failure
+run_reference_case "$ROOT" reference-fixed --expect-reference-fixed
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Require simulator transport AND a unique exact terminal harness completion."""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+NEGATIVE = 'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE: root navigation differs from reference'
+POSITIVE = re.compile(r'REFERENCE_SETTINGS_UIKIT_PASS: [1-9][0-9]* assertions; .+; simulator fixture boundary only')
+
+
+def validate_completed_run(returncode, output, mode):
+    if mode not in ('--expect-reference-baseline-failure', '--expect-reference-fixed'):
+        raise ValueError('Unknown reference Settings harness mode')
+    if returncode:
+        raise ValueError('Reference Settings simulator transport failed')
+    lines = output.splitlines()
+    terminals = [line for line in lines if line.startswith((
+        'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE:',
+        'REFERENCE_SETTINGS_UIKIT_PASS:', 'REFERENCE_SETTINGS_FAIL:'))]
+    if len(terminals) != 1:
+        raise ValueError('Missing, duplicate, or contradictory reference Settings terminal marker')
+    marker = terminals[0]
+    if mode == '--expect-reference-baseline-failure':
+        if marker != NEGATIVE:
+            raise ValueError('Missing exact frozen-0.1.8 root-navigation behavioral RED')
+    elif POSITIVE.fullmatch(marker) is None:
+        raise ValueError('Missing exact nonzero-assertion current Settings completion')
+    return marker
+
+
+def main():
+    if len(sys.argv) != 5:
+        raise SystemExit('usage: reference_settings_guard.py DEVICE BUNDLE MODE REPORT')
+    device, bundle, mode, report = sys.argv[1:]
+    result = subprocess.run([
+        'xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
+        device, bundle, mode], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, timeout=120)
+    print(result.stdout, flush=True)
+    print('reference simctl launch exit:', result.returncode, flush=True)
+    marker = validate_completed_run(result.returncode, result.stdout, mode)
+    with Path(report).open('a', encoding='utf-8') as stream:
+        stream.write('Mode: ' + mode + '\n' + result.stdout + '\nVerified terminal: ' + marker + '\n')
+
+
+if __name__ == '__main__':
+    main()

@@ -3,15 +3,18 @@ import re
 import plistlib
 import unittest
 from pathlib import Path
+from settings_layout_baseline import accepted_source
+from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def source(relative):
+def source(relative, *, settings_layout=False):
+    """Current source by default; historical UI must explicitly undo 0.1.9."""
     path = ROOT / relative
     if not path.is_file():
         raise AssertionError(f"Missing implementation: {relative}")
-    text = path.read_text(encoding="utf-8")
+    text = accepted_source(relative) if settings_layout else path.read_text(encoding="utf-8")
     # Retain quoted strings; discard comments so comments cannot satisfy guards.
     return re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
                   lambda match: match[0] if match[0].startswith('"') else '',
@@ -142,7 +145,7 @@ class GestureContracts(unittest.TestCase):
 
 class SettingsAndBuildContracts(unittest.TestCase):
     def test_settings_uses_real_loader_superclass_and_one_switch(self):
-        text = source("Preferences/SettingsController.swift")
+        text = source("Preferences/SettingsController.swift", settings_layout=True)
         self.assertIn("import TapLockPreferencesHost", text)
         self.assertIn("@objc(TapLockSettingsController)", text)
         self.assertIn("TapLockSettingsController: PSViewController", text)
@@ -204,6 +207,7 @@ class SettingsAndBuildContracts(unittest.TestCase):
         self.assertEqual(info["MinimumOSVersion"], "15.0")
         control = source("control")
         version = re.search(r"^Version: (.+)$", control, re.M)[1]
+        self.assertEqual(version, EXPECTED_RELEASE_VERSION)
         self.assertEqual(info["CFBundleVersion"], version)
         self.assertEqual(info["CFBundleShortVersionString"], version)
         self.assertIn("mobilesubstrate", control)

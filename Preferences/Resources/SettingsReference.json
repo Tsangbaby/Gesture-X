@@ -1,0 +1,1031 @@
+{
+  "schemaVersion": 1,
+  "referencePackageSHA256": "240362fc1846f697025122e4788d04bbd1920b8f5102bcfc5642a9a14b62837a",
+  "referenceBinarySHA256": "a3e95d0028907909bc521a687934fa362cef18c4c813a787ff2a4b9e0eba6586",
+  "titles": {
+    "root": "TapLock",
+    "home": "主屏幕的手势",
+    "actions": "选择动作",
+    "basic": "选择基础动作",
+    "application": "选择应用",
+    "selected": "已选择",
+    "choose": "选择动作"
+  },
+  "rootSections": [
+    {
+      "id": "general",
+      "header": "总开关",
+      "footer": "独立总开关尚未实现。主屏双击请在“主屏幕的手势”中启用；灰色项暂不可用。原作者授权、购买及推广入口不移植。",
+      "rows": [
+        {
+          "id": "enabled",
+          "title": "启用插件",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": true
+        }
+      ]
+    },
+    {
+      "id": "dock",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "dockOptions",
+          "title": "Dock手势设置",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": false
+        }
+      ]
+    },
+    {
+      "id": "statusbar",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "statusBarOptions",
+          "title": "状态栏的手势",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": false
+        }
+      ]
+    },
+    {
+      "id": "homescreen",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "homescreenOptions",
+          "title": "主屏幕的手势",
+          "kind": "link",
+          "available": true,
+          "destination": "home",
+          "phoneOnly": false
+        },
+        {
+          "id": "bottomOptions",
+          "title": "底部上划手势",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": true
+        },
+        {
+          "id": "reachabilityOptions",
+          "title": "便捷访问手势",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": true
+        }
+      ]
+    },
+    {
+      "id": "hardware",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "hardwareButtonOptions",
+          "title": "实体按键手势",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": false
+        }
+      ]
+    },
+    {
+      "id": "advanced",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "advanceOptions",
+          "title": "自定高级设置",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": false
+        },
+        {
+          "id": "editPresetURLs",
+          "title": "编辑预设链接",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": false
+        },
+        {
+          "id": "customInterface",
+          "title": "自定面板界面",
+          "kind": "link",
+          "available": false,
+          "destination": null,
+          "phoneOnly": false
+        }
+      ]
+    },
+    {
+      "id": "miscellaneous",
+      "header": "杂项",
+      "footer": "部分设置生效需要注销。",
+      "rows": [
+        {
+          "id": "RESPRING",
+          "title": "注销设备生效",
+          "kind": "button",
+          "available": false
+        },
+        {
+          "id": "BACKUP_SETTINGS",
+          "title": "备份所有设置",
+          "kind": "button",
+          "available": false
+        },
+        {
+          "id": "RESTORE_SETTINGS",
+          "title": "还原设置备份",
+          "kind": "button",
+          "available": false
+        },
+        {
+          "id": "RESET_SETTINGS",
+          "title": "重置所有设置",
+          "kind": "button",
+          "available": false
+        }
+      ]
+    }
+  ],
+  "homeSections": [
+    {
+      "id": "home-group-0",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "homescreenDoubleTapEnabled",
+          "title": "启用主屏双击",
+          "kind": "switch",
+          "available": true,
+          "defaultValue": false
+        },
+        {
+          "id": "homescreenDoubleTap",
+          "title": "选择双击动作",
+          "kind": "link",
+          "available": true,
+          "destination": "actions"
+        },
+        {
+          "id": "homescreenDoubleTapFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "home-group-1",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "homescreenTripleTapEnabled",
+          "title": "启用主屏三击",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        },
+        {
+          "id": "homescreenTripleTap",
+          "title": "选择三击动作",
+          "kind": "link",
+          "available": false,
+          "destination": null
+        },
+        {
+          "id": "homescreenTripleTapFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "home-group-2",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "lockscreenDoubleTapEnabled",
+          "title": "锁定界面双击",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        },
+        {
+          "id": "lockscreenDoubleTap",
+          "title": "选择双击动作",
+          "kind": "link",
+          "available": false,
+          "destination": null
+        },
+        {
+          "id": "lockscreenDoubleTapFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "home-group-3",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "lockscreenTripleTapEnabled",
+          "title": "锁定界面三击",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        },
+        {
+          "id": "lockscreenTripleTap",
+          "title": "选择三击动作",
+          "kind": "link",
+          "available": false,
+          "destination": null
+        },
+        {
+          "id": "lockscreenTripleTapFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "home-group-4",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "homescreenLeftDownEnabled",
+          "title": "启用左侧下划",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        },
+        {
+          "id": "homescreenLeftDown",
+          "title": "选择左侧动作",
+          "kind": "link",
+          "available": false,
+          "destination": null
+        },
+        {
+          "id": "homescreenLeftDownFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "home-group-5",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "homescreenMiddleDownEnabled",
+          "title": "启用中间下划",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        },
+        {
+          "id": "homescreenMiddleDown",
+          "title": "选择中间动作",
+          "kind": "link",
+          "available": false,
+          "destination": null
+        },
+        {
+          "id": "homescreenMiddleDownFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "home-group-6",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "homescreenRightDownEnabled",
+          "title": "启用右侧下划",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        },
+        {
+          "id": "homescreenRightDown",
+          "title": "选择右侧动作",
+          "kind": "link",
+          "available": false,
+          "destination": null
+        },
+        {
+          "id": "homescreenRightDownFlowEnabled",
+          "title": "启用动作流模式",
+          "kind": "switch",
+          "available": false,
+          "defaultValue": false
+        }
+      ]
+    },
+    {
+      "id": "homescreenSettingDecribeGroup",
+      "header": null,
+      "footer": "主屏幕下划触发区域宽度：跟竖屏时底部上划触发宽度相同",
+      "rows": []
+    }
+  ],
+  "actionCategories": [
+    {
+      "id": "BASIC_ACTION",
+      "title": "基础动作",
+      "available": true,
+      "destination": "basic"
+    },
+    {
+      "id": "OPEN_APPLICATION",
+      "title": "打开应用",
+      "available": true,
+      "destination": "application"
+    },
+    {
+      "id": "APP_ACTION",
+      "title": "快捷方式",
+      "available": false,
+      "destination": null
+    },
+    {
+      "id": "SHORTCUTS",
+      "title": "快捷指令",
+      "available": false,
+      "destination": null
+    },
+    {
+      "id": "OPEN_URL",
+      "title": "打开链接",
+      "available": false,
+      "destination": null
+    },
+    {
+      "id": "PRESET_URLS",
+      "title": "预设链接",
+      "available": false,
+      "destination": null
+    }
+  ],
+  "basicActions": [
+    {
+      "id": "HI_CLIPBOARD",
+      "title": "HammerIt最近剪贴板",
+      "image": "hammer.fill",
+      "referenceSlot": 0,
+      "referenceActionNumber": 0,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "HI_FULLSCREEN_OCR",
+      "title": "HammerIt全屏OCR",
+      "image": "doc.richtext.fill",
+      "referenceSlot": 1,
+      "referenceActionNumber": 1,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "HI_FULLSCREEN_TRANSLATE",
+      "title": "HammerIt全屏翻译",
+      "image": "globe.americas.fill",
+      "referenceSlot": 2,
+      "referenceActionNumber": 2,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHOW_COPYVAULT",
+      "title": "唤出CopyVault",
+      "image": "doc.richtext",
+      "referenceSlot": 3,
+      "referenceActionNumber": 3,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHOW_COPYVAULT_HISTORY",
+      "title": "CopyVault 历史",
+      "image": "square.text.square",
+      "referenceSlot": 4,
+      "referenceActionNumber": 4,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHOW_COPYVAULT_ARCHIVE",
+      "title": "CopyVault 收藏",
+      "image": "star.square",
+      "referenceSlot": 5,
+      "referenceActionNumber": 5,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_SCREENSHOT",
+      "title": "系统截屏",
+      "image": "crop",
+      "referenceSlot": 6,
+      "referenceActionNumber": 26,
+      "available": true,
+      "actionKind": "screenshot"
+    },
+    {
+      "id": "SYSTEM_SCREENSHOT_COPYONLY",
+      "title": "截屏仅复制",
+      "image": "crop",
+      "referenceSlot": 7,
+      "referenceActionNumber": 54,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_SCREENSHOT_ANDEDIT",
+      "title": "截屏并标记",
+      "image": "pencil.tip.crop.circle",
+      "referenceSlot": 8,
+      "referenceActionNumber": 55,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_CONTROLCENTER",
+      "title": "控制中心",
+      "image": "switch.2",
+      "referenceSlot": 9,
+      "referenceActionNumber": 27,
+      "available": true,
+      "actionKind": "controlCenter"
+    },
+    {
+      "id": "SYSTEM_COVER",
+      "title": "通知中心",
+      "image": "bell.badge",
+      "referenceSlot": 10,
+      "referenceActionNumber": 28,
+      "available": true,
+      "actionKind": "notificationCenter"
+    },
+    {
+      "id": "SYSTEM_SPOTLIGHT",
+      "title": "Spotlight",
+      "image": null,
+      "referenceSlot": 11,
+      "referenceActionNumber": 29,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_RECORDSCREEN",
+      "title": "系统录屏",
+      "image": "record.circle",
+      "referenceSlot": 12,
+      "referenceActionNumber": 30,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_RECORDSCREEN_WITHMIC",
+      "title": "开麦录屏",
+      "image": "record.circle",
+      "referenceSlot": 13,
+      "referenceActionNumber": 56,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_LOCKSCREEN",
+      "title": "系统锁屏",
+      "image": "lock.square",
+      "referenceSlot": 14,
+      "referenceActionNumber": 31,
+      "available": true,
+      "actionKind": "lock"
+    },
+    {
+      "id": "TOGGLE_VPN",
+      "title": "开关VPN",
+      "image": "globe",
+      "referenceSlot": 15,
+      "referenceActionNumber": 32,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "TOGGLE_FLASHLIGHT",
+      "title": "开关手电",
+      "image": "flashlight.on.fill",
+      "referenceSlot": 16,
+      "referenceActionNumber": 33,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_REACHABILITY",
+      "title": "便捷访问",
+      "image": "dock.arrow.down.rectangle",
+      "referenceSlot": 17,
+      "referenceActionNumber": 35,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "ROTATION_LOCK",
+      "title": "方向锁定",
+      "image": "lock.rotation",
+      "referenceSlot": 18,
+      "referenceActionNumber": 36,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "PLAYPAUSE_MEDIA",
+      "title": "播放/暂停",
+      "image": "playpause",
+      "referenceSlot": 19,
+      "referenceActionNumber": 37,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "PREVIOUS_MEDIA",
+      "title": "上一首",
+      "image": "backward.end",
+      "referenceSlot": 20,
+      "referenceActionNumber": 38,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "NEXT_MEDIA",
+      "title": "下一首",
+      "image": "forward.end",
+      "referenceSlot": 21,
+      "referenceActionNumber": 39,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "APP_LIBRARY",
+      "title": "App资源库",
+      "image": "square.grid.3x3.middle.fill",
+      "referenceSlot": 22,
+      "referenceActionNumber": 41,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "KILL_BACKGROUND",
+      "title": "关闭所有应用",
+      "image": "trash.fill",
+      "referenceSlot": 23,
+      "referenceActionNumber": 42,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "REOPEN_CURRENT_APP",
+      "title": "重开当前应用",
+      "image": "arrow.counterclockwise.circle",
+      "referenceSlot": 24,
+      "referenceActionNumber": 60,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "RESPRING_ALL",
+      "title": "注销",
+      "image": "exclamationmark.arrow.triangle.2.circlepath",
+      "referenceSlot": 25,
+      "referenceActionNumber": 43,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "RESPRING_SB",
+      "title": "注销(SB)",
+      "image": "arrow.triangle.2.circlepath",
+      "referenceSlot": 26,
+      "referenceActionNumber": 44,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "REBOOT_USERSPACE",
+      "title": "重启用户空间",
+      "image": "exclamationmark.arrow.circlepath",
+      "referenceSlot": 27,
+      "referenceActionNumber": 45,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "REBOOT",
+      "title": "重启系统",
+      "image": "exclamationmark.arrow.circlepath",
+      "referenceSlot": 28,
+      "referenceActionNumber": 46,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHUTDOWN",
+      "title": "关机",
+      "image": "power",
+      "referenceSlot": 29,
+      "referenceActionNumber": 47,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SAFEMODE",
+      "title": "安全模式",
+      "image": "s.circle",
+      "referenceSlot": 30,
+      "referenceActionNumber": 48,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "REBUILD_UICACHE",
+      "title": "重建图标缓存",
+      "image": "arrow.triangle.2.circlepath",
+      "referenceSlot": 31,
+      "referenceActionNumber": 49,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_MUTE",
+      "title": "系统静音",
+      "image": "bell.slash",
+      "referenceSlot": 32,
+      "referenceActionNumber": 50,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "VOLUME_MUTE",
+      "title": "媒体静音",
+      "image": "speaker.slash.circle",
+      "referenceSlot": 33,
+      "referenceActionNumber": 61,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_LOWPOWER",
+      "title": "低电量模式",
+      "image": "battery.25",
+      "referenceSlot": 34,
+      "referenceActionNumber": 51,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_LOCATION",
+      "title": "定位开关",
+      "image": "location.circle",
+      "referenceSlot": 35,
+      "referenceActionNumber": 52,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_DARKMODE",
+      "title": "深/浅色模式",
+      "image": "circle.lefthalf.filled",
+      "referenceSlot": 36,
+      "referenceActionNumber": 53,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_SIRI",
+      "title": "Siri",
+      "image": "infinity",
+      "referenceSlot": 37,
+      "referenceActionNumber": 57,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_APAY",
+      "title": "Apple Pay",
+      "image": "applelogo",
+      "referenceSlot": 38,
+      "referenceActionNumber": 58,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_ACCESSIBILITY",
+      "title": "辅助功能快捷键",
+      "image": "figure.wave",
+      "referenceSlot": 39,
+      "referenceActionNumber": 59,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SYSTEM_SWITCHER",
+      "title": "应用切换界面",
+      "image": "rectangle.grid.3x2.fill",
+      "referenceSlot": 40,
+      "referenceActionNumber": 62,
+      "available": true,
+      "actionKind": "appSwitcher"
+    },
+    {
+      "id": "SYSTEM_HOME",
+      "title": "返回主屏幕",
+      "image": "house",
+      "referenceSlot": 41,
+      "referenceActionNumber": 63,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SNAPPER_INSTANT",
+      "title": "Snapper2/3即时模式",
+      "image": "crop",
+      "referenceSlot": 42,
+      "referenceActionNumber": 101,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SNAPPER_COMMON",
+      "title": "Snapper2/3普通模式",
+      "image": "crop",
+      "referenceSlot": 43,
+      "referenceActionNumber": 102,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SNAPPER_FREEZE",
+      "title": "Snapper3冻结模式",
+      "image": "crop",
+      "referenceSlot": 44,
+      "referenceActionNumber": 103,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SNAPPER_HISTORY",
+      "title": "Snapper3截图历史",
+      "image": "photo.on.rectangle.angled",
+      "referenceSlot": 45,
+      "referenceActionNumber": 104,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SNAPPER_CLOSE_ALL",
+      "title": "Snapper3关闭贴图",
+      "image": "xmark",
+      "referenceSlot": 46,
+      "referenceActionNumber": 106,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SNAPPER_OPEN_LAST",
+      "title": "Snapper3最近截图",
+      "image": "photo.on.rectangle",
+      "referenceSlot": 47,
+      "referenceActionNumber": 107,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHOW_KAYOKO",
+      "title": "唤出Kayoko",
+      "image": "doc.richtext",
+      "referenceSlot": 48,
+      "referenceActionNumber": 111,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHOW_COPYLOG",
+      "title": "唤出CopyLog",
+      "image": "doc.richtext",
+      "referenceSlot": 49,
+      "referenceActionNumber": 112,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "AUDIORECORDERXS_MEMO",
+      "title": "AudioRecorderXS语音备忘",
+      "image": "waveform",
+      "referenceSlot": 50,
+      "referenceActionNumber": 113,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "AUDIORECORDERXS_UI",
+      "title": "AudioRecorderXS显示UI",
+      "image": "waveform",
+      "referenceSlot": 51,
+      "referenceActionNumber": 114,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "REVERIE_SLEEP",
+      "title": "Reverie 休眠",
+      "image": "zzz",
+      "referenceSlot": 52,
+      "referenceActionNumber": 115,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SHOW_CARDCULATOR",
+      "title": "Cardculator",
+      "image": "x.squareroot",
+      "referenceSlot": 53,
+      "referenceActionNumber": 116,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "TROLLRECORD_START",
+      "title": "TrollRecord启动录音",
+      "image": "play.circle",
+      "referenceSlot": 54,
+      "referenceActionNumber": 119,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "TROLLRECORD_STOP",
+      "title": "TrollRecord停止录音",
+      "image": "stop.circle",
+      "referenceSlot": 55,
+      "referenceActionNumber": 120,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "TROLLRECORD_TOGGLE",
+      "title": "TrollRecord启停录音",
+      "image": "waveform.circle",
+      "referenceSlot": 56,
+      "referenceActionNumber": 121,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "ZETSU_WINDOW_MODE",
+      "title": "当前应用在Zetsu打开(窗口)",
+      "image": "rectangle.on.rectangle",
+      "referenceSlot": 57,
+      "referenceActionNumber": 117,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "PULLOVER_MINIVIEW",
+      "title": "当前应用在PullOver中打开",
+      "image": "rectangle.on.rectangle",
+      "referenceSlot": 58,
+      "referenceActionNumber": 122,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SVP_MINIVIEW",
+      "title": "当前应用在svp中打开",
+      "image": "rectangle.on.rectangle",
+      "referenceSlot": 59,
+      "referenceActionNumber": 123,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "FV_MINIVIEW",
+      "title": "当前应用在fv中打开",
+      "image": "rectangle.on.rectangle",
+      "referenceSlot": 60,
+      "referenceActionNumber": 124,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "SVP_ARCMENU",
+      "title": "Svp arc界面",
+      "image": "arrow.up.forward.app",
+      "referenceSlot": 61,
+      "referenceActionNumber": 118,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "FV_LEFT_ARCMENU",
+      "title": "fv arc界面(左)",
+      "image": "arrow.up.forward.app",
+      "referenceSlot": 62,
+      "referenceActionNumber": 125,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "FV_RIGHT_ARCMENU",
+      "title": "fv arc界面(右)",
+      "image": "arrow.up.forward.app",
+      "referenceSlot": 63,
+      "referenceActionNumber": 126,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "WECHAT_SCAN",
+      "title": "微信扫一扫",
+      "image": "qrcode.viewfinder",
+      "referenceSlot": 64,
+      "referenceActionNumber": 201,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "WECHAT_QRCODE",
+      "title": "微信付款码",
+      "image": "qrcode",
+      "referenceSlot": 65,
+      "referenceActionNumber": 202,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "ALIPAY_SCAN",
+      "title": "支付宝扫一扫",
+      "image": "qrcode.viewfinder",
+      "referenceSlot": 66,
+      "referenceActionNumber": 203,
+      "available": false,
+      "actionKind": null
+    },
+    {
+      "id": "ALIPAY_QRCODE",
+      "title": "支付宝付款码",
+      "image": "qrcode",
+      "referenceSlot": 67,
+      "referenceActionNumber": 204,
+      "available": false,
+      "actionKind": null
+    }
+  ],
+  "originalSelectedFooter": "- 选择单个动作直接执行，多个动作显示面板\n- 非编辑状态下，点按编辑动作\n- 编辑状态下，点按删除动作",
+  "phaseNotice": "当前阶段仅支持主屏双击和单个动作。灰色选项尚未实现，不会保存或执行；多选、编辑、删除、排序、动作流与多动作面板暂不开放。",
+  "excludedReferenceSurfaces": [
+    "originalAuthorLicensingPurchasesAndPromotion",
+    "deviceAndThirdPartyConditionalCatalogAdditions",
+    "multipleActionsEditingSortingAndPanelExecution"
+  ]
+}

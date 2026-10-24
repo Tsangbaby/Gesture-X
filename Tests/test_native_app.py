@@ -45,7 +45,7 @@ class NativeAppContracts(unittest.TestCase):
             self.assertIn(token, text)
         for forbidden in ('InstalledApplications', 'allApplications', 'LSApplication', 'LockAction'):
             self.assertNotIn(forbidden, text)
-        settings = source('Preferences/SettingsController.swift')
+        settings = source('Preferences/SettingsController.swift', settings_layout=True)
         self.assertIn('private let applicationIcons = ApplicationIcons()', settings)
         self.assertIn('cell.imageView?.image = applicationIcons.image(identifier: choice.identifier)', settings)
         self.assertIn('cell.imageView?.contentMode = .scaleAspectFit', settings)
