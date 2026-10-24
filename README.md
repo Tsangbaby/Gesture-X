@@ -1,6 +1,6 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.5“打开控制中心”已获用户反馈通过并固化到 main。当前独立候选 0.1.6 只增加“打开通知中心”，待 exact-SHA 云端构建与实机验收，未合入 main。验收基线环境为 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
+**状态：0.1.6“打开通知中心”原始 RootHide 包已获用户反馈“测试已通过”，固化为当前回退基线。验收环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
@@ -20,7 +20,7 @@
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
 - 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
-当前已验收原包绑定源码 `1b6615b46242abeb5b8ef0f0bf4afba14db18e2a`、成功 Actions `39958293096`、SHA-256 `88e113be9368c491b5ad4df11bfb6c9c09c105e06a36b3fdfe2218c324798d90`。`feat/open-control-center` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。0.1.4 回退分支及原包也保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
+当前已验收原包绑定源码 `078b98fb67582422a577b70ae3335ecc0d1e2ab9`、成功 Actions `40066822391`、SHA-256 `fda2c0cd9b4fe63d85984da3c658e1fe3e81aec59fdf387d4a29976835bb366a`。`feat/open-notification-center` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。旧回退分支及原包也保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
 
 ## 当前设置入口
 
