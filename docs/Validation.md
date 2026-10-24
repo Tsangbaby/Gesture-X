@@ -1,5 +1,16 @@
 # 验证分层记录
 
+## 当前候选：打开通知中心 0.1.6
+
+- 用户授权只新增此动作，先固化 0.1.5。main 的纯验收文档提交是 `62d07e1cb548c3ab2622c78260b9074ca827b037`，运行字节与已验收源码 `1b6615b46242abeb5b8ef0f0bf4afba14db18e2a` 相同；原分支与原包均保留，没有重编 0.1.5 或发布 Tag / Release。
+- `feat/open-notification-center` 只新增第四个互斥动作、严格单值偏好读写、设置摘要与一条手势分派。既有手势过滤/生命周期、锁屏、原生 App 启动、控制中心、应用目录和图标不变；旧字节由候选专名、精确计数和顺序的逆变换保护，所有更早冻结摘要不变。
+- 头文件证据：`lechium/iPhone_OS_15.5@0f4def7da3cad33a6ea5a4224f4ec3526f3e73f8` 的 `System/Library/PrivateFrameworks/SpringBoard/SBCoverSheetPresentationManager.h`，Git blob `8d9ec9508929a49a88957471a4266bf5a84b0626`，已独立核验 blob。声明 `sharedInstance`、BOOL `isPresented` / `isVisible` / `isTransitioning`、BOOL `coverSheetCanTransitionToPresented:` 与 void `setCoverSheetPresented:animated:withCompletion:`（BOOL、BOOL、Block）。这是版本相邻的静态声明，不是用户 iOS 15.4.1 实际运行时的 dump。
+- 语义用例证据：`kritanta-ios-tweaks/Signe@f3f32ebf22a3a58e18c9ae5ee712ce404286c5f4`，`SigneManager/SigneUtilities.m`、blob `8e36d4e42075b5ec9ad24934823f87a33c64490e`，`presentNotificationCenter` 把该原生 selector 用于通知中心。只据此选择 guarded candidate 的入口，不复制其 toggle，也不把第三方源码当成目标设备展示证明。
+- 新提供者仅在主线程、原有解锁门通过后获取正确类链的 manager；要求未 presented、未 visible、未 transitioning，再验证 admission 的 `B@:B` 和 presentation 的 `v@:BB@?`，系统允许时只调用一次 `presented=true, animated=true, completion=nil`。Block 形状单独检查，不把对象 `@` 当 `@?`；不请求锁屏、不改锁定状态、不 toggle、不延时重试、不切备用入口。返回 true 仅代表请求已提交。
+- 本地先观察到 4 个新功能源码合同 RED 与独立版本合同 RED，再实现；CI wiring 和包足迹合同另观察到 2 个 RED。当前本机无 Swift / Apple SDK，源码合同与 shell / plist 检查不是 Swift 编译或通知中心展示证明。
+- 云端要求同一 harness 在原始 0.1.5 的真实偏好解析断言失败、当前实际 Swift 通过；只逆向可恢复地重绑定固定类名，方法体与 ABI 检查不改。执行 BOOL / Block、系统拒绝、状态、线程、单次打开及旧偏好回归；UIKit 用同一 harness 证明原版缺第四行，再验证当前选择、返回、重进、摘要、四动作互斥及 App 图标回归。完整生产图随后由 Apple 双架构编译与包核验。
+- 本节冻结于候选交付前：最终运行结果绑定 exact-SHA Actions 与报告，不预先宣告云端通过。0.1.6 实机尚待反馈；不合入 main，不发布 Tag / Release，不添加诊断采集。
+
 ## 当前基线：打开控制中心 0.1.5（用户反馈通过）
 
 - 用户对已交付的 0.1.5 RootHide 功能包反馈“测试已通过”。绑定源码 `1b6615b46242abeb5b8ef0f0bf4afba14db18e2a`、成功 Actions `39958293096`、原包 SHA-256 `88e113be9368c491b5ad4df11bfb6c9c09c105e06a36b3fdfe2218c324798d90`；环境沿用此前报告的 iOS 15.4.1 / RootHide。这是用户实机反馈，不是助手独立设备复测，不自动把未逐项反馈的检查标为执行，也不外推到其他系统。

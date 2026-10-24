@@ -163,14 +163,18 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     require(false, "action table missing")
                     return false
                 }
-                #if CONTROL_CENTER_ROWS
+                #if NOTIFICATION_CENTER_ROWS
+                let expectedActionRows = 4
+                #elseif CONTROL_CENTER_ROWS
                 let expectedActionRows = 3
                 #elseif OPEN_APP_ROWS
                 let expectedActionRows = 2
                 #else
                 let expectedActionRows = 1
                 #endif
-                #if CONTROL_CENTER_ROWS
+                #if NOTIFICATION_CENTER_ROWS
+                let rowFailure = "Notification Center action row missing"
+                #elseif CONTROL_CENTER_ROWS
                 let rowFailure = "Control Center action row missing"
                 #else
                 let rowFailure = "unimplemented actions must not be exposed"
@@ -279,6 +283,56 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 print("CONTROL_CENTER_UIKIT_PASS: selection + persistent reentry + exclusive checkmark + home summary + lock restoration #\(iteration)")
                 #else
                 actionTable.delegate?.tableView?(actionTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                #endif
+                #if NOTIFICATION_CENTER_FEATURE
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let notificationPage = navigation.topViewController as? TapLockSettingsController,
+                      notificationPage !== home else { require(false, "Notification Center page did not push"); return false }
+                notificationPage.loadViewIfNeeded()
+                notificationPage.viewWillAppear(false)
+                guard let notificationTable = notificationPage.view as? UITableView else {
+                    require(false, "Notification Center action table missing"); return false
+                }
+                let notificationRow = notificationPage.tableView(notificationTable, cellForRowAt: IndexPath(row: 3, section: 0))
+                require(notificationRow.textLabel?.text == "打开通知中心" && notificationRow.accessoryType == .none,
+                        "Notification Center label/initial selection incorrect")
+                notificationTable.delegate?.tableView?(notificationTable, didSelectRowAt: IndexPath(row: 3, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .notificationCenter,
+                        "Notification Center selection did not save and return home")
+                home.viewWillAppear(false)
+                require(home.tableView(homeTable, cellForRowAt: IndexPath(row: 1, section: 0)).detailTextLabel?.text ==
+                        "打开通知中心", "Notification Center home summary did not refresh")
+                require(TapLockPreferences.readEnabled() == !original, "Notification Center selection changed enable state")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let savedPage = navigation.topViewController as? TapLockSettingsController,
+                      savedPage !== notificationPage else { require(false, "Notification Center page was not reconstructed"); return false }
+                savedPage.loadViewIfNeeded()
+                savedPage.viewWillAppear(false)
+                guard let savedTable = savedPage.view as? UITableView else {
+                    require(false, "reopened Notification Center action table missing"); return false
+                }
+                for row in 0..<4 {
+                    let selected = savedPage.tableView(savedTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 3), "Notification Center selection was lost or not exclusive")
+                }
+                savedTable.delegate?.tableView?(savedTable, didSelectRowAt: IndexPath(row: 2, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .controlCenter,
+                        "Notification Center could not switch back to Control Center")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let restoredPage = navigation.topViewController as? TapLockSettingsController else {
+                    require(false, "restored Control Center page missing"); return false
+                }
+                restoredPage.loadViewIfNeeded()
+                restoredPage.viewWillAppear(false)
+                guard let restoredTable = restoredPage.view as? UITableView else {
+                    require(false, "restored Control Center table missing"); return false
+                }
+                for row in 0..<4 {
+                    let selected = restoredPage.tableView(restoredTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 2), "restored Control Center selection was not exclusive")
+                }
+                restoredTable.delegate?.tableView?(restoredTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                print("NOTIFICATION_CENTER_UIKIT_PASS: selection + persistent reentry + four-way exclusivity + summary + Control Center/lock restoration #\(iteration)")
                 #endif
                 require(navigation.topViewController === home, "selecting current action must return home")
                 require(TapLockPreferences.readEnabled() == !original, "action navigation changed enable state")

@@ -31,13 +31,21 @@
 
 最低部署版本为 iOS 15.0，不设硬编码系统版本上限。私有类/selector/签名按运行时能力检查，不按 `majorVersion == 15` 选择；iOS 15.2 与 17.0 头文件均声明该按钮模拟入口，但头文件不证明实际实现和未来版本兼容。设备锁定、灭屏/系统过渡及唤醒/Face ID 必须分开验收。
 
+## 控制中心与通知中心动作
+
+现有控制中心保持 0.1.5 原字节不变。0.1.6 的通知中心仅复用既有桌面双击，通过 `SBCoverSheetPresentationManager.sharedInstance` 请求解锁态 Cover Sheet；不请求锁定设备，不 toggle、不模拟滑动，也不拼一个通知界面。先过原有解锁门，检查 manager 的真实类链与未展示/不可见/未转场状态，再检查 `coverSheetCanTransitionToPresented:` 为 `B@:B`、`setCoverSheetPresented:animated:withCompletion:` 为 `v@:BB@?`。系统允许后只调用一次 `true, true, nil`。Block 与普通对象编码严格分开；没有备用入口或重试。
+
+头文件与开源语义参考的不可变 SHA / blob 见 `Validation.md`；相邻版本声明不等于目标 iOS 15.4.1 的实时对象/ABI。私有接口的请求返回只证明提交，通知中心是否出现、关闭是否无需解锁及重复打开是否正常必须实机验证。
+
+四动作互斥保存为单个属性列表；新动作只接受单键 `kind=notificationCenter`，没有 target 或额外字段。缺失配置仍默认锁屏，已有配置不迁移或重置，损坏配置不执行其他动作。设置页第四行只写偏好，不链接通知中心提供者。手势层只加一个 case，先前的过滤、监听与生命周期不改。
+
 ## 设置契约
 
 PreferenceLoader 原始源码的 `controllerForSpecifier:` 检查 PSViewController 继承关系，优先调用 `initForContentSize:`，随后写入 root/parent/specifier。不能只用同名 UITableViewController 替代。
 
 本项目的 Swift 控制器直接继承真实系统 PSViewController，用 UIKit UITableView 渲染设置首页、主屏幕手势页和双击动作页。三个页面由这个控制器的私有页面类型区分，不引入动作引擎或新存储。声明头只声明真实基类，不再把旧版 `initForContentSize:` 声明为其可用方法。Swift 子类显式拥有 `@objc(initForContentSize:)` convenience initializer，转入 UIKit 支持的 `init(nibName:bundle:)`，不向缺少该接口的父类转发。原生父类继续承担 loader 的其余 setters；没有伪造继承关系或动态替换 isa。
 
-本轮只迁移设置入口：“主屏幕的手势” → “启用主屏双击 / 选择双击动作” → “系统锁屏”。文案核对自用户提供的 SquidGesture Pro 2.7.6-1 中文 Localizable.strings（键 HOMESCREEN_SETTING、HOMESCREEN_DOUBLE_TAP_ENABLED、HOMESCREEN_DOUBLE_TAP、SYSTEM_LOCKSCREEN）；这不等于已证明原版全部页面或像素级视觉一致。当前唯一动作固定为已实机通过的系统锁屏，选择该行只返回上页，不从设置进程调用锁屏，不新增无意义的动作偏好。未实现的其他分类和动作不暴露空开关。迁移保留原 Enabled key、默认关闭策略和写入/失败回滚/通知链；不重置用户已保存值。
+最初的设置层级阶段只迁移设置入口：“主屏幕的手势” → “启用主屏双击 / 选择双击动作” → “系统锁屏”。文案核对自用户提供的 SquidGesture Pro 2.7.6-1 中文 Localizable.strings（键 HOMESCREEN_SETTING、HOMESCREEN_DOUBLE_TAP_ENABLED、HOMESCREEN_DOUBLE_TAP、SYSTEM_LOCKSCREEN）；这不等于已证明原版全部页面或像素级视觉一致。当前唯一动作固定为已实机通过的系统锁屏，选择该行只返回上页，不从设置进程调用锁屏，不新增无意义的动作偏好。未实现的其他分类和动作不暴露空开关。迁移保留原 Enabled key、默认关闭策略和写入/失败回滚/通知链；不重置用户已保存值。
 
 0.1.0 在 iOS 15.4.1 的 Settings 崩溃已将失效路径定位到自动生成的 `initForContentSize:` → `objc_msgSendSuper2`。因此不能再以 Theos 头文件存在该声明作为设备实现证明。CI 会从固定 0.1.0 SHA 编译真实旧控制器，在缺失旧接口的原生 UIKit 父类测试替身上复现异常，再用同一替身执行修复后控制器的 legacy/default 两种工厂路径及实际表格/开关创建。该替身只验证初始化回归，不证明设备 Preferences 的完整 factory/setter 链，也不进入安装包。
 

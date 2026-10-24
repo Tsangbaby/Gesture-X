@@ -1,11 +1,14 @@
 """Invert only the counted Control Center delta to device-accepted 0.1.4."""
 import json
 from pathlib import Path
+from notification_center_baseline import invert_notification_center
 
 FIXTURE = json.loads(Path(__file__).with_suffix('.json').read_text())
 
 
-def invert_control_center(relative, text):
+def invert_control_center(relative, text, *, notification_center=False):
+    if notification_center:
+        text = invert_notification_center(relative, text)
     hunks = FIXTURE['hunks'].get(relative, [])
     cursor = -1
     for hunk in hunks:

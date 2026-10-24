@@ -6,8 +6,8 @@
     <key>CFBundleIdentifier</key><string>com.tsangbaby.taplock.preferences</string>
     <key>CFBundleName</key><string>TapLockPrefs</string>
     <key>CFBundlePackageType</key><string>BNDL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.5</string>
-    <key>CFBundleVersion</key><string>0.1.5</string>
+    <key>CFBundleShortVersionString</key><string>0.1.6</string>
+    <key>CFBundleVersion</key><string>0.1.6</string>
     <key>MinimumOSVersion</key><string>15.0</string>
     <key>NSPrincipalClass</key><string>TapLockSettingsController</string>
 </dict>

@@ -1,15 +1,15 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.5“打开控制中心”原始 RootHide 包已获用户反馈“测试已通过”，固化为当前回退基线。验收环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推到其他系统；0.1.3 的整机卡死仍为失败历史。**
+**状态：0.1.5“打开控制中心”已获用户反馈通过并固化到 main。当前独立候选 0.1.6 只增加“打开通知中心”，待 exact-SHA 云端构建与实机验收，未合入 main。验收基线环境为 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.5，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.6，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
-## 一条手势链，三选一动作
+## 一条手势链，四选一动作
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心（三选一）`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心 / 打开通知中心（四选一）`
 
 锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
@@ -32,7 +32,8 @@
       ├─ 系统锁屏（未配置时默认）
       ├─ 打开指定App
       │  └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
-      └─ 打开控制中心
+      ├─ 打开控制中心
+      └─ 打开通知中心
 ```
 
 按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留。新增动作与 Bundle ID 存入同一个 CFPreferences 属性列表值；保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。列表每次进入建立一次快照，不按行扫描全部 App；设置页只选择，不当场执行动作。
@@ -48,6 +49,7 @@ Sources/LockAction.swift             一次系统锁屏请求
 Shared/Preferences.swift             Settings/SpringBoard 共用开关与动作读写
 Sources/AppAction.swift              SpringBoard 原生单次启动；拒绝继承的 UIKit 客户端入口
 Sources/ControlCenterAction.swift    SpringBoard 原生单次打开控制中心；不切换、重试或回退
+Sources/NotificationCenterAction.swift 解锁态 Cover Sheet 单次打开；BOOL/Block ABI 与转场门
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
@@ -87,4 +89,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-最后按 `docs/Acceptance.md` 做本次控制中心动作和旧动作保护项的集中设备验收。锁屏、原生 App 启动、图标、Hook 与过滤保持 0.1.4 的已接受实现；0.1.4 的用户反馈不覆盖新控制中心功能，云端执行也不等于设备验收。
+最后按 `docs/Acceptance.md` 做本次通知中心动作和旧动作保护项的集中设备验收。锁屏、原生 App 启动、控制中心、图标、Hook 与过滤保持 0.1.5 的已接受实现；0.1.5 的用户反馈不覆盖新通知中心功能，云端执行也不等于设备验收。

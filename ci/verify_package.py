@@ -206,6 +206,13 @@ def verify(package):
                 require_selector_per_slice(tweak_bytes, binaries[required[0]], name)
         require(b"SBControlCenterController" not in (dest / required[2]).read_bytes(),
                 "Control Center provider leaked into Settings binary")
+        notification_center_names = (b"SBCoverSheetPresentationManager",
+                                     b"setCoverSheetPresented:animated:withCompletion:",
+                                     b"coverSheetCanTransitionToPresented:")
+        for name in notification_center_names:
+            require_selector_per_slice(tweak_bytes, binaries[required[0]], name)
+        require(b"SBCoverSheetPresentationManager" not in (dest / required[2]).read_bytes(),
+                "Notification Center provider leaked into Settings binary")
         require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
                                    b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:
@@ -220,6 +227,7 @@ def verify(package):
             "control": fields, "required_files": required, "binaries": binaries,
             "launch_boundary": "native SpringBoard selector present; LS client/catalog absent from tweak; icon loader in Settings only",
             "control_center_binary_long_names": [name.decode() for name in control_center_names if len(name) > 15],
+            "notification_center_binary_long_names": [name.decode() for name in notification_center_names],
             "device_tested": False}
 
 

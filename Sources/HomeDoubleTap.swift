@@ -205,6 +205,8 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
             AppAction.open(identifier: identifier)
         case .controlCenter:
             ControlCenterAction.open()
+        case .notificationCenter:
+            NotificationCenterAction.open()
         case .unavailable:
             break
         }
