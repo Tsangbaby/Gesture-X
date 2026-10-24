@@ -17,6 +17,7 @@ SUPPORTED = {
     'SYSTEM_COVER': 'notificationCenter',
     'SYSTEM_LOCKSCREEN': 'lock',
     'SYSTEM_SWITCHER': 'appSwitcher',
+    'PLAYPAUSE_MEDIA': 'playPause',
 }
 
 
@@ -135,6 +136,7 @@ class ReferenceSettingsContract(unittest.TestCase):
                          'Open Application belongs to its own original category')
 
     def test_existing_runtime_and_storage_files_are_byte_exact_018(self):
+        from media_play_pause_baseline import invert_media_play_pause
         manifest = json.loads((ROOT / 'Tests/settings_layout_baseline.json').read_text())
         self.assertEqual(manifest['baseline'], 'f3a2e138fa9ac93d250645e9c66226b074d429ee')
         self.assertEqual(len(manifest['frozen']), 24)
@@ -143,7 +145,8 @@ class ReferenceSettingsContract(unittest.TestCase):
         for relative, digest in manifest['frozen'].items():
             if relative not in ALLOWED_PRODUCTION_EDITS:
                 with self.subTest(relative=relative):
-                    self.assertEqual(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest(), digest)
+                    text = invert_media_play_pause(relative, (ROOT / relative).read_bytes().decode('utf-8'))
+                    self.assertEqual(hashlib.sha256(text.encode('utf-8')).hexdigest(), digest)
 
 
 if __name__ == '__main__':

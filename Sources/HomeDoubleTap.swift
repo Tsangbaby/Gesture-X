@@ -211,6 +211,8 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
             ScreenshotAction.capture()
         case .appSwitcher:
             AppSwitcherAction.open()
+        case .playPause:
+            MediaPlayPauseAction.toggle()
         case .unavailable:
             break
         }

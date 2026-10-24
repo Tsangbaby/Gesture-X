@@ -14,7 +14,7 @@ def source(relative, *, settings_layout=False):
     path = ROOT / relative
     if not path.is_file():
         raise AssertionError(f"Missing implementation: {relative}")
-    text = accepted_source(relative) if settings_layout else path.read_text(encoding="utf-8")
+    text = accepted_source(relative, media_play_pause=True) if settings_layout else path.read_text(encoding="utf-8")
     # Retain quoted strings; discard comments so comments cannot satisfy guards.
     return re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
                   lambda match: match[0] if match[0].startswith('"') else '',
@@ -219,9 +219,10 @@ class SettingsAndBuildContracts(unittest.TestCase):
         for path in ROOT.rglob("*"):
             if not path.is_file():
                 continue
-            # Native implementations are allowlisted simulator fixtures only.
+            # Native implementations are explicitly allowlisted test fixtures only.
             if path in {ROOT / "Tests/SettingsConstructionFixture.m",
-                        ROOT / "Tests/NativeHookFixture.m"}:
+                        ROOT / "Tests/NativeHookFixture.m",
+                        ROOT / "Tests/MediaRemoteFixture.m"}:
                 continue
             self.assertNotIn(path.suffix, (".m", ".mm", ".c", ".cpp", ".xm", ".x",
                                            ".deb", ".dylib", ".o", ".zip"), str(path))

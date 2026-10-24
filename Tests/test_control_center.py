@@ -17,7 +17,7 @@ ACCEPTED = 'b8d6994be7defcc37ceac3bb158c5526c952ac3a'
 class ControlCenterContracts(unittest.TestCase):
     def test_historical_inverse_does_not_silently_accept_the_new_candidate(self):
         for path in FIXTURE['hunks']:
-            text = accepted_source(path)
+            text = accepted_source(path, media_play_pause=True)
             with self.subTest(path=path), self.assertRaises(AssertionError):
                 invert_open_app(path, text)
 
@@ -25,12 +25,12 @@ class ControlCenterContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_control_center(path, accepted_source(path), notification_center=True, screenshot=True, app_switcher=True)
+                restored = invert_control_center(path, accepted_source(path, media_play_pause=True), notification_center=True, screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_candidate_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = invert_notification_center(path, accepted_source(path), screenshot=True, app_switcher=True)
+            text = invert_notification_center(path, accepted_source(path, media_play_pause=True), screenshot=True, app_switcher=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.assertRaises(AssertionError):

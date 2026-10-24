@@ -40,6 +40,7 @@ private struct SettingsReference: Decodable {
             case "notificationCenter": return .notificationCenter
             case "lock": return .lock
             case "appSwitcher": return .appSwitcher
+            case "playPause": return .playPause
             default: return nil
             }
         }
@@ -83,9 +84,9 @@ private struct SettingsReference: Decodable {
         guard actionCategories.count == 6, Set(actionCategories.map { $0.id }).count == 6,
               basicActions.count == 68, Set(basicActions.map { $0.id }).count == 68,
               basicActions.map({ $0.referenceSlot }) == Array(0..<68),
-              basicActions.compactMap({ $0.action }).count == 5 else { return false }
+              basicActions.compactMap({ $0.action }).count == 6 else { return false }
         return Set(basicActions.filter { $0.available }.compactMap { $0.actionKind }) ==
-            Set(["screenshot", "controlCenter", "notificationCenter", "lock", "appSwitcher"])
+            Set(["screenshot", "controlCenter", "notificationCenter", "lock", "appSwitcher", "playPause"])
     }
 }
 

@@ -585,8 +585,8 @@
       "image": "playpause",
       "referenceSlot": 19,
       "referenceActionNumber": 37,
-      "available": false,
-      "actionKind": null
+      "available": true,
+      "actionKind": "playPause"
     },
     {
       "id": "PREVIOUS_MEDIA",

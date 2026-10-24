@@ -1,0 +1,86 @@
+{
+  "baseline": "1e2b7ef11a5f743b8db122c02d9a5478d2f20bfa",
+  "frozen": {
+    "Interfaces/TapLockNativeRuntime/NativeRuntime.h": "e763895e3f1429884ee3d5101bee0601ad899fb50f950db7df2a57d9a2afa760",
+    "Interfaces/TapLockNativeRuntime/module.modulemap": "e22a94cbcef24d41a163d6e1214644d2ebc4ffa445456c572aef7e8dcfaf7a21",
+    "Interfaces/TapLockPreferencesHost/PSViewController.h": "e1694c2e656c15ec16a92236159a6bd31d9a1125625ca80e154530b953074cf0",
+    "Interfaces/TapLockPreferencesHost/module.modulemap": "a8eaa6b0f7925ffa1ec469469e2f694abc02448ca89cfd1d5cbe2e4d4257b303",
+    "Makefile": "667e1bc329f71cd3717417b101cb36ed5eb2a03ce932e6dbd77872e3226e4b4e",
+    "Preferences/ApplicationIcons.swift": "946826d36c54e9e9bb21dd2054e7265f5b1a8b8424419f6a1a3101156ebfe9d7",
+    "Preferences/Makefile": "48ab9b33dea920d96e2202c654f2b7f9169b2fcbf212f2995ae1cd675a683d4e",
+    "Preferences/Resources/Info.plist": "57cdeca8b7aa11f7090ffc4bdf268d7049969b09e892efd5e46f7d9bfbb6d28f",
+    "Preferences/Resources/SettingsReference.json": "025a7e9f634d268615be2269ede1f0ed031a92f25bc1a06f3a346faba7fd04ff",
+    "Preferences/SettingsController.swift": "ffc8ff8ca254426cbd5216da7148c486127514bf74af477eb7bb69574f1feac9",
+    "Shared/Applications.swift": "67445a7a11dfacba116e7fd7699bb96e0bf221d6a1c042b99ad182db8788b0cd",
+    "Shared/Preferences.swift": "41f1b11c9ea8c072668605de00b8fc2a7c9150ac75b61b426e6a58b5fc7f133b",
+    "Sources/AppAction.swift": "aea806214ee0c17b919d3a3b61932309cd1803af4f3286e310ad57bf064a2e0b",
+    "Sources/AppSwitcherAction.swift": "55d75f79bca922028644d1d5b6bfb04735e7ca18db666da2285fdad16246af20",
+    "Sources/Bootstrap.swift": "c06f200f456f8103990378d60888e7810e0185ec3152a1026759e429c68d8e07",
+    "Sources/ControlCenterAction.swift": "9b3559acc7f975b31b95353e23e598e80a00c4705f25b61a7e48fbd5862cc99f",
+    "Sources/HomeDoubleTap.swift": "dd2d201671388e15ea0a0dff5643b1e0c4e2e1e5a6b0594de6ea3f5f09706b93",
+    "Sources/LockAction.swift": "8c902edd37e44ea4b5afc4e21b078fa6415b22e6efc55264b4af6d2d66e07387",
+    "Sources/NativeHook.swift": "45f6dbe10dcdceb201edf0bb8ba539b7e8be6e1f5f968ddc76ecdb2753edccba",
+    "Sources/NotificationCenterAction.swift": "181358bca4c03e11e243e4a78cbcb23a53a5f2db6da46f60d720d1ccae67ea10",
+    "Sources/PrivateAPI.swift": "a2b9fdeed907801f2259175f88e328123c6f0c759c9a3f1008b521a9f9db6aa7",
+    "Sources/ScreenshotAction.swift": "e620498c6233e1ca247791931d125b69e48618b948f8f199b2662bd5daac8989",
+    "TapLock.plist": "22957c2b6df0a9dd9c7deba18639321701aadf1e6452b86d9be434e48c7f454f",
+    "control": "9e0dc560a7069eb7ff8566bdb693c6be2005d105ad52d18b90a5d0c88d0f73b6",
+    "layout/Library/PreferenceLoader/Preferences/TapLock.plist": "e534efb724cb83b9c20a0a0ec24f72718dea22e29c6728f965d8c6da3cdd195a"
+  },
+  "hunks": {
+    "Makefile": [
+      {
+        "before": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/NotificationCenterAction.swift Sources/ScreenshotAction.swift Sources/AppSwitcherAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n",
+        "after": "\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/NotificationCenterAction.swift Sources/ScreenshotAction.swift Sources/AppSwitcherAction.swift Sources/MediaPlayPauseAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\n"
+      }
+    ],
+    "Preferences/Resources/Info.plist": [
+      {
+        "before": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.9</string>\n    <key>CFBundleVersion</key><string>0.1.9</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n",
+        "after": "    <key>CFBundleName</key><string>TapLockPrefs</string>\n    <key>CFBundlePackageType</key><string>BNDL</string>\n    <key>CFBundleShortVersionString</key><string>0.1.10</string>\n    <key>CFBundleVersion</key><string>0.1.10</string>\n    <key>MinimumOSVersion</key><string>15.0</string>\n    <key>NSPrincipalClass</key><string>TapLockSettingsController</string>\n"
+      }
+    ],
+    "Preferences/Resources/SettingsReference.json": [
+      {
+        "before": "      \"referenceSlot\": 19,\n      \"referenceActionNumber\": 37,\n      \"available\": false,\n      \"actionKind\": null\n    },\n    {\n",
+        "after": "      \"referenceSlot\": 19,\n      \"referenceActionNumber\": 37,\n      \"available\": true,\n      \"actionKind\": \"playPause\"\n    },\n    {\n"
+      }
+    ],
+    "Preferences/SettingsController.swift": [
+      {
+        "before": "            case \"lock\": return .lock\n            case \"appSwitcher\": return .appSwitcher\n            default: return nil\n            }\n",
+        "after": "            case \"lock\": return .lock\n            case \"appSwitcher\": return .appSwitcher\n            case \"playPause\": return .playPause\n            default: return nil\n            }\n"
+      },
+      {
+        "before": "              basicActions.count == 68, Set(basicActions.map { $0.id }).count == 68,\n              basicActions.map({ $0.referenceSlot }) == Array(0..<68),\n              basicActions.compactMap({ $0.action }).count == 5 else { return false }\n        return Set(basicActions.filter { $0.available }.compactMap { $0.actionKind }) ==\n            Set([\"screenshot\", \"controlCenter\", \"notificationCenter\", \"lock\", \"appSwitcher\"])\n    }\n}\n",
+        "after": "              basicActions.count == 68, Set(basicActions.map { $0.id }).count == 68,\n              basicActions.map({ $0.referenceSlot }) == Array(0..<68),\n              basicActions.compactMap({ $0.action }).count == 6 else { return false }\n        return Set(basicActions.filter { $0.available }.compactMap { $0.actionKind }) ==\n            Set([\"screenshot\", \"controlCenter\", \"notificationCenter\", \"lock\", \"appSwitcher\", \"playPause\"])\n    }\n}\n"
+      }
+    ],
+    "Shared/Preferences.swift": [
+      {
+        "before": "        case screenshot\n        case appSwitcher\n        case unavailable\n    }\n",
+        "after": "        case screenshot\n        case appSwitcher\n        case playPause\n        case unavailable\n    }\n"
+      },
+      {
+        "before": "        if kind == \"screenshot\", record.count == 1 { return .screenshot }\n        if kind == \"appSwitcher\", record.count == 1 { return .appSwitcher }\n        if kind == \"openApp\", record.count == 2,\n           let identifier = record[\"bundleIdentifier\"] as? String,\n",
+        "after": "        if kind == \"screenshot\", record.count == 1 { return .screenshot }\n        if kind == \"appSwitcher\", record.count == 1 { return .appSwitcher }\n        if kind == \"playPause\", record.count == 1 { return .playPause }\n        if kind == \"openApp\", record.count == 2,\n           let identifier = record[\"bundleIdentifier\"] as? String,\n"
+      },
+      {
+        "before": "        case .appSwitcher:\n            record = [\"kind\": \"appSwitcher\"]\n        case .openApp(let identifier):\n            guard validBundleIdentifier(identifier) else { return false }\n",
+        "after": "        case .appSwitcher:\n            record = [\"kind\": \"appSwitcher\"]\n        case .playPause:\n            record = [\"kind\": \"playPause\"]\n        case .openApp(let identifier):\n            guard validBundleIdentifier(identifier) else { return false }\n"
+      }
+    ],
+    "Sources/HomeDoubleTap.swift": [
+      {
+        "before": "        case .appSwitcher:\n            AppSwitcherAction.open()\n        case .unavailable:\n            break\n",
+        "after": "        case .appSwitcher:\n            AppSwitcherAction.open()\n        case .playPause:\n            MediaPlayPauseAction.toggle()\n        case .unavailable:\n            break\n"
+      }
+    ],
+    "control": [
+      {
+        "before": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.9\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock, open an App, show Control/Notification Center, take a system screenshot or open App Switcher.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n",
+        "after": "Package: com.tsangbaby.taplock\nName: TapLock\nVersion: 0.1.10\nArchitecture: iphoneos-arm\nDescription: Double-tap blank portrait Home Screen space to lock, open an App, show Control/Notification Center, take a screenshot, open App Switcher or toggle media playback.\nMaintainer: Tsangbaby\nAuthor: Tsangbaby\n"
+      }
+    ]
+  }
+}

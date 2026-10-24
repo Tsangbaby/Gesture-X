@@ -225,6 +225,9 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         case "notificationCenter": return .notificationCenter
         case "lock": return .lock
         case "appSwitcher": return .appSwitcher
+        #if !MEDIA_PLAY_PAUSE_UNAVAILABLE
+        case "playPause": return .playPause
+        #endif
         default: return nil
         }
     }
@@ -312,16 +315,29 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         }
         let entries = array("basicActions")
         checkpoint("Home and action categories matched")
-        require(entries.count == 68 && entries.filter { $0["available"] as? Bool == true }.count == 5, "oracle basic scope differs")
+        #if MEDIA_PLAY_PAUSE_UNAVAILABLE
+        let expectedBasicCount = 5
+        #else
+        let expectedBasicCount = 6
+        #endif
+        require(entries.count == 68 && entries.filter { $0["available"] as? Bool == true }.count == expectedBasicCount, "oracle basic scope differs")
         let basic = push(actionTable, IndexPath(row: 0, section: 1), nav, title: titles["basic"]!)
         let basicTable = table(basic)
+        if ProcessInfo.processInfo.arguments.contains("--expect-media-baseline-failure") {
+            let media = find(basicTable, id: "PLAYPAUSE_MEDIA")
+            require(!cell(basicTable, media).isUserInteractionEnabled, "baseline unexpectedly supports play/pause")
+            let before = preferences()
+            tap(basicTable, media)
+            require(samePreferences(before) && nav.topViewController === basic, "disabled baseline media row had side effects")
+            finish("MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE: original play/pause row is disabled", status: 0)
+        }
         checkBasic(basicTable, entries: entries, nav: nav, selected: .lock)
         guard let search = basic.navigationItem.searchController,
               let updater = search.searchResultsUpdater else {
             finish("REFERENCE_SETTINGS_FAIL: real search controller/updater missing", status: 1)
         }
         let searchSnapshot = preferences()
-        for query in ["hammerit", "HAMMERIT", "系统", "no-such-reference-action", ""] {
+        for query in ["hammerit", "HAMMERIT", "系统", "播放/暂停", "no-such-reference-action", ""] {
             search.searchBar.text = query
             updater.updateSearchResults(for: search)
             let expected = query.isEmpty ? entries : entries.filter {
@@ -368,7 +384,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             nav.pushViewController(actions, animated: false)
         }
         let beforeApp = preferences()
-        checkpoint("basic search and five single-value replacements matched")
+        checkpoint("basic search and six single-value replacements matched")
         let app = push(table(actions), IndexPath(row: 1, section: 1), nav, title: titles["application"]!)
         let appTable = table(app)
         let appPaths = paths(appTable)
@@ -492,8 +508,8 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let arguments = ProcessInfo.processInfo.arguments
-        let baseline = arguments.contains("--expect-reference-baseline-failure")
-        require(baseline != arguments.contains("--expect-reference-fixed"), "choose exactly one reference test mode")
+        let modes = ["--expect-reference-baseline-failure", "--expect-media-baseline-failure", "--expect-reference-fixed"]
+        require(modes.filter { arguments.contains($0) }.count == 1, "choose exactly one reference test mode")
         guard let host = NSClassFromString("PSViewController") else {
             finish("REFERENCE_SETTINGS_FAIL: native Preferences fixture missing", status: 1)
         }
@@ -523,7 +539,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             self.runRoundTrip(false)
             self.checkpoint("resource fail-closed probes")
             self.checkUnavailableResources()
-            self.finish("REFERENCE_SETTINGS_UIKIT_PASS: \(self.checks) assertions; both native constructors; reference root/Home/categories; inert controls; 68-row search; five basic replacements; installed App snapshot/real 32pt icon/save/reentry; defaults/malformed/resource fail-closed; simulator fixture boundary only", status: 0)
+            self.finish("REFERENCE_SETTINGS_UIKIT_PASS: \(self.checks) assertions; both native constructors; reference root/Home/categories; inert controls; 68-row search; six basic replacements; installed App snapshot/real 32pt icon/save/reentry; defaults/malformed/resource fail-closed; simulator fixture boundary only", status: 0)
         }
         return true
     }

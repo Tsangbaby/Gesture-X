@@ -21,19 +21,19 @@ class ScreenshotContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_screenshot(path, accepted_source(path), app_switcher=True)
+                restored = invert_screenshot(path, accepted_source(path, media_play_pause=True), app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_historical_inverse_requires_explicit_screenshot_opt_in(self):
         for path in ('Shared/Preferences.swift', 'Sources/HomeDoubleTap.swift',
                      'Preferences/SettingsController.swift', 'Makefile'):
-            text = accepted_source(path)
+            text = accepted_source(path, media_play_pause=True)
             with self.subTest(path=path), self.assertRaises(AssertionError):
                 invert_notification_center(path, text)
 
     def test_inverse_rejects_missing_duplicate_reordered_hunks_and_does_not_hide_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = invert_app_switcher(path, accepted_source(path))
+            text = invert_app_switcher(path, accepted_source(path, media_play_pause=True))
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.subTest(path=path), self.assertRaises(AssertionError):

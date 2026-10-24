@@ -6,17 +6,19 @@ import sys
 from pathlib import Path
 
 NEGATIVE = 'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE: root navigation differs from reference'
+MEDIA_NEGATIVE = 'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE: original play/pause row is disabled'
 POSITIVE = re.compile(r'REFERENCE_SETTINGS_UIKIT_PASS: [1-9][0-9]* assertions; .+; simulator fixture boundary only')
 
 
 def validate_completed_run(returncode, output, mode):
-    if mode not in ('--expect-reference-baseline-failure', '--expect-reference-fixed'):
+    if mode not in ('--expect-reference-baseline-failure', '--expect-media-baseline-failure', '--expect-reference-fixed'):
         raise ValueError('Unknown reference Settings harness mode')
     if returncode:
         raise ValueError('Reference Settings simulator transport failed')
     lines = output.splitlines()
     terminals = [line for line in lines if line.startswith((
         'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE:',
+        'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:',
         'REFERENCE_SETTINGS_UIKIT_PASS:', 'REFERENCE_SETTINGS_FAIL:'))]
     if len(terminals) != 1:
         raise ValueError('Missing, duplicate, or contradictory reference Settings terminal marker')
@@ -24,6 +26,9 @@ def validate_completed_run(returncode, output, mode):
     if mode == '--expect-reference-baseline-failure':
         if marker != NEGATIVE:
             raise ValueError('Missing exact frozen-0.1.8 root-navigation behavioral RED')
+    elif mode == '--expect-media-baseline-failure':
+        if marker != MEDIA_NEGATIVE:
+            raise ValueError('Missing exact frozen-0.1.9 disabled-media behavioral RED')
     elif POSITIVE.fullmatch(marker) is None:
         raise ValueError('Missing exact nonzero-assertion current Settings completion')
     return marker

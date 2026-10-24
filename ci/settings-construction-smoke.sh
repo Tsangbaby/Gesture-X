@@ -285,12 +285,44 @@ run_case "$SCREENSHOT_OLD" screenshot-baseline --expect-fixed 'SETTINGS_CONSTRUC
 run_case "$APP_SWITCHER_OLD" app-switcher-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: App Switcher action row missing'
 run_case "$ACCEPTED_UI" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 
+MEDIA_SETTINGS_BASELINE=1e2b7ef11a5f743b8db122c02d9a5478d2f20bfa
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$MEDIA_SETTINGS_BASELINE"
+MEDIA_UI="$WORK/accepted-019-ui"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap Preferences/Resources/SettingsReference.json; do
+    mkdir -p "$MEDIA_UI/$(dirname "$path")"
+    git -C "$ROOT" show "$MEDIA_SETTINGS_BASELINE:$path" > "$MEDIA_UI/$path"
+done
+python3 - "$MEDIA_UI" "$ROOT" "$REFERENCE_RESULTS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+accepted, root = map(Path, sys.argv[1:3])
+frozen = json.loads((root / 'Tests/media_play_pause_baseline.json').read_text())
+paths = [p for p in accepted.rglob('*') if p.is_file()]
+assert len(paths) == 8
+for path in paths:
+    relative = str(path.relative_to(accepted))
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == frozen['frozen'][relative], relative
+with open(sys.argv[3], 'a') as stream:
+    stream.write('MEDIA_UIKIT_BASELINE_BYTES_VERIFIED: eight exact accepted 0.1.9 source/resource inputs\n')
+PY
+
 run_reference_case() {
     local source_root="$1" label="$2" mode="$3"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.$label"
     mkdir -p "$app/Frameworks"
     cp -R "$FRAMEWORK" "$app/Frameworks/"
-    cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
+    if [ "$label" = media-baseline ]; then
+        cp "$source_root/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
+    else
+        cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
+    fi
+    local compile_flags=()
+    if [ "$label" != reference-fixed ]; then
+        compile_flags+=(-DMEDIA_PLAY_PAUSE_UNAVAILABLE)
+    fi
     python3 - "$app/Info.plist" "$bundle" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], 'wb') as stream:
@@ -299,7 +331,7 @@ with open(sys.argv[1], 'wb') as stream:
         CFBundleShortVersionString='1', MinimumOSVersion='15.0', LSRequiresIPhoneOS=True,
         UIDeviceFamily=[1], UILaunchScreen={}), stream)
 PY
-    xcrun swiftc -parse-as-library -swift-version 5 -target "$TARGET" -sdk "$SDK" \
+    xcrun swiftc -parse-as-library -swift-version 5 "${compile_flags[@]}" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
         -import-objc-header "$ROOT/Tests/SettingsConstructionFixture.h" \
         "$source_root/Shared/Preferences.swift" "$source_root/Shared/Applications.swift" \
@@ -311,5 +343,6 @@ PY
     python3 -B "$ROOT/ci/reference_settings_guard.py" "$DEVICE" "$bundle" "$mode" "$REFERENCE_RESULTS"
 }
 run_reference_case "$ACCEPTED_UI" reference-baseline --expect-reference-baseline-failure
+run_reference_case "$MEDIA_UI" media-baseline --expect-media-baseline-failure
 run_reference_case "$ROOT" reference-fixed --expect-reference-fixed
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"
