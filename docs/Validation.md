@@ -1,6 +1,13 @@
 # 验证分层记录
 
-## 当前候选：打开多任务 0.1.8
+## 当前基线：打开多任务 0.1.8（用户反馈通过）
+
+- 用户对已交付的 0.1.8 原始 RootHide 功能包反馈“测试已通过”。绑定源码 `f3a2e138fa9ac93d250645e9c66226b074d429ee`、成功 Actions `40071355783` 第 2 次 attempt（job `120807255325`）、原包 SHA-256 `f297c7c9db3c71e3f7f2681d3d854c3daa2086a185d47083fc3ee286d93e08f8`；环境沿用此前报告的 iOS 15.4.1 / RootHide。这是用户实机反馈，不是助手独立设备复测，不将整体反馈扩展为所有子项均已逐项执行，不外推其他系统。
+- live Actions / attempt jobs 均回读为 success；本地保留的 `SOURCE_REPOSITORY.txt` / `SOURCE_COMMIT.txt`、内层包大小和 SHA-256 与独立 `VERIFICATION.json` 一致。`APP_SWITCHER_TESTS.txt` 记录同一旧版偏好行为 RED、当前生产 Swift 的 158 项断言及精确类名逆替换；UIKit、Apple 双架构编译和原包报告属于云端/产物证据，不代替上述用户反馈。
+- 经用户授权，main 纳入通过源码并追加验收文档；`feat/open-app-switcher` 与 `/home/ubuntu/Gesture-X-artifacts/0.1.8-f3a2e13/` 原包及核验材料保留，0.1.7 及更早回退点保持不变。纯文档提交跳过重复 CI，不重编 0.1.8，不创建 Tag / Release。固化前本地主机完整执行 89 项源码合同并全部通过；本机仍未执行 Apple Swift 编译。
+- 用户要求下一候选按 SquidGesture Pro 原版核对设置，补发原包 SHA-256 为 `240362fc1846f697025122e4788d04bbd1920b8f5102bcfc5642a9a14b62837a`。现有六选一列表属于简化实现，不得把这次设备通过当作原版分类、排序、动态联动、动作编辑或视觉一致性验收。先核对设置，再处理已同意的 Siri 动作；不把原包第三方二进制或授权逻辑加入生产目标。
+
+### 0.1.8 交付前记录（以下保留当时状态）
 
 - 用户授权固化 0.1.7 后，仅实现第六个互斥动作。main 为 `b0745d51e77435c38b4474cf4a6ef06a6c0311dd`（接受源码加验收文档）；新源码位于 `feat/open-app-switcher`，不合入 main，不创建 Tag / Release。0.1.7 原分支及原包继续保留。
 - 声明证据：`lechium/iPhone_OS_15.5` commit `0f4def7da3cad33a6ea5a4224f4ec3526f3e73f8` 的 `System/Library/PrivateFrameworks/SpringBoard/SBMainSwitcherViewController.h`，blob `eba9f3fea6d8f48f541898c7ab636a250718775d`：L89 `+sharedInstanceIfExists`；L287/289 `_Bool isAnySwitcherVisible/isMainSwitcherVisible`；L294 `-(_Bool)activateMainSwitcherNoninteractivelyWithSource:(long long)animated:(_Bool)`。固定链接：https://github.com/lechium/iPhone_OS_15.5/blob/0f4def7da3cad33a6ea5a4224f4ec3526f3e73f8/System/Library/PrivateFrameworks/SpringBoard/SBMainSwitcherViewController.h 。blob 已按 Git 对象哈希核验；其中地址是该版本声明线索，不用于补丁或硬编码调用。

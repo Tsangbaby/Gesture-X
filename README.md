@@ -1,6 +1,6 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.7“系统截图”原始 RootHide 包已获用户反馈“测试已通过”，固化到 main。独立候选 0.1.8 只增加“打开多任务”，不合入 main，待 exact-SHA 云端构建与实机验收。验收基线环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
+**状态：0.1.8“打开多任务”原始 RootHide 包已获用户反馈“测试已通过”，经授权固化到 main；原分支、原包和 0.1.7 回退点保留，不重编相同功能，不自动创建 Tag / Release。下一候选先依据用户补发的 SquidGesture Pro 2.7.6-1 原包核对并还原设置结构，再处理已同意的 Siri 动作；当前设置不能宣称完整复刻。验收基线环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
@@ -19,10 +19,10 @@
 - 不注入普通 App，不接管底部/状态栏/实体按键，不增加全屏触摸罩。
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
 - 0.1.7 只新增“系统截图”：设置选择只保存，桌面双击向实际 SpringBoard 对象提交一次 `takeScreenshot` 请求。不自行绘制、保存或上传截图，不加延时重试、HID 或自定义动画；本轮已获用户实机通过反馈。
-- 0.1.8 只新增“打开多任务”：设置选择只保存，桌面双击向真实 `SBMainSwitcherViewController.sharedInstanceIfExists` 对象提交一次 `activateMainSwitcherNoninteractivelyWithSource:animated:`。不 toggle、不关闭、不模拟 Home 双击、滑动或 HID，不延时重试或切换入口。原生返回值只表示请求是否受理，不证明多任务界面已经展示。
+- 0.1.8 只新增“打开多任务”：设置选择只保存，桌面双击向真实 `SBMainSwitcherViewController.sharedInstanceIfExists` 对象提交一次 `activateMainSwitcherNoninteractivelyWithSource:animated:`。不 toggle、不关闭、不模拟 Home 双击、滑动或 HID，不延时重试或切换入口。原生返回值只表示请求是否受理，不证明多任务界面已经展示；本轮原始包已获用户实机通过反馈，覆盖范围以该反馈为限。
 - 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
-当前已验收原包绑定源码 `fc79961bd6a1003aab36f43d0ab010a9bb6b1859`、成功 Actions `40068951805`、SHA-256 `445d5ffd1d8514830b9063a77de82038d30b80198e81eb92fac9355452cbbcf6`。`feat/system-screenshot` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。旧回退分支及原包也保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
+当前已验收原包绑定源码 `f3a2e138fa9ac93d250645e9c66226b074d429ee`、成功 Actions `40071355783` 第 2 次 attempt、SHA-256 `f297c7c9db3c71e3f7f2681d3d854c3daa2086a185d47083fc3ee286d93e08f8`。`feat/open-app-switcher` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。0.1.7 的 `feat/system-screenshot`、原包及更早回退点也保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
 
 ## 当前设置入口
 
@@ -95,4 +95,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-0.1.7 按 `docs/Acceptance.md` 获用户通过反馈；只记录用户实际反馈覆盖的设备和范围，不将整体反馈扩展为每个子项均已单独执行。0.1.8 继续保护五个动作、App 图标、Hook 与手势过滤；新增 Swift 受理/拒绝与 ABI 回归，以及 UIKit 六动作互斥/保存重入检查。云端执行不等于多任务展示、卡片选择、退出回桌面和重复使用的实机验收。
+0.1.8 按 `docs/Acceptance.md` 获用户通过反馈；只记录用户实际反馈覆盖的设备和范围，不将整体反馈扩展为每个子项均已单独执行。该版保护五个旧动作、App 图标、Hook 与手势过滤；Swift 受理/拒绝与 ABI 回归，以及 UIKit 六动作互斥/保存重入检查已由对应云端执行。云端执行本身不等于多任务展示、卡片选择、退出回桌面和重复使用的实机验收；实机结论仅来自用户对该原包的反馈。设置还原必须另建候选，不能把本节旧设置的通过反馈当作原版 UI 一致性证据。
