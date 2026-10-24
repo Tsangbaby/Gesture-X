@@ -10,6 +10,7 @@
 
 - 独立冻结的原目录 oracle 不变：上一首为 `PREVIOUS_MEDIA` / reference slot 20 / reference action 38，下一首为 `NEXT_MEDIA` / slot 21 / reference action 39。原位解禁，不重排、重命名或用目录编号作为系统命令号。
 - 版本固定声明：[theos/headers@13c1f17176d7efe6871551cd69a75b71ac4eeaf1 / MediaRemote.h](https://github.com/theos/headers/blob/13c1f17176d7efe6871551cd69a75b71ac4eeaf1/MediaRemote/MediaRemote.h)。已按 Git 对象核验 blob `fb772c2d6d5fd5829538b9584b9641e9596dacb0`；按该声明 L78 起从零递增的 enum 顺序，L82 `MRMediaRemoteCommandNextTrack` 的值为 4、L83 `MRMediaRemoteCommandPreviousTrack` 的值为 5；并非把这两个数当作头文件显式赋值。
+- 原运行时消费者补证：原包成员 `SquidGesturePro.dylib` SHA-256 `36d40ef72649cf2530a5948371bc255e232782e752591d8ccef7afea4e41c267`，所选 arm64e 完整 subtype `0x80000002`、切片 SHA-256 `1925f96a0b187d8084b9de0d1a9acbcc35cf2504c02f2aaba5c04f2ca2ef7f6d`。静态分派将 action 38/39 绑定至 IMP `0x17674` / `0x173d8`；决定性原指令位于 `0x17864`（5,nil）/ `0x17568`（4,nil），均调用 `0xb2708`，authenticated stub 经 `0xd0140` 导入 `_MRMediaRemoteSendCommand`。父会话重新从上传原包内存读取，核对切片、实际 USERLAND24 链、selector literal、ObjC IMP/type、参数原字节及导入绑定；全量扁平状态机传播采用独立静态轨迹，父会话未重复全量重放。没有执行原包或将其二进制加入工程，不当作设备证明。
 - 沿用 0.1.10 已核准的 `MRMediaRemoteSendCommand` C ABI：32-bit enum、nullable 对象、原生 unsigned-byte 返回值；Swift 为 `@convention(c) (UInt32, AnyObject?) -> UInt8`。BOOL/Boolean 区分、相邻 SDK 与原消费者证据边界见 `MediaPlayback.md`，不把头文件当作当前设备运行证明。
 
 ## 最小生产实现
@@ -22,7 +23,7 @@
 
 ## 分层验证门（不预先算云端/设备通过）
 
-1. Python 源码合同已真实观察到两个原行仍禁用的 RED，再实现成 GREEN；版本与 CI 接线也观察缺失时失败。当前完整本地套件为 148 项，零失败/错误/跳过；不等于 Swift 编译或设备切歌成功。
+1. Python 源码合同已真实观察到两个原行仍禁用的 RED，再实现成 GREEN；版本与 CI 接线也观察缺失时失败。当前完整本地套件为 149 项，零失败/错误/跳过；不等于 Swift 编译或设备切歌成功。
 2. 新 manifest 冻结 0.1.10 的 26 个生产输入，11 个精确计数/顺序 hunk 恢复 7 个授权路径；缺失、重复、错序、CRLF 和无关漂移必须拒绝。15 个历史 JSON/helper 字节不改；外层 helper 及 27 个调用点只增加显式 track opt-in。历史 media malformed fixture 的两条纯 kind 记录因本轮变为合法而改为带额外键的损坏记录，不删除负例；新 harness 另检查全部有效动作的双向替换。
 3. 同一真实 Swift harness 编译未修改且摘要匹配的 0.1.10 偏好，下一首、上一首分别必须出现精确「persisted ... action is unavailable」行为 RED；编译错误、崩溃或传输失败不能算 RED。
 4. 当前真实偏好、PrivateAPI、LockAction 与共享动态 loader 对独立 C dylib 执行三种模式。覆盖命令 4/5/2、nil 参数、UInt8=0/255/1 返回、恰好一次、缺库/缺符号共享失败缓存、非主线程/锁态/对象和 ABI 拒绝、拒绝后恢复及全部单动作替换。只在一次性测试源副本精确、可逆地重绑一个 OS 类名和一个库路径，函数体不替换；C fixture 与已通过 0.1.10 字节一致，不连接系统播放器。

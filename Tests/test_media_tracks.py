@@ -174,10 +174,46 @@ class MediaTrackCompletionGuardContracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             guard(0, '', '--unknown')
 
+    def report_writer_attestations(self):
+        import ast
+        import os
+        import tempfile
+        from types import SimpleNamespace
+        runner = (ROOT / 'ci/media-tracks-smoke.sh').read_text()
+        block = re.findall(r"<<'PY'\n(.*?)\nPY(?:\n|$)", runner, re.S)[0]
+        tree = ast.parse(block)
+        writers = [node for node in tree.body if isinstance(node, ast.With)]
+        self.assertEqual(len(writers), 1)
+        # Execute the real report writer, not a hand-built approximation that
+        # accidentally omits nonterminal metadata emitted by the shell runner.
+        with tempfile.TemporaryDirectory(prefix='media-track-writer-', dir=os.environ.get('TMPDIR')) as folder:
+            report = Path(folder) / 'writer.txt'
+            scope = {'sys': SimpleNamespace(argv=['writer-unit', '', '', str(report)])}
+            exec(compile(ast.Module(body=writers, type_ignores=[]), str(ROOT / 'ci/media-tracks-smoke.sh') + ':report-writer', 'exec'), scope)
+            return report.read_text().splitlines()
+
+    def test_real_writer_attestations_do_not_masquerade_as_extra_completion_records(self):
+        g = self.native_guard()
+        source = '1234567890' * 4
+        attestations = self.report_writer_attestations()
+        self.assertEqual(len(attestations), 2)
+        lines = ['MEDIA_TRACKS_SOURCE_COMMIT: ' + source] + attestations
+        for mode in ('--baseline-next', '--baseline-previous'):
+            lines.extend([g['baseline_failure'](mode), g['baseline_marker'](mode)])
+        lines.extend('MEDIA_TRACKS_RUNTIME_PASS: 1 assertions; mode=' + mode +
+                     '; actual Swift/C loader fixture, NOT handset track-change proof'
+                     for mode in ('--missing-library', '--missing-symbol', '--working'))
+        lines.append(g['SUMMARY'])
+        try:
+            result = g['validate_completed_suite']('\n'.join(lines), source)
+        except ValueError as error:
+            self.fail('The actual report writer emits valid nonterminal attestations: ' + str(error))
+        self.assertEqual(result, g['SUMMARY'])
+
     def test_native_suite_requires_exact_source_both_behavior_reds_three_modes_and_terminal(self):
         g = self.native_guard()
         source = '1234567890' * 4
-        lines = ['MEDIA_TRACKS_SOURCE_COMMIT: ' + source]
+        lines = ['MEDIA_TRACKS_SOURCE_COMMIT: ' + source] + self.report_writer_attestations()
         for mode in ('--baseline-next', '--baseline-previous'):
             lines.extend([g['baseline_failure'](mode), g['baseline_marker'](mode)])
         lines.extend('MEDIA_TRACKS_RUNTIME_PASS: 1 assertions; mode=' + mode +
@@ -192,6 +228,8 @@ class MediaTrackCompletionGuardContracts(unittest.TestCase):
                     g['validate_completed_suite'](bad, source)
         for bad in (good.replace(source, 'a' * 40),
                     good.replace(lines[5], '__SWAP__').replace(lines[6], lines[5]).replace('__SWAP__', lines[6]),
+                    good.replace('exact accepted 0.1.10 preferences', 'exact accepted 0.1.9 preferences'),
+                    good.replace('only one OS class lookup', 'two OS class lookups'),
                     good + 'MEDIA_TRACKS_RUNTIME_FAIL: interrupted\n',
                     good.replace(': 1 assertions', ': 0 assertions')):
             with self.subTest(report=bad), self.assertRaises(ValueError):

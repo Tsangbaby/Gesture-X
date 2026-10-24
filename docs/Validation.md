@@ -4,9 +4,15 @@
 
 - 用户在 0.1.10 实测通过后，明确要求两项一起做；同轮新增两个互斥单动作，不增加多动作执行。新分支 `feat/media-track-navigation` 从 `cd480bfe09c7080b0523e1c73910b8af617edb01` 起步；main、0.1.10 分支和原包不变，不自动合并/发布。
 - 只改 7 个既有生产/metadata 输入，26 个旧生产输入由 11 个精确计数/顺序 hunk 恢复；15 个历史 JSON/helper 字节不改，27 个旧测试调用点显式启用最外层 track inverse。原媒体 loader、失败缓存、C ABI 与 toggle 方法体字节保持，新方法各自 guarded 单次 command 4/5、nil；设置只保存一个动作，原手势过滤/执行器/Hook/启动/图标链不动。
-- 本地真实运行 148 项 Python 合同全部通过、零失败/错误/跳过；32 个 Python 文件、40 个 shell 内嵌 Python、11 个 shell、JSON/plist/workflow 解析和 git 独立基线/diff 检查通过。源码接线、版本和 CI 门分别观察缺失时 RED 后转 GREEN。这些不是 Swift 编译或设备行为证明，当前 Linux 没有 Swift/xcrun。
+- 本地真实运行 149 项 Python 合同全部通过、零失败/错误/跳过；32 个 Python 文件、40 个 shell 内嵌 Python、11 个 shell、JSON/plist/workflow 解析和 git 独立基线/diff 检查通过。源码接线、版本和 CI 门分别观察缺失时 RED 后转 GREEN。这些不是 Swift 编译或设备行为证明，当前 Linux 没有 Swift/xcrun。
 - 云端必须用同一真实 Swift harness 对未修改的 0.1.10 偏好分别完成 nextTrack/previousTrack 不可用的两路精确行为 RED；当前生产 Swift 与独立 C fixture 完成三模式、命令 4/5/2、nil、unsigned-byte、exactly-once、共享缺库/符号缓存、锁态/线程/对象/ABI、拒绝后恢复及完整单动作替换矩阵。仅可逆重绑一处类名与一处路径，函数体不替换，不连接播放器。
 - 真实 UIKit 新增原 0.1.10 两切歌行禁用且强制 delegate 无写入/导航的 RED，保留原 0.1.8/0.1.9 RED 和旧完整回归；当前执行八基础+App保存/唯一选择/重入/Home摘要与搜索、禁用项、图标和资源失效安全。workflow 父步骤独立要求 exact-source 全部原生与四阶段 UIKit/生产启动报告，不采信子脚本空成功。Apple 双架构、原包源码/资源与独立逐切片签名核验通过后才交付，设备仍待新原包用户反馈；实现及边界见 MediaTracks.md。
+
+### 0.1.11 首轮报告汇总门修正（生产代码不变）
+
+- `6c64f64e77dac9fa8a3484faa2e5d72dca14e04f` / Actions `40098086272` / attempt 1 / job `120884439888` 实际通过148项Python、既有媒体三模式109/109/115，以及新两项偏好行为RED和三模式586/586/613条真实Swift断言；随后新报告汇总门抛出 `Missing, duplicate, reordered or contradictory track behavioral terminals`。UIKit、Theos编译和打包均未执行，无可交付新包。
+- 完整57,032字节job日志和结构化run/jobs保存于 `/home/ubuntu/Gesture-X-artifacts/0.1.11-media-tracks-6c64f64/failed-40098086272/`。根因是完成记录筛选前缀 `MEDIA_TRACKS_BASELINE_` 也匹配实际写入的 `MEDIA_TRACKS_BASELINE_BYTES_VERIFIED:` 元数据；原汇总单测没有执行真实report writer，漏掉这行。不是媒体调用、Swift编译或设备故障。
+- 新回归先实际执行生产脚本中的report writer，在合法元数据被误算为额外终止记录处RED；修正后GREEN，全套149项通过。仅把行为终止前缀限定为expected/unexpected completion，两个字节/绑定核验元数据另列并要求精确且唯一；缺失、重复、错序、错误源、错误核验值仍失败。所有生产输入、版本、Swift测试harness和既有冻结摘要保持首轮候选字节；后续云端须新exact SHA，不能把本次已执行Swift当作后续UIKit/打包通过。
 
 ## 已获用户通过反馈：0.1.10 播放/暂停
 

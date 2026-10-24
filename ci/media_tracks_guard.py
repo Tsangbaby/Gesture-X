@@ -10,6 +10,10 @@ MODES = ('--missing-library', '--missing-symbol', '--working')
 SUMMARY = ('MEDIA_TRACKS_SWIFT_EXECUTION_PASS: both 0.1.10 action behavior REDs; '
            'nine-action replacement matrix, commands 4/5/2, nil options, native unsigned-byte result, '
            'missing library/symbol shared cache, lock/thread admission GREEN; handset integration unverified')
+ATTESTATIONS = (
+    'MEDIA_TRACKS_BASELINE_BYTES_VERIFIED: exact accepted 0.1.10 preferences and unchanged independent C fixture',
+    'MEDIA_TRACKS_FIXTURE_REBINDING_VERIFIED: only one OS class lookup and one fixed loader path; inverse copies equal production bytes',
+)
 
 
 def baseline_failure(mode):
@@ -40,8 +44,13 @@ def validate_completed_suite(output, source):
     sources = [line for line in lines if line.startswith('MEDIA_TRACKS_SOURCE_COMMIT:')]
     if re.fullmatch(r'[0-9a-f]{40}', source) is None or sources != ['MEDIA_TRACKS_SOURCE_COMMIT: ' + source]:
         raise ValueError('Missing, duplicate or wrong exact-source track execution report')
+    attestations = [line for line in lines if line.startswith((
+        'MEDIA_TRACKS_BASELINE_BYTES_VERIFIED:', 'MEDIA_TRACKS_FIXTURE_REBINDING_VERIFIED:'))]
+    if attestations != list(ATTESTATIONS):
+        raise ValueError('Missing, duplicate, reordered or wrong track fixture byte attestations')
     terminals = [line for line in lines if line.startswith((
-        'MEDIA_TRACKS_RUNTIME_', 'MEDIA_TRACKS_BASELINE_', 'MEDIA_TRACKS_SWIFT_EXECUTION_'))]
+        'MEDIA_TRACKS_RUNTIME_', 'MEDIA_TRACKS_BASELINE_EXPECTED_FAILURE:',
+        'MEDIA_TRACKS_BASELINE_UNEXPECTED_SUCCESS', 'MEDIA_TRACKS_SWIFT_EXECUTION_'))]
     expected_prefix = [item for mode in BASELINES for item in (baseline_failure(mode), baseline_marker(mode))]
     if len(terminals) != len(expected_prefix) + len(MODES) + 1 or terminals[:len(expected_prefix)] != expected_prefix:
         raise ValueError('Missing, duplicate, reordered or contradictory track behavioral terminals')
