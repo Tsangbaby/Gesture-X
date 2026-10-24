@@ -7,11 +7,12 @@ from pathlib import Path
 
 NEGATIVE = 'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE: root navigation differs from reference'
 MEDIA_NEGATIVE = 'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE: original play/pause row is disabled'
+TRACK_NEGATIVE = 'MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE: original previous/next rows are disabled'
 POSITIVE = re.compile(r'REFERENCE_SETTINGS_UIKIT_PASS: [1-9][0-9]* assertions; .+; simulator fixture boundary only')
 
 
 def validate_completed_run(returncode, output, mode):
-    if mode not in ('--expect-reference-baseline-failure', '--expect-media-baseline-failure', '--expect-reference-fixed'):
+    if mode not in ('--expect-reference-baseline-failure', '--expect-media-baseline-failure', '--expect-track-baseline-failure', '--expect-reference-fixed'):
         raise ValueError('Unknown reference Settings harness mode')
     if returncode:
         raise ValueError('Reference Settings simulator transport failed')
@@ -19,6 +20,7 @@ def validate_completed_run(returncode, output, mode):
     terminals = [line for line in lines if line.startswith((
         'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE:',
         'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:',
+        'MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE:',
         'REFERENCE_SETTINGS_UIKIT_PASS:', 'REFERENCE_SETTINGS_FAIL:'))]
     if len(terminals) != 1:
         raise ValueError('Missing, duplicate, or contradictory reference Settings terminal marker')
@@ -29,12 +31,15 @@ def validate_completed_run(returncode, output, mode):
     elif mode == '--expect-media-baseline-failure':
         if marker != MEDIA_NEGATIVE:
             raise ValueError('Missing exact frozen-0.1.9 disabled-media behavioral RED')
+    elif mode == '--expect-track-baseline-failure':
+        if marker != TRACK_NEGATIVE:
+            raise ValueError('Missing exact frozen-0.1.10 disabled-tracks behavioral RED')
     elif POSITIVE.fullmatch(marker) is None:
         raise ValueError('Missing exact nonzero-assertion current Settings completion')
     return marker
 
 
-def validate_completed_suite(output, source):
+def validate_completed_suite(output, source, *, media_tracks=False):
     lines = output.splitlines()
     sources = [line for line in lines if line.startswith('REFERENCE_UIKIT_SOURCE_COMMIT:')]
     if re.fullmatch(r'[0-9a-f]{40}', source) is None or sources != ['REFERENCE_UIKIT_SOURCE_COMMIT: ' + source]:
@@ -42,10 +47,12 @@ def validate_completed_suite(output, source):
     terminals = [line for line in lines if line.startswith((
         'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE:',
         'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:',
+        'MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE:',
         'REFERENCE_SETTINGS_UIKIT_PASS:', 'REFERENCE_SETTINGS_FAIL:'))]
-    if len(terminals) != 3 or terminals[:2] != [NEGATIVE, MEDIA_NEGATIVE]:
+    expected = [NEGATIVE, MEDIA_NEGATIVE] + ([TRACK_NEGATIVE] if media_tracks else [])
+    if len(terminals) != len(expected) + 1 or terminals[:-1] != expected:
         raise ValueError('Missing, duplicate, reordered, or contradictory complete-suite terminals')
-    return validate_completed_run(0, terminals[2], '--expect-reference-fixed')
+    return validate_completed_run(0, terminals[-1], '--expect-reference-fixed')
 
 
 def validate_startup_report(output):
@@ -57,11 +64,15 @@ def validate_startup_report(output):
 
 
 def main():
-    if len(sys.argv) == 5 and sys.argv[1] == '--validate-suite':
-        report, source, startup = sys.argv[2:]
-        validate_completed_suite(Path(report).read_text(), source)
+    if len(sys.argv) in (5, 6) and sys.argv[1] == '--validate-suite':
+        if len(sys.argv) == 6 and sys.argv[5] != '--with-track-baseline':
+            raise SystemExit('Unknown reference suite option')
+        report, source, startup = sys.argv[2:5]
+        media_tracks = len(sys.argv) == 6
+        validate_completed_suite(Path(report).read_text(), source, media_tracks=media_tracks)
         validate_startup_report(Path(startup).read_text())
-        print('REFERENCE_SETTINGS_SUITE_PASS: exact-source both behavioral REDs, current UIKit GREEN and production startup executed')
+        reds = 'three' if media_tracks else 'both'
+        print('REFERENCE_SETTINGS_SUITE_PASS: exact-source ' + reds + ' behavioral REDs, current UIKit GREEN and production startup executed')
         return
     if len(sys.argv) != 5:
         raise SystemExit('usage: reference_settings_guard.py DEVICE BUNDLE MODE REPORT')

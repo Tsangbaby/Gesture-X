@@ -18,6 +18,8 @@ SUPPORTED = {
     'SYSTEM_LOCKSCREEN': 'lock',
     'SYSTEM_SWITCHER': 'appSwitcher',
     'PLAYPAUSE_MEDIA': 'playPause',
+    'PREVIOUS_MEDIA': 'previousTrack',
+    'NEXT_MEDIA': 'nextTrack',
 }
 
 
@@ -137,6 +139,7 @@ class ReferenceSettingsContract(unittest.TestCase):
 
     def test_existing_runtime_and_storage_files_are_byte_exact_018(self):
         from media_play_pause_baseline import invert_media_play_pause
+        from media_tracks_baseline import accepted_source as track_accepted_source
         manifest = json.loads((ROOT / 'Tests/settings_layout_baseline.json').read_text())
         self.assertEqual(manifest['baseline'], 'f3a2e138fa9ac93d250645e9c66226b074d429ee')
         self.assertEqual(len(manifest['frozen']), 24)
@@ -145,7 +148,7 @@ class ReferenceSettingsContract(unittest.TestCase):
         for relative, digest in manifest['frozen'].items():
             if relative not in ALLOWED_PRODUCTION_EDITS:
                 with self.subTest(relative=relative):
-                    text = invert_media_play_pause(relative, (ROOT / relative).read_bytes().decode('utf-8'))
+                    text = invert_media_play_pause(relative, track_accepted_source(relative))
                     self.assertEqual(hashlib.sha256(text.encode('utf-8')).hexdigest(), digest)
 
 

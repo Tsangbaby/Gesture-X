@@ -1,8 +1,8 @@
 Package: com.tsangbaby.taplock
 Name: TapLock
-Version: 0.1.10
+Version: 0.1.11
 Architecture: iphoneos-arm
-Description: Double-tap blank portrait Home Screen space to lock, open an App, show Control/Notification Center, take a screenshot, open App Switcher or toggle media playback.
+Description: Double-tap blank portrait Home Screen space to lock, open an App, show Control/Notification Center, take a screenshot, open App Switcher, toggle media playback or change track.
 Maintainer: Tsangbaby
 Author: Tsangbaby
 Section: Tweaks

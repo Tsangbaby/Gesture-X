@@ -69,14 +69,14 @@ class AppSwitcherContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], 'fc79961bd6a1003aab36f43d0ab010a9bb6b1859')
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_app_switcher(path, accepted_source(path, media_play_pause=True))
+                restored = invert_app_switcher(path, accepted_source(path, media_play_pause=True, media_tracks=True))
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_new_inverse_rejects_missing_duplicate_reordered_hunks_and_retains_unrelated_drift(self):
         import hashlib
         from app_switcher_baseline import FIXTURE, invert_app_switcher
         for path, hunks in FIXTURE['hunks'].items():
-            text = accepted_source(path, media_play_pause=True)
+            text = accepted_source(path, media_play_pause=True, media_tracks=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.subTest(path=path), self.assertRaises(AssertionError):
@@ -93,7 +93,7 @@ class AppSwitcherContracts(unittest.TestCase):
         from app_switcher_baseline import FIXTURE
         from screenshot_baseline import invert_screenshot
         for path in FIXTURE['hunks']:
-            text = accepted_source(path, media_play_pause=True)
+            text = accepted_source(path, media_play_pause=True, media_tracks=True)
             with self.subTest(path=path), self.assertRaises(AssertionError):
                 invert_screenshot(path, text)
 

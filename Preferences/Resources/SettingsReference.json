@@ -594,8 +594,8 @@
       "image": "backward.end",
       "referenceSlot": 20,
       "referenceActionNumber": 38,
-      "available": false,
-      "actionKind": null
+      "available": true,
+      "actionKind": "previousTrack"
     },
     {
       "id": "NEXT_MEDIA",
@@ -603,8 +603,8 @@
       "image": "forward.end",
       "referenceSlot": 21,
       "referenceActionNumber": 39,
-      "available": false,
-      "actionKind": null
+      "available": true,
+      "actionKind": "nextTrack"
     },
     {
       "id": "APP_LIBRARY",

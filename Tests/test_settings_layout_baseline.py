@@ -157,7 +157,7 @@ class SettingsLayoutInverseTests(unittest.TestCase):
                         return_value='accepted UI // discard comment\n"keep // string"\n') as inverse:
             self.assertEqual(source('Preferences/SettingsController.swift', settings_layout=True),
                              'accepted UI \n"keep // string"\n')
-            inverse.assert_called_once_with('Preferences/SettingsController.swift', media_play_pause=True)
+            inverse.assert_called_once_with('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True)
 
     def test_historical_helpers_require_explicit_outermost_layout_inverse(self):
         from app_switcher_baseline import invert_app_switcher
@@ -210,13 +210,14 @@ class SettingsLayoutCurrentSourceContracts(unittest.TestCase):
         from settings_layout_baseline import FIXTURE, accepted_source
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                self.assertEqual(hashlib.sha256(accepted_source(path, media_play_pause=True).encode()).hexdigest(), digest)
+                self.assertEqual(hashlib.sha256(accepted_source(path, media_play_pause=True, media_tracks=True).encode()).hexdigest(), digest)
 
     def test_any_current_authorized_byte_drift_is_rejected(self):
         from settings_layout_baseline import FIXTURE, ROOT, invert_settings_layout
         from media_play_pause_baseline import invert_media_play_pause
         for path in FIXTURE['before_text']:
-            text = invert_media_play_pause(path, (ROOT / path).read_bytes().decode('utf-8'))
+            from media_tracks_baseline import accepted_source as track_accepted_source
+            text = invert_media_play_pause(path, track_accepted_source(path))
             # Validate before entering assertRaises so stale manifest/current
             # source mismatch cannot masquerade as a successful negative test.
             self.assertEqual(invert_settings_layout(path, text), FIXTURE['before_text'][path])
@@ -236,7 +237,8 @@ class SettingsLayoutCurrentSourceContracts(unittest.TestCase):
         from open_app_baseline import invert_open_app
         from settings_hierarchy_baseline import invert_settings_hierarchy
         path = 'Preferences/SettingsController.swift'
-        text = invert_media_play_pause(path, (ROOT / path).read_bytes().decode('utf-8'))
+        from media_tracks_baseline import accepted_source as track_accepted_source
+        text = invert_media_play_pause(path, track_accepted_source(path))
         invert_settings_layout(path, text)
         for inverse in (invert_app_switcher, invert_screenshot, invert_notification_center,
                         invert_control_center, invert_open_app):

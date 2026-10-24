@@ -311,12 +311,37 @@ with open(sys.argv[3], 'a') as stream:
     stream.write('MEDIA_UIKIT_BASELINE_BYTES_VERIFIED: eight exact accepted 0.1.9 source/resource inputs\n')
 PY
 
+TRACK_SETTINGS_BASELINE=cd480bfe09c7080b0523e1c73910b8af617edb01
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$TRACK_SETTINGS_BASELINE"
+TRACK_UI="$WORK/accepted-0110-ui"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap Preferences/Resources/SettingsReference.json; do
+    mkdir -p "$TRACK_UI/$(dirname "$path")"
+    git -C "$ROOT" show "$TRACK_SETTINGS_BASELINE:$path" > "$TRACK_UI/$path"
+done
+python3 - "$TRACK_UI" "$ROOT" "$REFERENCE_RESULTS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+accepted, root = map(Path, sys.argv[1:3])
+frozen = json.loads((root / 'Tests/media_tracks_baseline.json').read_text())
+assert frozen['baseline'] == 'cd480bfe09c7080b0523e1c73910b8af617edb01'
+paths = [p for p in accepted.rglob('*') if p.is_file()]
+assert len(paths) == 8
+for path in paths:
+    relative = str(path.relative_to(accepted))
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == frozen['frozen'][relative], relative
+with open(sys.argv[3], 'a') as stream:
+    stream.write('MEDIA_TRACKS_UIKIT_BASELINE_BYTES_VERIFIED: eight exact accepted 0.1.10 source/resource inputs\n')
+PY
+
 run_reference_case() {
     local source_root="$1" label="$2" mode="$3"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.$label"
     mkdir -p "$app/Frameworks"
     cp -R "$FRAMEWORK" "$app/Frameworks/"
-    if [ "$label" = media-baseline ]; then
+    if [ "$label" = media-baseline ] || [ "$label" = track-baseline ]; then
         cp "$source_root/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
     else
         cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
@@ -324,7 +349,9 @@ run_reference_case() {
     # macOS /bin/bash 3.2 treats an empty array expansion under nounset as
     # unbound. Use one always-present scalar; baseline enum lacks playPause.
     local compile_flag=-DREFERENCE_SETTINGS_CURRENT
-    if [ "$label" != reference-fixed ]; then
+    if [ "$label" = track-baseline ]; then
+        compile_flag=-DMEDIA_TRACKS_UNAVAILABLE
+    elif [ "$label" != reference-fixed ]; then
         compile_flag=-DMEDIA_PLAY_PAUSE_UNAVAILABLE
     fi
     python3 - "$app/Info.plist" "$bundle" <<'PY'
@@ -348,5 +375,6 @@ PY
 }
 run_reference_case "$ACCEPTED_UI" reference-baseline --expect-reference-baseline-failure
 run_reference_case "$MEDIA_UI" media-baseline --expect-media-baseline-failure
+run_reference_case "$TRACK_UI" track-baseline --expect-track-baseline-failure
 run_reference_case "$ROOT" reference-fixed --expect-reference-fixed
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

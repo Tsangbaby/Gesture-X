@@ -58,6 +58,8 @@ enum TapLockPreferences {
         case screenshot
         case appSwitcher
         case playPause
+        case previousTrack
+        case nextTrack
         case unavailable
     }
     static let actionKey = "DoubleTapAction"
@@ -84,6 +86,8 @@ enum TapLockPreferences {
         if kind == "screenshot", record.count == 1 { return .screenshot }
         if kind == "appSwitcher", record.count == 1 { return .appSwitcher }
         if kind == "playPause", record.count == 1 { return .playPause }
+        if kind == "previousTrack", record.count == 1 { return .previousTrack }
+        if kind == "nextTrack", record.count == 1 { return .nextTrack }
         if kind == "openApp", record.count == 2,
            let identifier = record["bundleIdentifier"] as? String,
            validBundleIdentifier(identifier) { return .openApp(identifier) }
@@ -106,6 +110,10 @@ enum TapLockPreferences {
             record = ["kind": "appSwitcher"]
         case .playPause:
             record = ["kind": "playPause"]
+        case .previousTrack:
+            record = ["kind": "previousTrack"]
+        case .nextTrack:
+            record = ["kind": "nextTrack"]
         case .openApp(let identifier):
             guard validBundleIdentifier(identifier) else { return false }
             record = ["kind": "openApp", "bundleIdentifier": identifier]

@@ -111,7 +111,7 @@ class SettingsConstructionContracts(unittest.TestCase):
             ],
         }
         for name, digest in frozen.items():
-            data = invert_open_app(name, accepted_source(name, media_play_pause=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True).encode()
+            data = invert_open_app(name, accepted_source(name, media_play_pause=True, media_tracks=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True).encode()
             if name == "Preferences/SettingsController.swift":
                 data = invert_settings_hierarchy(data.decode()).encode()
             if name == "Sources/LockAction.swift":
@@ -125,13 +125,13 @@ class SettingsConstructionContracts(unittest.TestCase):
             self.assertEqual(hashlib.sha256(data).hexdigest(), digest, name)
         self.assertFalse((ROOT / "Sources/Tweak.x.swift").exists())
         text = invert_settings_hierarchy(invert_open_app("Preferences/SettingsController.swift",
-            accepted_source("Preferences/SettingsController.swift", media_play_pause=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
+            accepted_source("Preferences/SettingsController.swift", media_play_pause=True, media_tracks=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
         suffix = text[text.index("    override func loadView() {"):]
         self.assertEqual(hashlib.sha256(suffix.encode()).hexdigest(),
                          "e4ffae1a0bb6059351f00f55281b8429b6563cd085c982ee55527554ffc4130c")
 
     def test_button_inverse_rejects_missing_or_duplicate_candidate_hunks(self):
-        text = accepted_source("Sources/LockAction.swift", media_play_pause=True)
+        text = accepted_source("Sources/LockAction.swift", media_play_pause=True, media_tracks=True)
         anchor = 'NSSelectorFromString("_simulateLockButtonPress")'
         for mutation in (text.replace(anchor, 'NSSelectorFromString("other")'),
                          text + "\n" + anchor):
@@ -140,7 +140,7 @@ class SettingsConstructionContracts(unittest.TestCase):
                     invert_system_button_action(mutation)
 
     def test_button_inverse_does_not_hide_unrelated_source_drift(self):
-        text = accepted_source("Sources/LockAction.swift", media_play_pause=True)
+        text = accepted_source("Sources/LockAction.swift", media_play_pause=True, media_tracks=True)
         restored = invert_system_button_action(text + "\n// unrelated drift\n")
         self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(),
                             "532850be046aa6fcd67946d7e9e665a54193052df868fa2525e7d86f1a162dc4")

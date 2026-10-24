@@ -62,7 +62,8 @@ struct MediaPlayPauseRuntimeTests {
         let malformed: [[String: Any]] = [
             ["kind": "playPause", "extra": "bad"], ["kind": "playPause", "bundleIdentifier": "com.example.app"],
             ["kind": "playPause", "enabled": true], ["kind": "PlayPause"], ["kind": "playPause "],
-            ["kind": "Siri"], ["kind": "nextTrack"], ["kind": "previousTrack"], ["kind": true],
+            // Track actions are now valid; their extra-key records remain malformed.
+            ["kind": "Siri"], ["kind": "nextTrack", "extra": "bad"], ["kind": "previousTrack", "extra": "bad"], ["kind": true],
             ["kind": 2], ["kind": ["playPause"]], [:]
         ]
         for record in malformed {

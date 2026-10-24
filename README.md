@@ -1,17 +1,17 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**当前开发候选：0.1.10 / `feat/media-play-pause`，仅新增「播放/暂停」。Siri 已按用户要求取消，上一首/下一首仍禁用；main 与下述已验收 0.1.9 不变。候选尚待 exact-SHA 云端编译、原包独立核验及用户设备验收，不预先计为通过。**
+**当前开发候选：0.1.11 / `feat/media-track-navigation`，按用户要求同轮新增「下一首 / 上一首」，仍一次只选择一个动作。0.1.10 播放/暂停原包已获用户实测通过反馈，旧分支与原包保留；main 仍为已固化 0.1.9，不自动合并或发布。本候选须完成 exact-SHA 云端、原包独立核验及新功能设备验收，不预先计为通过。**
 
-**状态：0.1.9 已获用户“测试已通过”反馈，按授权纳入 main；原设置还原分支、原包与 0.1.8 回退点保留。不重编相同功能、不创建 Tag/Release。本轮恢复原版功能设置结构、文案及顺序，未实现项禁用；仍为六选一，不包含多动作或 Siri，不宣称完整产品或像素复刻。源码、云端、产物与用户设备反馈分别记录，已验收环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 整机卡死仍为失败历史。**
+**main 基线：0.1.9 原版设置展示层已获用户“测试已通过”反馈并按授权纳入 main；原设置还原分支、原包与 0.1.8 回退点保留。0.1.10 后续媒体反馈与 0.1.11 候选另记，不把旧验收等同新功能通过。不重编相同功能、不自动创建 Tag/Release；多动作和 Siri 不在范围，不宣称完整产品或像素复刻。环境以此前报告的 iOS 15.4.1 / RootHide 为限，0.1.3 整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，当前已验收源码版本 0.1.9，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，最新获用户通过反馈版本 0.1.10（main 仍保留 0.1.9），包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
-## 一条手势链，七选一动作（当前候选）
+## 一条手势链，单个动作（当前新增切歌候选）
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开应用 / 控制中心 / 通知中心 / 系统截屏 / 应用切换界面 / 播放/暂停（保持单个动作）`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开应用 / 控制中心 / 通知中心 / 系统截屏 / 应用切换界面 / 播放/暂停 / 上一首 / 下一首（一次只选一个）`
 
 锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
@@ -22,10 +22,11 @@
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
 - 0.1.7 只新增“系统截图”：设置选择只保存，桌面双击向实际 SpringBoard 对象提交一次 `takeScreenshot` 请求。不自行绘制、保存或上传截图，不加延时重试、HID 或自定义动画；本轮已获用户实机通过反馈。
 - 0.1.8 只新增“打开多任务”：设置选择只保存，桌面双击向真实 `SBMainSwitcherViewController.sharedInstanceIfExists` 对象提交一次 `activateMainSwitcherNoninteractivelyWithSource:animated:`。不 toggle、不关闭、不模拟 Home 双击、滑动或 HID，不延时重试或切换入口。原生返回值只表示请求是否受理，不证明多任务界面已经展示；本轮原始包已获用户实机通过反馈，覆盖范围以该反馈为限。
-- 0.1.10 候选仅解禁原目录的“播放/暂停”：设置选择只保存，双击通过原门后动态解析系统 MediaRemote，单次发送 command=2、options=nil。保留原生 unsigned-byte 返回值的非零含义，不判断或读取播放状态，不切歌、不模拟按键、不重试/换入口；库或符号缺失直接结束。系统服务/播放器是否执行仍待设备反馈，见 `docs/MediaPlayback.md`。
+- 0.1.10 仅解禁原目录的“播放/暂停”，该原包已获用户实测通过反馈：设置只保存，双击通过原门后动态解析系统 MediaRemote，单次发送 command=2、options=nil。该阶段不切歌、不判断播放状态、不模拟按键或重试，见 `docs/MediaPlayback.md`；本轮反馈独立记录于 `docs/Acceptance.md`。
+- 0.1.11 候选同轮解禁原目录“上一首 / 下一首”，分别严格发送一次 command=5 / 4、options=nil；保留原 loader、失败缓存、ABI 和 toggle 方法体字节。沿用原线程/解锁/双击门，设置只保存一个；不读曲目/播放状态、不强制播放、跳进度或补发，原生非零只表示提交结果，不证明切歌完成。见 `docs/MediaTracks.md`。
 - 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
-当前已验收原包绑定源码 `486e82e47e420ff5db647f03dcde58f40a0fc053`、成功 Actions `40082548246` 第 1 次 attempt、SHA-256 `7de40343e0af0708b588b2ac4b1c9309bca8100eb399ef422e4078e32fa13c9a`。`feat/reference-settings-layout` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。0.1.8 的 `feat/open-app-switcher`、原包及更早回退点均保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
+最新获用户通过反馈原包绑定源码 `cd480bfe09c7080b0523e1c73910b8af617edb01`、成功 Actions `40093965092` 第 1 次 attempt、SHA-256 `8200d10651224f3e517fd7a37a1beabad912a4e554547bda295ba096ae0a1d60`。`feat/media-play-pause` 与 0.1.10 原包保留；main 本轮不动，仍为已固化 0.1.9。0.1.9 设置分支及更早回退点均保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
 
 ## 当前设置入口
 
@@ -48,7 +49,7 @@ TapLock（保留自己的身份）
 ├─ 已选择：当前单个动作（编辑、删除、排序未实现）
 └─ 选择动作
    ├─ 基础动作 → 选择基础动作（可搜索，原68项主目录顺序）
-   │  └─ 可用：系统截屏、控制中心、通知中心、系统锁屏、播放/暂停、应用切换界面
+   │  └─ 可用：系统截屏、控制中心、通知中心、系统锁屏、播放/暂停、上一首、下一首、应用切换界面（沿原目录顺序）
    ├─ 打开应用 → 选择应用（真实图标 + 名称 + Bundle ID）
    └─ 快捷方式／快捷指令／打开链接／预设链接（禁用）
 ```
@@ -71,7 +72,7 @@ Sources/ControlCenterAction.swift    SpringBoard 原生单次打开控制中心�
 Sources/NotificationCenterAction.swift 解锁态 Cover Sheet 单次打开；BOOL/Block ABI 与转场门
 Sources/ScreenshotAction.swift        单次原生 takeScreenshot 请求；不自绘、保存或上传
 Sources/AppSwitcherAction.swift       单次原生打开多任务；精确 BOOL/int64/BOOL ABI，无备用入口
-Sources/MediaPlayPauseAction.swift    单次 MediaRemote 播放/暂停；enum32/对象nil/unsigned-byte ABI
+Sources/MediaPlayPauseAction.swift    同一 loader 的单次播放/暂停、上一首、下一首；enum32/对象nil/unsigned-byte ABI
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
@@ -102,7 +103,7 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 1. 执行 Python 源码/CI 合同检查。
 2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；另执行动作存储和设置 App 筛选，以及旧 LS 启动触及禁用服务边界的预期失败 / 当前原生单次启动的 receiver、ABI、继承客户端方法与非主线程拒绝测试。系统服务是测试替身，不证明设备灭屏/动画、App 切换或卡死已修复；失败就停止。
-3. 历史UIKit harness继续对逐字节核验的0.1.8执行所有原断言。`ReferenceSettingsApp.swift` 同编旧0.1.8、0.1.9与当前UI：旧0.1.8须实际在根页布局断言RED，旧0.1.9须证明原播放/暂停行禁用且无副作用；当前版须完成两路构造、21控件/6类别/68目录与搜索、禁用项无写入或导航、六基础+App单值保存/返回/重入、真实32pt图标、默认与损坏配置、资源失效安全。媒体Swift harness另运行真实生产偏好/解锁/loader及独立C测试库，覆盖缺库/缺符号、拒绝缓存、UInt8非零/零返回、exactly-once和线程门。缺失、重复或错误完成标记均失败；不把模拟器传输成功当测试通过。在同一临时模拟器实际加载优化后的完整tweak dylib，保持dyld启动、Hook转发/挂载/移除回归。Preferences父类与Hook后端仍是明确替身，不冒充设备系统或像素一致性。
+3. 历史UIKit harness继续对逐字节核验的0.1.8执行所有原断言。`ReferenceSettingsApp.swift` 同编旧0.1.8、0.1.9、0.1.10与当前UI：分别要求旧根页布局RED、旧播放/暂停行禁用RED、旧上一首/下一首行禁用且无副作用RED；当前完成两路构造、21控件/6类别/68目录与搜索、禁用项不写入或导航、八基础+App单值保存/返回/重入、真实32pt图标、默认/损坏配置与资源失效安全。两个媒体Swift harness运行真实生产偏好/解锁/loader与不连接播放器的独立C库，覆盖旧偏好行为RED、命令2/4/5、UInt8返回、exactly-once、共享失败缓存和线程门。workflow父步骤另核验exact-source完整报告，缺失、重复、错序或错误标记均失败，不把模拟器传输成功当测试通过。在同一临时模拟器加载优化后的完整tweak dylib，保持dyld启动、Hook转发/挂载/移除回归；父类/Hook/媒体服务替身不冒充设备系统。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
 6. 检查包内路径、版本、设置入口、Substrate 运行库链接、Orion 依赖不存在、每个架构的启动表/最低系统版本及嵌入签名结构。
@@ -112,4 +113,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-0.1.9 按 `docs/Acceptance.md` 获用户通过反馈；只记录本轮设置布局、保存返回及原手势功能范围，不将整体反馈扩展为每个子项均已单独执行。云端125项源码合同及新UI真实UIKit 16,159次断言、双架构编译和包核验已完成；设备结论仅来自用户对该原包的反馈。原版未实现动作、多动作、编辑排序、其他手势和Siri仍不在本轮通过范围。后续功能必须基于此受保护源码另建候选，未获实机反馈前不纳入main。
+0.1.9 设置展示及 0.1.10 播放/暂停按 `docs/Acceptance.md` 分别记录用户通过反馈，不将整体反馈扩展为每个子项均已单独执行。0.1.10 的137项源码合同、媒体Swift三模式109/109/115断言、真实UIKit 17,305次断言、双架构编译和原包独立核验属于该阶段证据，不外推0.1.11。原版未实现动作、多动作、编辑排序、其他手势和Siri仍不在范围。后续候选未获实机反馈前不纳入main。

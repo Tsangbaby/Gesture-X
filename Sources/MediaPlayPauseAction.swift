@@ -27,4 +27,20 @@ enum MediaPlayPauseAction {
               let send = sendCommand else { return false }
         return send(2, nil) != 0
     }
+
+    @discardableResult
+    static func previousTrack() -> Bool {
+        guard Thread.isMainThread,
+              LockAction.unlockedManager() != nil,
+              let send = sendCommand else { return false }
+        return send(5, nil) != 0
+    }
+
+    @discardableResult
+    static func nextTrack() -> Bool {
+        guard Thread.isMainThread,
+              LockAction.unlockedManager() != nil,
+              let send = sendCommand else { return false }
+        return send(4, nil) != 0
+    }
 }

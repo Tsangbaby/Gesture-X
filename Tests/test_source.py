@@ -14,7 +14,7 @@ def source(relative, *, settings_layout=False):
     path = ROOT / relative
     if not path.is_file():
         raise AssertionError(f"Missing implementation: {relative}")
-    text = accepted_source(relative, media_play_pause=True) if settings_layout else path.read_text(encoding="utf-8")
+    text = accepted_source(relative, media_play_pause=True, media_tracks=True) if settings_layout else path.read_text(encoding="utf-8")
     # Retain quoted strings; discard comments so comments cannot satisfy guards.
     return re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
                   lambda match: match[0] if match[0].startswith('"') else '',

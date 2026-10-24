@@ -2,13 +2,14 @@
 import json
 from pathlib import Path
 import unittest
+from media_tracks_baseline import accepted_source as track_accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class MediaPlayPauseContracts(unittest.TestCase):
     def test_only_play_pause_is_newly_available_and_uses_single_action_storage(self):
-        reference = json.loads((ROOT / 'Preferences/Resources/SettingsReference.json').read_text())
+        reference = json.loads(track_accepted_source('Preferences/Resources/SettingsReference.json'))
         rows = {row['id']: row for row in reference['basicActions']}
         self.assertTrue(rows['PLAYPAUSE_MEDIA']['available'], 'original Play/Pause row remains disabled')
         self.assertEqual(rows['PLAYPAUSE_MEDIA']['actionKind'], 'playPause')
@@ -18,12 +19,12 @@ class MediaPlayPauseContracts(unittest.TestCase):
             'SYSTEM_SCREENSHOT', 'SYSTEM_CONTROLCENTER', 'SYSTEM_COVER',
             'SYSTEM_LOCKSCREEN', 'SYSTEM_SWITCHER', 'PLAYPAUSE_MEDIA',
         })
-        prefs = (ROOT / 'Shared/Preferences.swift').read_text()
+        prefs = track_accepted_source('Shared/Preferences.swift')
         for token in ('case playPause', 'kind == "playPause", record.count == 1',
                       'return .playPause', 'case .playPause:', 'record = ["kind": "playPause"]'):
             self.assertIn(token, prefs)
         self.assertEqual(prefs.count('CFNotificationCenterPostNotification('), 2)
-        settings = (ROOT / 'Preferences/SettingsController.swift').read_text()
+        settings = track_accepted_source('Preferences/SettingsController.swift')
         self.assertIn('case "playPause": return .playPause', settings)
         self.assertNotIn('MediaRemote', settings)
         self.assertNotIn('MediaPlayPauseAction', settings)
@@ -68,7 +69,7 @@ class MediaPlayPauseContracts(unittest.TestCase):
             'control', 'Preferences/Resources/Info.plist',
         })
         for path, digest in FIXTURE['frozen'].items():
-            text = (ROOT / path).read_bytes().decode('utf-8')
+            text = track_accepted_source(path)
             with self.subTest(path=path):
                 self.assertEqual(hashlib.sha256(invert_media_play_pause(path, text).encode()).hexdigest(), digest)
 
@@ -77,7 +78,7 @@ class MediaPlayPauseContracts(unittest.TestCase):
         self.assertIsNotNone(importlib.util.find_spec('media_play_pause_baseline'))
         from media_play_pause_baseline import FIXTURE, invert_media_play_pause
         for path, hunks in FIXTURE['hunks'].items():
-            text = (ROOT / path).read_bytes().decode('utf-8')
+            text = track_accepted_source(path)
             invert_media_play_pause(path, text)
             mutations = [text + '\n// unrelated drift\n', text.replace('\n', '\r\n')]
             for h in hunks:
@@ -109,7 +110,7 @@ class MediaPlayPauseContracts(unittest.TestCase):
         harness = (ROOT / 'Tests/ReferenceSettingsApp.swift').read_text()
         self.assertIn('case "playPause": return .playPause', harness)
         self.assertIn('MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:', harness)
-        self.assertIn('six basic replacements', harness)
+        self.assertIn('eight single-value replacements', harness)
         verifier = (ROOT / 'ci/verify_package.py').read_text()
         self.assertIn('b"MRMediaRemoteSendCommand"', verifier)
         self.assertIn('Media provider leaked into Settings binary', verifier)
@@ -119,7 +120,7 @@ class MediaPlayPauseContracts(unittest.TestCase):
         path = 'Preferences/SettingsController.swift'
         with self.assertRaises(AssertionError):
             accepted_source(path)
-        self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', accepted_source(path, media_play_pause=True))
+        self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', accepted_source(path, media_play_pause=True, media_tracks=True))
 
     def test_media_swift_completion_guard_rejects_nonzero_wrong_duplicate_and_extra_output(self):
         import tempfile

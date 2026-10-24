@@ -34,7 +34,7 @@ def invert_settings_layout(relative, text):
     return FIXTURE['before_text'][relative]
 
 
-def accepted_source(relative, *, media_play_pause=False):
+def accepted_source(relative, *, media_play_pause=False, media_tracks=False):
     """Read current source, then explicitly undo only this round's exact delta.
 
     Call this at the outermost historical-test input, before any older inverse
@@ -44,6 +44,9 @@ def accepted_source(relative, *, media_play_pause=False):
     if not path.is_file():
         raise AssertionError(f'Missing implementation: {relative}')
     text = path.read_bytes().decode('utf-8')
+    if media_tracks:
+        from media_tracks_baseline import invert_media_tracks
+        text = invert_media_tracks(relative, text)
     if media_play_pause:
         from media_play_pause_baseline import invert_media_play_pause
         text = invert_media_play_pause(relative, text)
