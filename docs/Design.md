@@ -45,6 +45,12 @@
 
 不向 UIApplication 猜测实例方法，不自行抓取屏幕、绘制/写入相册、上传内容、发送 HID，不拼动画、增加计时器、延时补发或备用入口。入口声明与调用模式的固定 SHA / blob 见 `Validation.md`。返回 true 只证明提交了请求，不证明图片已经进入相册、原生缩略图出现或桌面保持响应；这些都是独立实机验收项。
 
+## 打开多任务动作
+
+0.1.8 第六个互斥动作仅复用桌面双击。主线程、原有解锁门通过后，取得 `SBMainSwitcherViewController.sharedInstanceIfExists`，确认真实对象类链，要求 `isAnySwitcherVisible` 和 `isMainSwitcherVisible` 均以精确 BOOL ABI 返回 false；缺失/不可读同样拒绝。`activateMainSwitcherNoninteractivelyWithSource:animated:` 仅接受 `BOOL(self, selector, long long, BOOL)`，逐组件检查 `B@:qB` 与参数总数，再以 `Int64(0), true` 同步调用一次并原样返回受理布尔值。返回 true 不等于动画完成或界面已展示；false 不尝试其他 source/入口。
+
+设置页只写单键 `kind=appSwitcher` 并返回，不链接提供者；既有五个动作、图标、Hook、过滤、偏好取消和监听链保持原字节，只有动作分派增加一支。缺失动作仍默认锁屏，损坏或不支持配置不回退为其他动作。不模拟 Home 双击，不调用 toggle/dismiss，不使用 HID、自定义手势/动画、延时、重试或 iOS 16/17 的另一套接收者。相邻系统声明与跨版本调用参考分开记录在 `Validation.md`，不冒充 iOS 15.4.1 的实时实现或设备结果。
+
 ## 设置契约
 
 PreferenceLoader 原始源码的 `controllerForSpecifier:` 检查 PSViewController 继承关系，优先调用 `initForContentSize:`，随后写入 root/parent/specifier。不能只用同名 UITableViewController 替代。

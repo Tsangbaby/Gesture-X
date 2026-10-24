@@ -1,11 +1,14 @@
 """Invert only exact counted Screenshot hunks; historical stages stay strict."""
 import json
 from pathlib import Path
+from app_switcher_baseline import invert_app_switcher
 
 FIXTURE = json.loads(Path(__file__).with_suffix('.json').read_text())
 
 
-def invert_screenshot(relative, text):
+def invert_screenshot(relative, text, *, app_switcher=False):
+    if app_switcher:
+        text = invert_app_switcher(relative, text)
     hunks = FIXTURE['hunks'].get(relative, [])
     cursor = -1
     for hunk in hunks:

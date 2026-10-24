@@ -17,7 +17,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines()
                       if ': ' in line)
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
-        self.assertEqual(fields['Version'], '0.1.7')
+        self.assertEqual(fields['Version'], '0.1.8')
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])
         self.assertEqual(fields['Package'], 'com.tsangbaby.taplock')
@@ -43,15 +43,15 @@ class SettingsHierarchyContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], '94b384d64ce44705e754f4695c98661110db76ff')
         for relative, digest in FIXTURE['frozen'].items():
             with self.subTest(path=relative):
-                text = invert_open_app(relative, (ROOT / relative).read_text(), control_center=True, notification_center=True, screenshot=True)
+                text = invert_open_app(relative, (ROOT / relative).read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), digest)
         restored = invert_settings_hierarchy(invert_open_app('Preferences/SettingsController.swift',
-            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True))
+            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
         self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
     def test_exact_inverse_rejects_missing_or_duplicate_ui_hunks(self):
         text = invert_open_app('Preferences/SettingsController.swift',
-            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True)
+            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
         for hunk in FIXTURE['hunks']:
             for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                 with self.assertRaises(AssertionError):
@@ -59,7 +59,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
 
     def test_exact_inverse_does_not_hide_unrelated_drift(self):
         text = invert_open_app('Preferences/SettingsController.swift',
-            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True)
+            (ROOT / 'Preferences/SettingsController.swift').read_text(), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
         restored = invert_settings_hierarchy(text + '\n// unrelated drift\n')
         self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 

@@ -1,5 +1,16 @@
 # 验证分层记录
 
+## 当前候选：打开多任务 0.1.8
+
+- 用户授权固化 0.1.7 后，仅实现第六个互斥动作。main 为 `b0745d51e77435c38b4474cf4a6ef06a6c0311dd`（接受源码加验收文档）；新源码位于 `feat/open-app-switcher`，不合入 main，不创建 Tag / Release。0.1.7 原分支及原包继续保留。
+- 声明证据：`lechium/iPhone_OS_15.5` commit `0f4def7da3cad33a6ea5a4224f4ec3526f3e73f8` 的 `System/Library/PrivateFrameworks/SpringBoard/SBMainSwitcherViewController.h`，blob `eba9f3fea6d8f48f541898c7ab636a250718775d`：L89 `+sharedInstanceIfExists`；L287/289 `_Bool isAnySwitcherVisible/isMainSwitcherVisible`；L294 `-(_Bool)activateMainSwitcherNoninteractivelyWithSource:(long long)animated:(_Bool)`。固定链接：https://github.com/lechium/iPhone_OS_15.5/blob/0f4def7da3cad33a6ea5a4224f4ec3526f3e73f8/System/Library/PrivateFrameworks/SpringBoard/SBMainSwitcherViewController.h 。blob 已按 Git 对象哈希核验；其中地址是该版本声明线索，不用于补丁或硬编码调用。
+- 独立声明交叉核对：`kissalexandra/Runtime-Headers` commit `f15f8ebf05b6da366045a4eec985c9dda7c5f456` 的 `iOS/15/15.2.tar.gz`，成员 `15.2/System/Library/PrivateFrameworks/SpringBoard.framework/SpringBoard/SBMainSwitcherViewController.h`，成员 SHA-256 `cdaa17efda8596144a28337ef4c09a955bb77cd6687366b274d14e1b9cc33f7f`：L73 singleton、L87/169 BOOL 状态、L290 BOOL/long long/BOOL 激活签名。流式读取到匹配成员后停止，不将参考代码加入生产目标。
+- 调用语义参考单列：公开 iOS 17.6.1 反编译资料 `SuperChaoM/iPhone15-3_17.6.1_21G101_Restore` commit `95df6b804bee0e01538eb2ddad0413609938d063`，`System/Library/PrivateFrameworks/SpringBoard.framework/SBMainSwitcherTestRecipe.m` blob `31532cb2f4c71f816d621ba24719050fe5a698d0` L12，系统测试动作使用同名 selector、source `0LL`、animated `1LL`。这只支持开/关动作分离及参数模式，不证明 iOS 15.4.1 内部实现；较新系统的 coordinator 与另一个 AX source 值不移植。没有把第三方移植项目未成功展示 UI 的调用尝试当正面工作证据。
+- 生产门：实际旧类 singleton、对象类链、两个未展示状态、完整 `B@:qB` 及参数总数，单次 `0, true`，原样返回原生受理结果；false/缺失/错 ABI 不换 source、不 toggle、不模拟 Home、不补发。入口返回不证明展示完成。
+- 源码合同已观察到动作/提供者接线与版本 RED，再逐项实现。`Tests/app_switcher_baseline.json` 冻结实际 0.1.7 的 23 个生产/资源文件，精确反演 6 个文件的 11 个计数/有序 hunk；旧摘要不替换，旧反演器默认仍严格，只在相关调用处显式加入 app-switcher opt-in。测试删除、重复、重排和无关漂移。
+- Apple 执行门：同一 Swift harness 用未经修改且校验摘要的 0.1.7 偏好证明实际缺少新动作的行为 RED，再编译当前生产偏好、PrivateAPI、LockAction 和 AppSwitcherAction；只在一次性副本中计数/可逆地重绑 OS 类名。覆盖受理/拒绝返回、source/animated、已有展示、未知对象/状态、返回/参数/隐式参数 ABI、非主线程、无补发及五动作存储回归。UIKit 同一 harness 对真实旧设置页要求精确缺少第六行的失败，再对当前页执行 legacy/default 两路、10 轮六动作保存/重入/互斥及图标回归。完成标记缺失、多余或非零状态均拒绝。
+- 本地主机无 Apple Swift / xcrun，不声称本地执行 Swift。此节冻结于交付前：最终真实执行条数和结果绑定 exact-SHA Actions 及原始报告；只交付完整 arm64/arm64e 编译、内层包与独立逐切片签名核验后的原始 RootHide 包。0.1.8 实机尚待用户反馈，不把 0.1.7 的通过外推到新动作或其他系统。
+
 ## 当前基线：系统截图 0.1.7（用户反馈通过）
 
 - 用户对已交付的 0.1.7 RootHide 功能包反馈“测试已通过”。绑定源码 `fc79961bd6a1003aab36f43d0ab010a9bb6b1859`、成功 Actions `40068951805`、原包 SHA-256 `445d5ffd1d8514830b9063a77de82038d30b80198e81eb92fac9355452cbbcf6`；环境沿用此前报告的 iOS 15.4.1 / RootHide。这是用户实机反馈，不是助手独立设备复测，不将整体反馈扩展为所有子项均已单独执行，不外推其他系统。

@@ -11,6 +11,7 @@ ICON_BASELINE=cb3f53b27e102b74cea93bf9a44d476cb873477a
 CONTROL_CENTER_BASELINE=b8d6994be7defcc37ceac3bb158c5526c952ac3a
 NOTIFICATION_CENTER_BASELINE=1b6615b46242abeb5b8ef0f0bf4afba14db18e2a
 SCREENSHOT_BASELINE=078b98fb67582422a577b70ae3335ecc0d1e2ab9
+APP_SWITCHER_BASELINE=fc79961bd6a1003aab36f43d0ab010a9bb6b1859
 WORK="$(mktemp -d "$RUNNER_TEMP/taplock-settings.XXXXXX")"
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 ARCH="$(uname -m)"
@@ -138,6 +139,29 @@ for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAP
     git -C "$ROOT" show "$SCREENSHOT_BASELINE:$path" > "$SCREENSHOT_OLD/$path"
 done
 
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$APP_SWITCHER_BASELINE"
+APP_SWITCHER_OLD="$WORK/accepted-no-app-switcher"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap; do
+    mkdir -p "$APP_SWITCHER_OLD/$(dirname "$path")"
+    git -C "$ROOT" show "$APP_SWITCHER_BASELINE:$path" > "$APP_SWITCHER_OLD/$path"
+done
+python3 - "$APP_SWITCHER_OLD" "$RESULTS" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+for path, digest in {
+    'Shared/Preferences.swift': '27120df2fef94c5120b0f4a59db02a1be1629e6489ac30612e67891f886ca62f',
+    'Preferences/SettingsController.swift': 'd11128abc1896375f99d6a7f4c7a941ecab05ef2d0b476de2d174a3df99b3876',
+}.items():
+    assert hashlib.sha256((root / path).read_bytes()).hexdigest() == digest, path
+with open(sys.argv[2], 'a') as f:
+    f.write('APP_SWITCHER_UIKIT_BASELINE_BYTES_VERIFIED: exact unmodified device-accepted 0.1.7 preferences and Settings controller\n')
+PY
+
 run_case() {
     local source_root="$1" label="$2" mode="$3" marker="$4"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.constructor-$label"
@@ -154,25 +178,28 @@ with open(sys.argv[1], 'wb') as f:
 PY
     local compile_sources=("$source_root/Shared/Preferences.swift" "$source_root/Preferences/SettingsController.swift")
     local compile_flags=(-parse-as-library -swift-version 5)
-    if [ "$label" = app-baseline ] || [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = app-baseline ] || [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = app-switcher-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DOPEN_APP_ROWS)
     fi
-    if [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = icon-baseline ] || [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = app-switcher-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DOPEN_APP_FEATURE -DAPP_ICONS)
         compile_sources+=("$source_root/Shared/Applications.swift" "$source_root/Sources/PrivateAPI.swift")
     fi
-    if [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = control-center-baseline ] || [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = app-switcher-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DCONTROL_CENTER_ROWS)
         compile_sources+=("$source_root/Preferences/ApplicationIcons.swift")
     fi
-    if [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = notification-center-baseline ] || [ "$label" = screenshot-baseline ] || [ "$label" = app-switcher-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DNOTIFICATION_CENTER_ROWS)
     fi
-    if [ "$label" = screenshot-baseline ] || [ "$label" = fixed ]; then
+    if [ "$label" = screenshot-baseline ] || [ "$label" = app-switcher-baseline ] || [ "$label" = fixed ]; then
         compile_flags+=(-DSCREENSHOT_ROWS)
     fi
     if [ "$label" = fixed ]; then
-        compile_flags+=(-DAPP_ICON_LOADER_TESTS -DCONTROL_CENTER_FEATURE -DNOTIFICATION_CENTER_FEATURE -DSCREENSHOT_FEATURE)
+        compile_flags+=(-DAPP_ICON_LOADER_TESTS -DCONTROL_CENTER_FEATURE -DNOTIFICATION_CENTER_FEATURE -DSCREENSHOT_FEATURE -DAPP_SWITCHER_FEATURE)
+    fi
+    if [ "$label" = app-switcher-baseline ] || [ "$label" = fixed ]; then
+        compile_flags+=(-DAPP_SWITCHER_ROWS)
     fi
     xcrun swiftc "${compile_flags[@]}" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
@@ -223,5 +250,6 @@ run_case "$ICON_OLD" icon-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: A
 run_case "$CC_OLD" control-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Control Center action row missing'
 run_case "$NC_OLD" notification-center-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Notification Center action row missing'
 run_case "$SCREENSHOT_OLD" screenshot-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: Screenshot action row missing'
+run_case "$APP_SWITCHER_OLD" app-switcher-baseline --expect-fixed 'SETTINGS_CONSTRUCTION_FAIL: App Switcher action row missing'
 run_case "$ROOT" fixed --expect-fixed FIXED_CONSTRUCTION_PASS
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

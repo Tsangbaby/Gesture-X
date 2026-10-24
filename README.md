@@ -1,15 +1,15 @@
 # TapLock — Swift + UIKit 分阶段实现
 
-**状态：0.1.7“系统截图”原始 RootHide 包已获用户反馈“测试已通过”，固化为当前回退基线。验收环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
+**状态：0.1.7“系统截图”原始 RootHide 包已获用户反馈“测试已通过”，固化到 main。独立候选 0.1.8 只增加“打开多任务”，不合入 main，待 exact-SHA 云端构建与实机验收。验收基线环境沿用此前报告的 iOS 15.4.1 / RootHide，不外推其他系统；0.1.3 的整机卡死仍为失败历史。**
 
 源码仓库：[Tsangbaby/Gesture-X](https://github.com/Tsangbaby/Gesture-X)。仓库名为 Gesture-X，当前首个最小功能模块仍叫 TapLock。本仓库不自动创建 Tag 或正式 Release。
 
-暂定名称 TapLock，源码版本 0.1.7，包标识 `com.tsangbaby.taplock`。
+暂定名称 TapLock，源码版本 0.1.8，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
-## 一条手势链，五选一动作
+## 一条手势链，六选一动作
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心 / 打开通知中心 / 系统截图（五选一）`
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开指定App / 打开控制中心 / 打开通知中心 / 系统截图 / 打开多任务（六选一）`
 
 锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
@@ -19,6 +19,7 @@
 - 不注入普通 App，不接管底部/状态栏/实体按键，不增加全屏触摸罩。
 - 关闭开关、桌面视图离开窗口或系统离开活跃状态时取消等待中的识别。
 - 0.1.7 只新增“系统截图”：设置选择只保存，桌面双击向实际 SpringBoard 对象提交一次 `takeScreenshot` 请求。不自行绘制、保存或上传截图，不加延时重试、HID 或自定义动画；本轮已获用户实机通过反馈。
+- 0.1.8 只新增“打开多任务”：设置选择只保存，桌面双击向真实 `SBMainSwitcherViewController.sharedInstanceIfExists` 对象提交一次 `activateMainSwitcherNoninteractivelyWithSource:animated:`。不 toggle、不关闭、不模拟 Home 双击、滑动或 HID，不延时重试或切换入口。原生返回值只表示请求是否受理，不证明多任务界面已经展示。
 - 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
 当前已验收原包绑定源码 `fc79961bd6a1003aab36f43d0ab010a9bb6b1859`、成功 Actions `40068951805`、SHA-256 `445d5ffd1d8514830b9063a77de82038d30b80198e81eb92fac9355452cbbcf6`。`feat/system-screenshot` 与原包保留；main 纳入该源码并仅追加验收文档，不重编相同功能或自动发布 Release。旧回退分支及原包也保持不变。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
@@ -35,7 +36,8 @@
       │  └─ 选择App（真实图标 + 名称 + Bundle ID，选中后保存）
       ├─ 打开控制中心
       ├─ 打开通知中心
-      └─ 系统截图
+      ├─ 系统截图
+      └─ 打开多任务
 ```
 
 按 SquidGesture Pro 的对应分类及中文选项组织，当前不声称完整 UI 或功能复刻。原开关的存储域、key、默认值及已保存值保留。新增动作与 Bundle ID 存入同一个 CFPreferences 属性列表值；保存成功才发 Darwin 通知。未配置动作继续锁屏，损坏配置或已卸载/禁止启动的目标不执行其他动作。列表每次进入建立一次快照，不按行扫描全部 App；设置页只选择，不当场执行动作。
@@ -53,6 +55,7 @@ Sources/AppAction.swift              SpringBoard 原生单次启动；拒绝继�
 Sources/ControlCenterAction.swift    SpringBoard 原生单次打开控制中心；不切换、重试或回退
 Sources/NotificationCenterAction.swift 解锁态 Cover Sheet 单次打开；BOOL/Block ABI 与转场门
 Sources/ScreenshotAction.swift        单次原生 takeScreenshot 请求；不自绘、保存或上传
+Sources/AppSwitcherAction.swift       单次原生打开多任务；精确 BOOL/int64/BOOL ABI，无备用入口
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
@@ -92,4 +95,4 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 `ci/verify_package.py <package.deb>` 可在有 `dpkg-deb` 的 macOS/Linux 独立复核下载包；结构签名检查不等于开发者身份验证，也不等于设备允许加载。
 
-0.1.7 本轮按 `docs/Acceptance.md` 获用户通过反馈；只记录用户实际反馈覆盖的设备和范围，不将整体反馈扩展为每个子项均已单独执行。后续候选继续保护五个动作、App 图标、Hook 与手势过滤；云端执行不等于新功能设备验收。
+0.1.7 按 `docs/Acceptance.md` 获用户通过反馈；只记录用户实际反馈覆盖的设备和范围，不将整体反馈扩展为每个子项均已单独执行。0.1.8 继续保护五个动作、App 图标、Hook 与手势过滤；新增 Swift 受理/拒绝与 ABI 回归，以及 UIKit 六动作互斥/保存重入检查。云端执行不等于多任务展示、卡片选择、退出回桌面和重复使用的实机验收。

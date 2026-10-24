@@ -218,6 +218,10 @@ def verify(package):
         # production receiver/ABI tests are its positive membership evidence.
         require(b"takeScreenshot" not in (dest / required[2]).read_bytes(),
                 "Screenshot provider leaked into Settings binary")
+        app_switcher_selector = b"activateMainSwitcherNoninteractivelyWithSource:animated:"
+        require_selector_per_slice(tweak_bytes, binaries[required[0]], app_switcher_selector)
+        require(app_switcher_selector not in (dest / required[2]).read_bytes(),
+                "App Switcher provider leaked into Settings binary")
         require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
                                    b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:
@@ -233,6 +237,7 @@ def verify(package):
             "launch_boundary": "native SpringBoard selector present; LS client/catalog absent from tweak; icon loader in Settings only",
             "control_center_binary_long_names": [name.decode() for name in control_center_names if len(name) > 15],
             "notification_center_binary_long_names": [name.decode() for name in notification_center_names],
+            "app_switcher_binary_selector": app_switcher_selector.decode(),
             "device_tested": False}
 
 

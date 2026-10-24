@@ -163,7 +163,9 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                     require(false, "action table missing")
                     return false
                 }
-                #if SCREENSHOT_ROWS
+                #if APP_SWITCHER_ROWS
+                let expectedActionRows = 6
+                #elseif SCREENSHOT_ROWS
                 let expectedActionRows = 5
                 #elseif NOTIFICATION_CENTER_ROWS
                 let expectedActionRows = 4
@@ -174,7 +176,9 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 #else
                 let expectedActionRows = 1
                 #endif
-                #if SCREENSHOT_ROWS
+                #if APP_SWITCHER_ROWS
+                let rowFailure = "App Switcher action row missing"
+                #elseif SCREENSHOT_ROWS
                 let rowFailure = "Screenshot action row missing"
                 #elseif NOTIFICATION_CENTER_ROWS
                 let rowFailure = "Notification Center action row missing"
@@ -250,8 +254,10 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 let chosenApp = action.tableView(actionTable, cellForRowAt: IndexPath(row: 1, section: 0))
                 require(chosenApp.accessoryType == .checkmark && chosenApp.detailTextLabel?.text == name,
                         "selected App checkmark/summary missing")
-                require(action.tableView(actionTable, cellForRowAt: IndexPath(row: 0, section: 0)).accessoryType == .none,
-                        "lock remained selected alongside App")
+                for row in 0..<expectedActionRows {
+                    let selected = action.tableView(actionTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 1), "App selection was lost or not exclusive")
+                }
                 home.viewWillAppear(false)
                 require(home.tableView(homeTable, cellForRowAt: IndexPath(row: 1, section: 0)).detailTextLabel?.text ==
                         "打开指定App · " + name, "home App summary did not refresh")
@@ -279,7 +285,7 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 }
                 require(controlPage.tableView(controlTable, cellForRowAt: IndexPath(row: 2, section: 0)).accessoryType == .checkmark,
                         "reconstructed action page lost the Control Center checkmark")
-                for row in [0, 1] {
+                for row in 0..<expectedActionRows where row != 2 {
                     require(controlPage.tableView(controlTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType != .checkmark,
                             "another action remained selected alongside Control Center")
                 }
@@ -365,7 +371,7 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 guard let savedScreenshotTable = savedScreenshotPage.view as? UITableView else {
                     require(false, "reopened Screenshot action table missing"); return false
                 }
-                for row in 0..<5 {
+                for row in 0..<expectedActionRows {
                     let selected = savedScreenshotPage.tableView(savedScreenshotTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
                     require(selected == (row == 4), "Screenshot selection was lost or not exclusive")
                 }
@@ -381,12 +387,62 @@ final class SettingsConstructionApp: UIResponder, UIApplicationDelegate {
                 guard let restoredScreenshotTable = restoredScreenshotPage.view as? UITableView else {
                     require(false, "restored Notification Center table missing"); return false
                 }
-                for row in 0..<5 {
+                for row in 0..<expectedActionRows {
                     let selected = restoredScreenshotPage.tableView(restoredScreenshotTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
                     require(selected == (row == 3), "restored Notification Center selection was not exclusive")
                 }
                 restoredScreenshotTable.delegate?.tableView?(restoredScreenshotTable, didSelectRowAt: IndexPath(row: 0, section: 0))
-                print("SCREENSHOT_UIKIT_PASS: selection + persistent reentry + five-way exclusivity + summary + Notification Center/lock restoration #\(iteration)")
+                print("SCREENSHOT_UIKIT_PASS: selection + persistent reentry + full-list exclusivity + summary + Notification Center/lock restoration #\(iteration)")
+                #endif
+                #if APP_SWITCHER_FEATURE
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let switcherPage = navigation.topViewController as? TapLockSettingsController,
+                      switcherPage !== home else { require(false, "App Switcher page did not push"); return false }
+                switcherPage.loadViewIfNeeded()
+                switcherPage.viewWillAppear(false)
+                guard let switcherTable = switcherPage.view as? UITableView else {
+                    require(false, "App Switcher action table missing"); return false
+                }
+                let switcherRow = switcherPage.tableView(switcherTable, cellForRowAt: IndexPath(row: 5, section: 0))
+                require(switcherRow.textLabel?.text == "打开多任务" && switcherRow.accessoryType == .none,
+                        "App Switcher label/initial selection incorrect")
+                switcherTable.delegate?.tableView?(switcherTable, didSelectRowAt: IndexPath(row: 5, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .appSwitcher,
+                        "App Switcher selection did not save and return home")
+                home.viewWillAppear(false)
+                require(home.tableView(homeTable, cellForRowAt: IndexPath(row: 1, section: 0)).detailTextLabel?.text ==
+                        "打开多任务", "App Switcher home summary did not refresh")
+                require(TapLockPreferences.readEnabled() == !original, "App Switcher selection changed enable state")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let savedSwitcherPage = navigation.topViewController as? TapLockSettingsController,
+                      savedSwitcherPage !== switcherPage else { require(false, "App Switcher page was not reconstructed"); return false }
+                savedSwitcherPage.loadViewIfNeeded()
+                savedSwitcherPage.viewWillAppear(false)
+                guard let savedSwitcherTable = savedSwitcherPage.view as? UITableView else {
+                    require(false, "reopened App Switcher action table missing"); return false
+                }
+                for row in 0..<expectedActionRows {
+                    let selected = savedSwitcherPage.tableView(savedSwitcherTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 5), "App Switcher selection was lost or not exclusive")
+                }
+                savedSwitcherTable.delegate?.tableView?(savedSwitcherTable, didSelectRowAt: IndexPath(row: 4, section: 0))
+                require(navigation.topViewController === home && TapLockPreferences.readAction() == .screenshot,
+                        "App Switcher could not switch back to Screenshot")
+                homeTable.delegate?.tableView?(homeTable, didSelectRowAt: IndexPath(row: 1, section: 0))
+                guard let restoredSwitcherPage = navigation.topViewController as? TapLockSettingsController else {
+                    require(false, "restored Screenshot page missing"); return false
+                }
+                restoredSwitcherPage.loadViewIfNeeded()
+                restoredSwitcherPage.viewWillAppear(false)
+                guard let restoredSwitcherTable = restoredSwitcherPage.view as? UITableView else {
+                    require(false, "restored Screenshot table missing"); return false
+                }
+                for row in 0..<expectedActionRows {
+                    let selected = restoredSwitcherPage.tableView(restoredSwitcherTable, cellForRowAt: IndexPath(row: row, section: 0)).accessoryType == .checkmark
+                    require(selected == (row == 4), "restored Screenshot selection was not exclusive")
+                }
+                restoredSwitcherTable.delegate?.tableView?(restoredSwitcherTable, didSelectRowAt: IndexPath(row: 0, section: 0))
+                print("APP_SWITCHER_UIKIT_PASS: selection + persistent reentry + six-way exclusivity + summary + Screenshot/lock restoration #\(iteration)")
                 #endif
                 require(navigation.topViewController === home, "selecting current action must return home")
                 require(TapLockPreferences.readEnabled() == !original, "action navigation changed enable state")

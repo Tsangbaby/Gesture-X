@@ -8,6 +8,7 @@ from pathlib import Path
 from test_source import source
 from screenshot_baseline import FIXTURE, invert_screenshot
 from notification_center_baseline import invert_notification_center
+from app_switcher_baseline import invert_app_switcher
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = '078b98fb67582422a577b70ae3335ecc0d1e2ab9'
@@ -18,7 +19,7 @@ class ScreenshotContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_screenshot(path, (ROOT / path).read_text())
+                restored = invert_screenshot(path, (ROOT / path).read_text(), app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_historical_inverse_requires_explicit_screenshot_opt_in(self):
@@ -29,7 +30,7 @@ class ScreenshotContracts(unittest.TestCase):
 
     def test_inverse_rejects_missing_duplicate_reordered_hunks_and_does_not_hide_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = (ROOT / path).read_text()
+            text = invert_app_switcher(path, (ROOT / path).read_text())
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.subTest(path=path), self.assertRaises(AssertionError):
@@ -59,7 +60,7 @@ class ScreenshotContracts(unittest.TestCase):
                       'SETTINGS_CONSTRUCTION_FAIL: Screenshot action row missing'):
             self.assertIn(token, ui)
         app = (ROOT / 'Tests/SettingsConstructionApp.swift').read_text()
-        for token in ('SCREENSHOT_UIKIT_PASS:', 'Screenshot action row missing', '0..<5',
+        for token in ('SCREENSHOT_UIKIT_PASS:', 'Screenshot action row missing', '0..<expectedActionRows',
                       'TapLockPreferences.readAction() == .screenshot'):
             self.assertIn(token, app)
 
@@ -93,7 +94,7 @@ class ScreenshotContracts(unittest.TestCase):
             self.assertEqual(body.count(call), 1)
         self.assertIn('case .screenshot:', body)
         self.assertLess(body.index('isBlankHit(in: host'), body.index('switch action'))
-        settings = source('Preferences/SettingsController.swift')
+        settings = invert_app_switcher('Preferences/SettingsController.swift', source('Preferences/SettingsController.swift'))
         for token in ('case .doubleTapAction: return 5', 'case (.doubleTapAction, 4):',
                       '"系统截图"', 'action == .screenshot ? .checkmark : .none',
                       'TapLockPreferences.writeAction(.screenshot)'):
@@ -107,7 +108,7 @@ class ScreenshotContracts(unittest.TestCase):
 
     def test_authorized_candidate_version_matches_every_active_surface(self):
         fields = dict(line.split(': ', 1) for line in (ROOT / 'control').read_text().splitlines() if ': ' in line)
-        self.assertEqual(fields['Version'], '0.1.7')
+        self.assertEqual(fields['Version'], '0.1.8')
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
         self.assertEqual(info['CFBundleVersion'], fields['Version'])
         self.assertEqual(info['CFBundleShortVersionString'], fields['Version'])

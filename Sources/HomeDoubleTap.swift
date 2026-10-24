@@ -209,6 +209,8 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
             NotificationCenterAction.open()
         case .screenshot:
             ScreenshotAction.capture()
+        case .appSwitcher:
+            AppSwitcherAction.open()
         case .unavailable:
             break
         }

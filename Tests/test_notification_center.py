@@ -18,7 +18,7 @@ class NotificationCenterContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], ACCEPTED)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                restored = invert_notification_center(path, (ROOT / path).read_text(), screenshot=True)
+                restored = invert_notification_center(path, (ROOT / path).read_text(), screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), digest)
 
     def test_old_inverse_stays_strict_without_explicit_new_candidate_opt_in(self):
@@ -28,7 +28,7 @@ class NotificationCenterContracts(unittest.TestCase):
 
     def test_inverse_rejects_missing_duplicate_reordered_and_unrelated_drift(self):
         for path, hunks in FIXTURE['hunks'].items():
-            text = invert_screenshot(path, (ROOT / path).read_text())
+            text = invert_screenshot(path, (ROOT / path).read_text(), app_switcher=True)
             for hunk in hunks:
                 for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                     with self.subTest(path=path), self.assertRaises(AssertionError):
@@ -108,7 +108,7 @@ class NotificationCenterContracts(unittest.TestCase):
         self.assertNotIn('readAction()', body)
 
     def test_settings_fourth_row_only_saves_and_keeps_app_catalog_snapshot(self):
-        text = invert_screenshot('Preferences/SettingsController.swift', source('Preferences/SettingsController.swift'))
+        text = invert_screenshot('Preferences/SettingsController.swift', source('Preferences/SettingsController.swift'), app_switcher=True)
         for token in ('case .doubleTapAction: return 4', 'case (.doubleTapAction, 3):',
                       '"打开通知中心"', 'action == .notificationCenter ? .checkmark : .none',
                       'TapLockPreferences.writeAction(.notificationCenter)'):

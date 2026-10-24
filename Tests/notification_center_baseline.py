@@ -2,11 +2,14 @@
 import json
 from pathlib import Path
 from screenshot_baseline import invert_screenshot
+from app_switcher_baseline import invert_app_switcher
 
 FIXTURE = json.loads(Path(__file__).with_suffix('.json').read_text())
 
 
-def invert_notification_center(relative, text, *, screenshot=False):
+def invert_notification_center(relative, text, *, screenshot=False, app_switcher=False):
+    if app_switcher:
+        text = invert_app_switcher(relative, text)
     if screenshot:
         text = invert_screenshot(relative, text)
     hunks = FIXTURE['hunks'].get(relative, [])

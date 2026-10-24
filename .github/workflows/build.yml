@@ -26,7 +26,7 @@
         },
         {
           "name": "Source and real Swift runtime tests",
-          "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p 'test_*.py' -v\nxcodebuild -version\nxcrun swift --version\nxcrun swiftc -swift-version 5 Sources/PrivateAPI.swift Tests/PrivateAPIRuntimeTests.swift -o \"$RUNNER_TEMP/private-api-tests\"\n\"$RUNNER_TEMP/private-api-tests\"\nbash ci/lock-action-smoke.sh\nbash ci/open-app-smoke.sh\nbash ci/control-center-smoke.sh\nbash ci/notification-center-smoke.sh\nbash ci/screenshot-smoke.sh"
+          "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p 'test_*.py' -v\nxcodebuild -version\nxcrun swift --version\nxcrun swiftc -swift-version 5 Sources/PrivateAPI.swift Tests/PrivateAPIRuntimeTests.swift -o \"$RUNNER_TEMP/private-api-tests\"\n\"$RUNNER_TEMP/private-api-tests\"\nbash ci/lock-action-smoke.sh\nbash ci/open-app-smoke.sh\nbash ci/control-center-smoke.sh\nbash ci/notification-center-smoke.sh\nbash ci/screenshot-smoke.sh\nbash ci/app-switcher-smoke.sh"
         },
         {
           "name": "Settings constructor regression (iOS Simulator fixture)",
@@ -38,7 +38,7 @@
         },
         {
           "name": "Compile and package RootHide",
-          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh\ncp \"$RUNNER_TEMP/SETTINGS_CONSTRUCTION_TESTS.txt\" \"$OUT_DIR/SETTINGS_CONSTRUCTION_TESTS.txt\"\ncp \"$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt\" \"$OUT_DIR/NATIVE_STARTUP_TESTS.txt\"\ncp \"$RUNNER_TEMP/LOCK_BUTTON_TESTS.txt\" \"$OUT_DIR/LOCK_BUTTON_TESTS.txt\"\ncp \"$RUNNER_TEMP/OPEN_APP_TESTS.txt\" \"$OUT_DIR/OPEN_APP_TESTS.txt\"\ncp \"$RUNNER_TEMP/NATIVE_APP_TESTS.txt\" \"$OUT_DIR/NATIVE_APP_TESTS.txt\"\ncp \"$RUNNER_TEMP/CONTROL_CENTER_TESTS.txt\" \"$OUT_DIR/CONTROL_CENTER_TESTS.txt\"\ncp \"$RUNNER_TEMP/NOTIFICATION_CENTER_TESTS.txt\" \"$OUT_DIR/NOTIFICATION_CENTER_TESTS.txt\"\ncp \"$RUNNER_TEMP/SCREENSHOT_TESTS.txt\" \"$OUT_DIR/SCREENSHOT_TESTS.txt\""
+          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/build.sh\ncp \"$RUNNER_TEMP/SETTINGS_CONSTRUCTION_TESTS.txt\" \"$OUT_DIR/SETTINGS_CONSTRUCTION_TESTS.txt\"\ncp \"$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt\" \"$OUT_DIR/NATIVE_STARTUP_TESTS.txt\"\ncp \"$RUNNER_TEMP/LOCK_BUTTON_TESTS.txt\" \"$OUT_DIR/LOCK_BUTTON_TESTS.txt\"\ncp \"$RUNNER_TEMP/OPEN_APP_TESTS.txt\" \"$OUT_DIR/OPEN_APP_TESTS.txt\"\ncp \"$RUNNER_TEMP/NATIVE_APP_TESTS.txt\" \"$OUT_DIR/NATIVE_APP_TESTS.txt\"\ncp \"$RUNNER_TEMP/CONTROL_CENTER_TESTS.txt\" \"$OUT_DIR/CONTROL_CENTER_TESTS.txt\"\ncp \"$RUNNER_TEMP/NOTIFICATION_CENTER_TESTS.txt\" \"$OUT_DIR/NOTIFICATION_CENTER_TESTS.txt\"\ncp \"$RUNNER_TEMP/SCREENSHOT_TESTS.txt\" \"$OUT_DIR/SCREENSHOT_TESTS.txt\"\ncp \"$RUNNER_TEMP/APP_SWITCHER_TESTS.txt\" \"$OUT_DIR/APP_SWITCHER_TESTS.txt\""
         },
         {
           "name": "Upload original verified deb and provenance",
