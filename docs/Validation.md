@@ -1,5 +1,15 @@
 # 验证分层记录
 
+## 当前候选 0.1.12：开关手电（本地门通过，Apple执行待验）
+
+- 保护 main `925df18141606b75f71c77ddd998ad2baa237efe` 与已测 0.1.11 原包；新功能仅位于 `feat/toggle-flashlight`，不自动合并或发布。
+- 原包消费者父代理重核 deb／FAT成员／arm64e切片摘要、保留指令字节、format12 fixup、Class生产者、零/非零分支与原样亮度参数。相邻仓库标称 iOS15.5 header 与真实调用者声明经固定commit/Git blob交叉复核，支持 Q/Q/v/v(Q)；目标15.4.1/16的实际系统方法ABI仍未测，明确保留运行时精确门和设备验收缺口。
+- 已观察手电行禁用的初始源码合同RED，扩展源码接线/版本合同4个预期断言失败后转GREEN；CI父步骤/包边界合同另2个预期断言失败后转GREEN。首轮规范复核发现通用test提前依赖git历史（浅checkout时源码门先于native fetch），父已独立复现并仅修测试；取消Darwin专属skip，以隔离uname执行真实Linux拒绝门。新增候选无.git/空PATH子进程回归，原生protocol14项在空PATH实跑通过。整合后父代理独立执行完整192项Python，零失败/错误/跳过；包括新手电源码6项、历史字节11项、原生report/runner14项及UIKit接线12项。新inverse拒绝168个源码与14个manifest变异。**这些是源码/字节/接线或synthetic协议检查，不是Swift编译或行为RED**。
+- 仅七既有生产/metadata输入和一个新增Swift provider改变；27个候选生产输入摘要已冻结。原PrivateAPI、LockAction、媒体loader、Hook/生命周期、App目录/图标及未授权资源逐字节保持。旧合同经新候选exact inverse显式恢复，不刷新既有历史摘要或独立UI oracle。
+- 历史字节回归及真实Swift fixture/旧偏好行为RED、第四路UIKit行为RED和当前九基础+App矩阵的代码已整合；26个恢复结果与独立git show逐byte相同，17个旧helper/fixture及旧layout inverse实现均不变。当前Linux无swift/xcrun：Apple执行、完整目标双架构编译、原始包下载/独立核验尚未完成，未据source-only结果宣称通过。
+- 后续必须在复核稳定的同一最终SHA运行完整本地门、云端Swift/UIKit/10项生产启动与RootHide arm64+arm64e构建；报告source/fixture字节attestation与behavior terminal严格分开，exact SHA/返回码/次序/正断言数均须核验。最终run/attempt/job/artifact与包摘要据真实结果追加，不预填。
+- 设备状态：**未验收**。功能清单见 `Acceptance.md`；完整原包/ABI与void返回语义见 `Flashlight.md`。
+
 ## 当前已验收功能基线：0.1.11 下一首 / 上一首
 
 - 用户对交付原包反馈「测试已通过」，并授权纯文档固化到 main。原始构建 SHA `9f942e8abad9c04835a189aadb5ec8526609596f`、Actions `40099002702` / attempt 1 / job `120887100474`、artifact `12562735119`、原包 SHA-256 `b06cbb986684430fa95585de6960ca77f4cdd7581d2833dfc36a21f7ec4eddc6` 保持不变。用户反馈不视作助手设备复测，也不扩展未单独报告的子项或环境。

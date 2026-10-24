@@ -336,20 +336,58 @@ with open(sys.argv[3], 'a') as stream:
     stream.write('MEDIA_TRACKS_UIKIT_BASELINE_BYTES_VERIFIED: eight exact accepted 0.1.10 source/resource inputs\n')
 PY
 
+# Fetch explicitly: a shallow candidate checkout need not contain the frozen
+# 0.1.11 commit. Compile its unmodified controller/preferences with its OWN
+# resource, never the candidate's newly closed nine-action schema.
+FLASHLIGHT_SETTINGS_BASELINE="$(python3 - "$ROOT/Tests/flashlight_baseline.json" <<'PY'
+import json, sys
+frozen = json.load(open(sys.argv[1]))
+assert frozen['baseline'] == '925df18141606b75f71c77ddd998ad2baa237efe'
+assert len(frozen['frozen']) == 26
+print(frozen['baseline'])
+PY
+)"
+git -C "$ROOT" fetch --no-tags --depth=1 origin "$FLASHLIGHT_SETTINGS_BASELINE"
+FLASHLIGHT_UI="$WORK/accepted-0111-ui"
+for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAPI.swift \
+            Preferences/SettingsController.swift Preferences/ApplicationIcons.swift \
+            Interfaces/TapLockPreferencesHost/PSViewController.h \
+            Interfaces/TapLockPreferencesHost/module.modulemap Preferences/Resources/SettingsReference.json; do
+    mkdir -p "$FLASHLIGHT_UI/$(dirname "$path")"
+    git -C "$ROOT" show "$FLASHLIGHT_SETTINGS_BASELINE:$path" > "$FLASHLIGHT_UI/$path"
+done
+python3 - "$FLASHLIGHT_UI" "$ROOT" "$REFERENCE_RESULTS" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+accepted, root = map(Path, sys.argv[1:3])
+frozen = json.loads((root / 'Tests/flashlight_baseline.json').read_text())
+assert frozen['baseline'] == '925df18141606b75f71c77ddd998ad2baa237efe'
+assert len(frozen['frozen']) == 26
+paths = [p for p in accepted.rglob('*') if p.is_file()]
+assert len(paths) == 8
+for path in paths:
+    relative = str(path.relative_to(accepted))
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == frozen['frozen'][relative], relative
+with open(sys.argv[3], 'a') as stream:
+    stream.write('FLASHLIGHT_UIKIT_BASELINE_BYTES_VERIFIED: eight exact accepted 0.1.11 source/resource inputs\n')
+PY
+
 run_reference_case() {
     local source_root="$1" label="$2" mode="$3"
     local app="$WORK/$label.app" bundle="com.tsangbaby.taplock.$label"
     mkdir -p "$app/Frameworks"
     cp -R "$FRAMEWORK" "$app/Frameworks/"
-    if [ "$label" = media-baseline ] || [ "$label" = track-baseline ]; then
+    if [ "$label" = media-baseline ] || [ "$label" = track-baseline ] || [ "$label" = flashlight-baseline ]; then
         cp "$source_root/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
     else
         cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
     fi
     # macOS /bin/bash 3.2 treats an empty array expansion under nounset as
-    # unbound. Use one always-present scalar; baseline enum lacks playPause.
+    # unbound. Use one always-present scalar; each baseline lacks newer enums.
     local compile_flag=-DREFERENCE_SETTINGS_CURRENT
-    if [ "$label" = track-baseline ]; then
+    if [ "$label" = flashlight-baseline ]; then
+        compile_flag=-DFLASHLIGHT_BASELINE
+    elif [ "$label" = track-baseline ]; then
         compile_flag=-DMEDIA_TRACKS_UNAVAILABLE
     elif [ "$label" != reference-fixed ]; then
         compile_flag=-DMEDIA_PLAY_PAUSE_UNAVAILABLE
@@ -376,5 +414,6 @@ PY
 run_reference_case "$ACCEPTED_UI" reference-baseline --expect-reference-baseline-failure
 run_reference_case "$MEDIA_UI" media-baseline --expect-media-baseline-failure
 run_reference_case "$TRACK_UI" track-baseline --expect-track-baseline-failure
+run_reference_case "$FLASHLIGHT_UI" flashlight-baseline --expect-flashlight-baseline-failure
 run_reference_case "$ROOT" reference-fixed --expect-reference-fixed
 bash "$ROOT/ci/native-startup-smoke.sh" "$DEVICE"

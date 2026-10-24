@@ -3,7 +3,7 @@ import ObjectiveC.runtime
 import CoreFoundation
 import Darwin
 
-// The same executable is compiled against frozen 0.1.8 and the candidate.
+// The same executable is compiled against frozen 0.1.8/9/10/11 and the candidate.
 // Observe only UIKit datasource/delegate and existing Shared APIs: never new
 // renderer/model internals. The JSON oracle is independently pinned by CI.
 @main
@@ -141,7 +141,8 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
 
     private func checkInert(_ table: UITableView, _ path: IndexPath, _ nav: UINavigationController) {
         let target = cell(table, path)
-        require(!target.isUserInteractionEnabled && target.accessibilityTraits.contains(.notEnabled), "disabled row looks enabled")
+        require(!target.isUserInteractionEnabled && target.selectionStyle == .none &&
+                target.accessibilityTraits.contains(.notEnabled), "disabled row looks enabled")
         let before = preferences()
         let stack = nav.viewControllers
         let presented = nav.topViewController?.presentedViewController
@@ -231,6 +232,9 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         #if !MEDIA_PLAY_PAUSE_UNAVAILABLE && !MEDIA_TRACKS_UNAVAILABLE
         case "previousTrack": return .previousTrack
         case "nextTrack": return .nextTrack
+        #endif
+        #if REFERENCE_SETTINGS_CURRENT
+        case "flashlight": return .flashlight
         #endif
         default: return nil
         }
@@ -323,10 +327,20 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         let expectedBasicCount = 5
         #elseif MEDIA_TRACKS_UNAVAILABLE
         let expectedBasicCount = 6
-        #else
+        #elseif FLASHLIGHT_BASELINE
         let expectedBasicCount = 8
+        #else
+        let expectedBasicCount = 9
         #endif
-        require(entries.count == 68 && entries.filter { $0["available"] as? Bool == true }.count == expectedBasicCount, "oracle basic scope differs")
+        let implementedEntries = entries.filter { $0["available"] as? Bool == true }
+        require(entries.count == 68 && implementedEntries.count == expectedBasicCount, "oracle basic scope differs")
+        #if REFERENCE_SETTINGS_CURRENT
+        let currentBasicIdentities: Set<String> = [
+            "SYSTEM_SCREENSHOT", "SYSTEM_CONTROLCENTER", "SYSTEM_COVER", "SYSTEM_LOCKSCREEN",
+            "SYSTEM_SWITCHER", "PLAYPAUSE_MEDIA", "PREVIOUS_MEDIA", "NEXT_MEDIA", "TOGGLE_FLASHLIGHT"]
+        require(Set(implementedEntries.compactMap { $0["id"] as? String }) == currentBasicIdentities,
+                "current nine basic identities differ")
+        #endif
         let basic = push(actionTable, IndexPath(row: 0, section: 1), nav, title: titles["basic"]!)
         let basicTable = table(basic)
         if ProcessInfo.processInfo.arguments.contains("--expect-media-baseline-failure") {
@@ -345,13 +359,20 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             }
             finish("MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE: original previous/next rows are disabled", status: 0)
         }
+        if ProcessInfo.processInfo.arguments.contains("--expect-flashlight-baseline-failure") {
+            let flashlight = find(basicTable, id: "TOGGLE_FLASHLIGHT")
+            require(cell(basicTable, flashlight).textLabel?.text == "开关手电", "baseline flashlight identity differs")
+            checkInert(basicTable, flashlight, nav)
+            require(nav.topViewController === basic, "disabled baseline flashlight left basic picker")
+            finish("FLASHLIGHT_SETTINGS_BASELINE_EXPECTED_FAILURE: original flashlight row is disabled", status: 0)
+        }
         checkBasic(basicTable, entries: entries, nav: nav, selected: .lock)
         guard let search = basic.navigationItem.searchController,
               let updater = search.searchResultsUpdater else {
             finish("REFERENCE_SETTINGS_FAIL: real search controller/updater missing", status: 1)
         }
         let searchSnapshot = preferences()
-        for query in ["hammerit", "HAMMERIT", "系统", "播放/暂停", "上一首", "下一首", "no-such-reference-action", ""] {
+        for query in ["hammerit", "HAMMERIT", "系统", "播放/暂停", "上一首", "下一首", "开关手电", "no-such-reference-action", ""] {
             search.searchBar.text = query
             updater.updateSearchResults(for: search)
             let expected = query.isEmpty ? entries : entries.filter {
@@ -370,7 +391,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         updater.updateSearchResults(for: search)
         checkBasic(basicTable, entries: entries, nav: nav, selected: .controlCenter)
         nav.popViewController(animated: false)
-        for entry in entries where entry["available"] as? Bool == true {
+        for entry in implementedEntries {
             guard let kind = entry["actionKind"] as? String, let action = actionForKind(kind),
                   let name = entry["title"] as? String, let id = entry["id"] as? String else {
                 finish("REFERENCE_SETTINGS_FAIL: oracle basic mapping missing", status: 1)
@@ -398,7 +419,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             nav.pushViewController(actions, animated: false)
         }
         let beforeApp = preferences()
-        checkpoint("basic search and eight single-value replacements matched")
+        checkpoint("basic search and nine single-value replacements matched")
         let app = push(table(actions), IndexPath(row: 1, section: 1), nav, title: titles["application"]!)
         let appTable = table(app)
         let appPaths = paths(appTable)
@@ -457,13 +478,65 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         actions = openActions(home: home, nav: nav)
         require(actions !== previousActions, "App action manager was not reconstructed")
         checkSelected(actions, title: "打开应用 · " + name, action: .openApp(id))
-        let replace = push(table(actions), IndexPath(row: 0, section: 1), nav, title: titles["basic"]!)
-        checkBasic(table(replace), entries: entries, nav: nav, selected: .openApp(id))
-        guard let lockID = entries.first(where: { $0["actionKind"] as? String == "lock" })?["id"] as? String else {
-            finish("REFERENCE_SETTINGS_FAIL: lock oracle missing", status: 1)
+        // Every basic action must replace an App, and the App must replace
+        // every basic action. Reuse the complete candidate identity set; never
+        // keep a hand-written old-action subset that omits a newly added row.
+        for enabled in [false, true] {
+            seed(enabled: enabled ? kCFBooleanTrue : kCFBooleanFalse,
+                 action: ["kind": "openApp", "bundleIdentifier": id] as CFDictionary)
+            for entry in implementedEntries {
+                guard let kind = entry["actionKind"] as? String, let action = actionForKind(kind),
+                      let basicName = entry["title"] as? String, let basicID = entry["id"] as? String else {
+                    finish("REFERENCE_SETTINGS_FAIL: replacement oracle mapping missing", status: 1)
+                }
+                let replace = push(table(actions), IndexPath(row: 0, section: 1), nav, title: titles["basic"]!)
+                checkBasic(table(replace), entries: entries, nav: nav, selected: .openApp(id))
+                tap(table(replace), find(table(replace), id: basicID))
+                require(nav.topViewController === actions, "App-to-basic replacement did not return")
+                require(TapLockPreferences.readEnabled() == enabled, "App replacement changed enable state")
+                require(preferences()[TapLockPreferences.actionKey] as? [String: String] == ["kind": kind],
+                        "App-to-basic replacement is not a single value")
+                checkSelected(actions, title: basicName, action: action)
+                let verifyBasic = push(table(actions), IndexPath(row: 0, section: 1), nav, title: titles["basic"]!)
+                checkBasic(table(verifyBasic), entries: entries, nav: nav, selected: action)
+                nav.popViewController(animated: false)
+                nav.popViewController(animated: false)
+                require(nav.topViewController === home, "replacement did not return Home")
+                require(cell(table(home), find(table(home), id: "homescreenDoubleTap")).detailTextLabel?.text == basicName,
+                        "Home replacement basic summary did not refresh")
+                actions = openActions(home: home, nav: nav)
+                checkSelected(actions, title: basicName, action: action)
+                let replaceApp = push(table(actions), IndexPath(row: 1, section: 1), nav, title: titles["application"]!)
+                let replaceAppTable = table(replaceApp)
+                for path in paths(replaceAppTable) {
+                    require(cell(replaceAppTable, path).accessoryType != .checkmark,
+                            "basic-to-App picker retained an old App checkmark")
+                }
+                guard let appPath = paths(replaceAppTable).first(where: {
+                    cell(replaceAppTable, $0).detailTextLabel?.text == id
+                }) else { finish("REFERENCE_SETTINGS_FAIL: replacement App disappeared", status: 1) }
+                tap(replaceAppTable, appPath)
+                require(nav.topViewController === actions, "basic-to-App replacement did not return")
+                require(TapLockPreferences.readEnabled() == enabled, "App replacement changed enable state")
+                require(preferences()[TapLockPreferences.actionKey] as? [String: String] ==
+                        ["kind": "openApp", "bundleIdentifier": id], "basic-to-App replacement is not a single record")
+                checkSelected(actions, title: "打开应用 · " + name, action: .openApp(id))
+                let verifyApp = push(table(actions), IndexPath(row: 1, section: 1), nav, title: titles["application"]!)
+                let verifyAppTable = table(verifyApp)
+                for path in paths(verifyAppTable) {
+                    let rendered = cell(verifyAppTable, path)
+                    require((rendered.accessoryType == .checkmark) == (rendered.detailTextLabel?.text == id),
+                            "replacement App checkmark missing or not exclusive")
+                }
+                nav.popViewController(animated: false)
+                nav.popViewController(animated: false)
+                require(nav.topViewController === home, "replacement App did not return Home")
+                require(cell(table(home), find(table(home), id: "homescreenDoubleTap")).detailTextLabel?.text ==
+                        "打开应用 · " + name, "Home replacement App summary did not refresh")
+                actions = openActions(home: home, nav: nav)
+                checkSelected(actions, title: "打开应用 · " + name, action: .openApp(id))
+            }
         }
-        tap(table(replace), find(table(replace), id: lockID))
-        checkSelected(actions, title: "系统锁屏", action: .lock)
         nav.popToRootViewController(animated: false)
         let reentered = push(table(root), find(table(root), id: "homescreenOptions"), nav, title: titles["home"]!)
         let reenteredTable = table(reentered)
@@ -522,7 +595,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let arguments = ProcessInfo.processInfo.arguments
-        let modes = ["--expect-reference-baseline-failure", "--expect-media-baseline-failure", "--expect-track-baseline-failure", "--expect-reference-fixed"]
+        let modes = ["--expect-reference-baseline-failure", "--expect-media-baseline-failure", "--expect-track-baseline-failure", "--expect-flashlight-baseline-failure", "--expect-reference-fixed"]
         require(modes.filter { arguments.contains($0) }.count == 1, "choose exactly one reference test mode")
         guard let host = NSClassFromString("PSViewController") else {
             finish("REFERENCE_SETTINGS_FAIL: native Preferences fixture missing", status: 1)
@@ -553,7 +626,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             self.runRoundTrip(false)
             self.checkpoint("resource fail-closed probes")
             self.checkUnavailableResources()
-            self.finish("REFERENCE_SETTINGS_UIKIT_PASS: \(self.checks) assertions; both native constructors; reference root/Home/categories; inert controls; 68-row search; eight single-value replacements; installed App snapshot/real 32pt icon/save/reentry; defaults/malformed/resource fail-closed; simulator fixture boundary only", status: 0)
+            self.finish("REFERENCE_SETTINGS_UIKIT_PASS: \(self.checks) assertions; both native constructors; reference root/Home/categories; inert controls; 68-row search; nine single-value replacements; installed App snapshot/real 32pt icon/save/reentry; defaults/malformed/resource fail-closed; simulator fixture boundary only", status: 0)
         }
         return true
     }

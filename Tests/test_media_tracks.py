@@ -1,8 +1,13 @@
-"""Previous/next media are two exclusive actions, not a multi-action engine."""
+"""Historical eight-action track contracts use explicit predecessor input.
+
+Current release/CI completion checks remain live; flashlight behavior is covered
+by its own current-source contracts, not by this historical reconstruction.
+"""
 import hashlib
 import json
 import re
 import unittest
+from flashlight_baseline import accepted_source as flashlight_accepted_source
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,11 +21,11 @@ OLDER_BASIC = {'SYSTEM_SCREENSHOT', 'SYSTEM_CONTROLCENTER', 'SYSTEM_COVER',
 
 class MediaTrackContracts(unittest.TestCase):
     def test_both_original_track_rows_are_saved_and_dispatched_as_independent_single_commands(self):
-        reference = json.loads((ROOT / 'Preferences/Resources/SettingsReference.json').read_text())
+        reference = json.loads(flashlight_accepted_source('Preferences/Resources/SettingsReference.json'))
         rows = {r['id']: r for r in reference['basicActions']}
-        prefs = (ROOT / 'Shared/Preferences.swift').read_text()
-        settings = (ROOT / 'Preferences/SettingsController.swift').read_text()
-        dispatch = (ROOT / 'Sources/HomeDoubleTap.swift').read_text().split('func recognized(', 1)[1]
+        prefs = flashlight_accepted_source('Shared/Preferences.swift')
+        settings = flashlight_accepted_source('Preferences/SettingsController.swift')
+        dispatch = flashlight_accepted_source('Sources/HomeDoubleTap.swift').split('func recognized(', 1)[1]
         provider = (ROOT / 'Sources/MediaPlayPauseAction.swift').read_text()
         for kind, (row_id, title, reference_action, slot, command) in TRACKS.items():
             row = rows[row_id]
@@ -58,7 +63,9 @@ class MediaTrackContracts(unittest.TestCase):
 
     def test_active_release_identity_is_bumped_without_rewriting_historical_fixtures(self):
         from release_contract import EXPECTED_RELEASE_VERSION
-        self.assertEqual(EXPECTED_RELEASE_VERSION, '0.1.11')
+        version = re.search(r'^Version: (.+)$', (ROOT / 'control').read_text(), re.M)
+        self.assertIsNotNone(version)
+        self.assertEqual(version[1], EXPECTED_RELEASE_VERSION)
 
     def test_native_and_real_uikit_tracks_are_mandatory_exact_source_ci_gates(self):
         runner = ROOT / 'ci/media-tracks-smoke.sh'
@@ -86,7 +93,7 @@ class MediaTrackContracts(unittest.TestCase):
         for token in ('"上一首"', '"下一首"', '--expect-track-baseline-failure',
                       'MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE:', 'MEDIA_TRACKS_UNAVAILABLE',
                       'case "nextTrack": return .nextTrack', 'case "previousTrack": return .previousTrack',
-                      'eight single-value replacements'):
+                      'nine single-value replacements'):
             self.assertIn(token, ui)
         startup = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         self.assertIn('run_reference_case "$TRACK_UI" track-baseline --expect-track-baseline-failure', startup)
@@ -106,7 +113,7 @@ class MediaTrackBaselineContracts(unittest.TestCase):
         self.assertEqual(sum(len(v) for v in FIXTURE['hunks'].values()), 11)
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                text = (ROOT / path).read_bytes().decode('utf-8')
+                text = flashlight_accepted_source(path)
                 before = invert_media_tracks(path, text)
                 self.assertEqual(hashlib.sha256(before.encode()).hexdigest(), digest)
                 if path == 'Sources/MediaPlayPauseAction.swift':
@@ -116,7 +123,7 @@ class MediaTrackBaselineContracts(unittest.TestCase):
     def test_track_inverse_rejects_missing_duplicate_order_crlf_and_unrelated_drift(self):
         from media_tracks_baseline import FIXTURE, invert_media_tracks
         for path, edits in FIXTURE['hunks'].items():
-            text = (ROOT / path).read_bytes().decode('utf-8')
+            text = flashlight_accepted_source(path)
             invert_media_tracks(path, text)
             mutants = [text + '\n// unrelated drift\n', text.replace('\n', '\r\n')]
             for h in edits:
@@ -130,17 +137,25 @@ class MediaTrackBaselineContracts(unittest.TestCase):
                     invert_media_tracks(path, mutant)
 
     def test_historical_layers_do_not_implicitly_accept_tracks_or_refresh_old_hashes(self):
-        from media_tracks_baseline import accepted_source as track_source
+        from flashlight_baseline import accepted_media_tracks_source as track_source
         from media_play_pause_baseline import invert_media_play_pause
         from settings_layout_baseline import accepted_source
         path = 'Preferences/SettingsController.swift'
-        current = (ROOT / path).read_text()
+        # Exercise the track-stage default rejection on its own predecessor input.
+        current = flashlight_accepted_source(path)
         with self.assertRaises(AssertionError):
             invert_media_play_pause(path, current)
-        with self.assertRaises(AssertionError):
-            accepted_source(path, media_play_pause=True)
+        from unittest import mock
+        # Default-rejection coverage belongs to this historical stage, not to
+        # the outer flashlight inverse that has already been exercised above.
+        with mock.patch('settings_layout_baseline.ROOT') as root:
+            file = root.__truediv__.return_value
+            file.is_file.return_value = True
+            file.read_bytes.return_value = current.encode('utf-8')
+            with self.assertRaises(AssertionError):
+                accepted_source(path, media_play_pause=True)
         invert_media_play_pause(path, track_source(path))
-        restored = accepted_source(path, media_play_pause=True, media_tracks=True)
+        restored = accepted_source(path, media_play_pause=True, media_tracks=True, flashlight=True)
         self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', restored)
         self.assertNotIn('return .nextTrack', restored)
         self.assertNotIn('return .previousTrack', restored)

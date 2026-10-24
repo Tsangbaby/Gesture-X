@@ -217,6 +217,8 @@ final class HomeDoubleTap: NSObject, UIGestureRecognizerDelegate {
             MediaPlayPauseAction.previousTrack()
         case .nextTrack:
             MediaPlayPauseAction.nextTrack()
+        case .flashlight:
+            FlashlightAction.toggle()
         case .unavailable:
             break
         }

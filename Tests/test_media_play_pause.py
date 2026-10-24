@@ -1,8 +1,12 @@
-"""Current media-action wiring; Swift/UIKit and handset evidence are separate."""
+"""Historical media contracts restore newer stages explicitly before reads.
+
+Native provider and current CI gates stay live. Historical hashes and malformed
+record coverage are not enlarged to accommodate a newly valid action.
+"""
 import json
 from pathlib import Path
 import unittest
-from media_tracks_baseline import accepted_source as track_accepted_source
+from flashlight_baseline import accepted_media_tracks_source as track_accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -110,7 +114,7 @@ class MediaPlayPauseContracts(unittest.TestCase):
         harness = (ROOT / 'Tests/ReferenceSettingsApp.swift').read_text()
         self.assertIn('case "playPause": return .playPause', harness)
         self.assertIn('MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:', harness)
-        self.assertIn('eight single-value replacements', harness)
+        self.assertIn('nine single-value replacements', harness)
         verifier = (ROOT / 'ci/verify_package.py').read_text()
         self.assertIn('b"MRMediaRemoteSendCommand"', verifier)
         self.assertIn('Media provider leaked into Settings binary', verifier)
@@ -118,9 +122,17 @@ class MediaPlayPauseContracts(unittest.TestCase):
     def test_older_inverse_is_still_strict_unless_media_opt_in_is_explicit(self):
         from settings_layout_baseline import accepted_source
         path = 'Preferences/SettingsController.swift'
-        with self.assertRaises(AssertionError):
-            accepted_source(path)
-        self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', accepted_source(path, media_play_pause=True, media_tracks=True))
+        from unittest import mock
+        # Exercise the old layout default against the media stage, after newer
+        # flashlight and track restoration, so outer rejection cannot pass it.
+        stage = track_accepted_source(path)
+        with mock.patch('settings_layout_baseline.ROOT') as root:
+            file = root.__truediv__.return_value
+            file.is_file.return_value = True
+            file.read_bytes.return_value = stage.encode('utf-8')
+            with self.assertRaises(AssertionError):
+                accepted_source(path)
+        self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', accepted_source(path, media_play_pause=True, media_tracks=True, flashlight=True))
 
     def test_media_swift_completion_guard_rejects_nonzero_wrong_duplicate_and_extra_output(self):
         import tempfile

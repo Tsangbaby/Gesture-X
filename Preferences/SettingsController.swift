@@ -43,6 +43,7 @@ private struct SettingsReference: Decodable {
             case "playPause": return .playPause
             case "previousTrack": return .previousTrack
             case "nextTrack": return .nextTrack
+            case "flashlight": return .flashlight
             default: return nil
             }
         }
@@ -86,9 +87,9 @@ private struct SettingsReference: Decodable {
         guard actionCategories.count == 6, Set(actionCategories.map { $0.id }).count == 6,
               basicActions.count == 68, Set(basicActions.map { $0.id }).count == 68,
               basicActions.map({ $0.referenceSlot }) == Array(0..<68),
-               basicActions.compactMap({ $0.action }).count == 8 else { return false }
+               basicActions.compactMap({ $0.action }).count == 9 else { return false }
         return Set(basicActions.filter { $0.available }.compactMap { $0.actionKind }) ==
-            Set(["screenshot", "controlCenter", "notificationCenter", "lock", "appSwitcher", "playPause", "previousTrack", "nextTrack"])
+            Set(["screenshot", "controlCenter", "notificationCenter", "lock", "appSwitcher", "playPause", "previousTrack", "nextTrack", "flashlight"])
     }
 }
 

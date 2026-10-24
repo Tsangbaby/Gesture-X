@@ -558,8 +558,8 @@
       "image": "flashlight.on.fill",
       "referenceSlot": 16,
       "referenceActionNumber": 33,
-      "available": false,
-      "actionKind": null
+      "available": true,
+      "actionKind": "flashlight"
     },
     {
       "id": "SYSTEM_REACHABILITY",

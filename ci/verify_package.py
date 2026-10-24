@@ -174,7 +174,7 @@ def verify(package):
     listing = command("dpkg-deb", "-c", str(package))
     require("./var/jb/" not in listing, "Rootless payload in RootHide package")
     require(not any(name in listing for name in
-                    ("NativeHookFixture", "NativeHookReactivation", "NativeStartupApp", "MediaRemoteFixture", "MediaPlayPauseRuntimeTests")),
+                    ("NativeHookFixture", "NativeHookReactivation", "NativeStartupApp", "MediaRemoteFixture", "MediaPlayPauseRuntimeTests", "FlashlightRuntimeTests")),
             "Simulator fixture leaked into package")
     with tempfile.TemporaryDirectory(prefix="taplock-verify-") as directory:
         dest = Path(directory)
@@ -244,6 +244,12 @@ def verify(package):
             require_selector_per_slice(tweak_bytes, binaries[required[0]], name)
             require(name not in (dest / required[2]).read_bytes(),
                     "Media provider leaked into Settings binary")
+        for name in (b"SBUIFlashlightController", b"_loadFlashlightLevel"):
+            require(name not in (dest / required[2]).read_bytes(),
+                    "Flashlight provider leaked into Settings binary")
+        for name in (b"TLFlashlight", b"FLASHLIGHT_RUNTIME_", b"FLASHLIGHT_NATIVE_"):
+            require(all(name not in (dest / path).read_bytes() for path in binaries),
+                    "Flashlight test fixture leaked into shipped binary")
         require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
                                    b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:

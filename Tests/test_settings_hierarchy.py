@@ -28,7 +28,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
         self.assertEqual(fields['Package'], 'com.tsangbaby.taplock')
 
     def test_accepted_lock_is_reachable_through_the_home_screen_category(self):
-        text = accepted_source("Preferences/SettingsController.swift", media_play_pause=True, media_tracks=True)
+        text = accepted_source("Preferences/SettingsController.swift", media_play_pause=True, media_tracks=True, flashlight=True)
         for token in ('case root, homeScreen, doubleTapAction',
                       '"主屏幕的手势"', '"启用主屏双击"',
                       '"选择双击动作"', '"系统锁屏"',
@@ -48,15 +48,15 @@ class SettingsHierarchyContracts(unittest.TestCase):
         self.assertEqual(FIXTURE['baseline'], '94b384d64ce44705e754f4695c98661110db76ff')
         for relative, digest in FIXTURE['frozen'].items():
             with self.subTest(path=relative):
-                text = invert_open_app(relative, accepted_source(relative, media_play_pause=True, media_tracks=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+                text = invert_open_app(relative, accepted_source(relative, media_play_pause=True, media_tracks=True, flashlight=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
                 self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), digest)
         restored = invert_settings_hierarchy(invert_open_app('Preferences/SettingsController.swift',
-            accepted_source('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
+            accepted_source('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True, flashlight=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True))
         self.assertEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
     def test_exact_inverse_rejects_missing_or_duplicate_ui_hunks(self):
         text = invert_open_app('Preferences/SettingsController.swift',
-            accepted_source('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+            accepted_source('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True, flashlight=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
         for hunk in FIXTURE['hunks']:
             for mutation in (text.replace(hunk['after'], '', 1), text + hunk['after']):
                 with self.assertRaises(AssertionError):
@@ -64,7 +64,7 @@ class SettingsHierarchyContracts(unittest.TestCase):
 
     def test_exact_inverse_does_not_hide_unrelated_drift(self):
         text = invert_open_app('Preferences/SettingsController.swift',
-            accepted_source('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
+            accepted_source('Preferences/SettingsController.swift', media_play_pause=True, media_tracks=True, flashlight=True), control_center=True, notification_center=True, screenshot=True, app_switcher=True)
         restored = invert_settings_hierarchy(text + '\n// unrelated drift\n')
         self.assertNotEqual(hashlib.sha256(restored.encode()).hexdigest(), FIXTURE['baseline_sha256'])
 
