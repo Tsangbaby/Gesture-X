@@ -176,7 +176,7 @@ for path in Shared/Preferences.swift Shared/Applications.swift Sources/PrivateAP
     git -C "$ROOT" show "$REFERENCE_BASELINE:$path" > "$ACCEPTED_UI/$path"
 done
 python3 - "$ACCEPTED_UI" "$ROOT" "$RESULTS" "$REFERENCE_RESULTS" <<'PY'
-import hashlib, json, sys
+import hashlib, json, subprocess, sys
 from pathlib import Path
 accepted, root = map(Path, sys.argv[1:3])
 manifest = json.loads((root / 'Tests/settings_layout_baseline.json').read_text())
@@ -188,6 +188,8 @@ for path in paths:
 with open(sys.argv[3], 'a') as stream:
     stream.write('REFERENCE_UIKIT_BASELINE_BYTES_VERIFIED: frozen 0.1.8 UI plus unchanged Shared/icon/host dependencies\n')
 with open(sys.argv[4], 'w') as stream:
+    stream.write('REFERENCE_UIKIT_SOURCE_COMMIT: ' + subprocess.check_output(
+        ['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip() + '\n')
     stream.write('Boundary: real UIKit, native Preferences superclass fixture; NOT handset Settings or pixel parity\n')
     stream.write('Behavioral RED source: ' + manifest['baseline'] + '\n')
     for relative in ('Tests/ReferenceSettingsApp.swift', 'Preferences/Resources/SettingsReference.json'):
@@ -319,9 +321,11 @@ run_reference_case() {
     else
         cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
     fi
-    local compile_flags=()
+    # macOS /bin/bash 3.2 treats an empty array expansion under nounset as
+    # unbound. Use one always-present scalar; baseline enum lacks playPause.
+    local compile_flag=-DREFERENCE_SETTINGS_CURRENT
     if [ "$label" != reference-fixed ]; then
-        compile_flags+=(-DMEDIA_PLAY_PAUSE_UNAVAILABLE)
+        compile_flag=-DMEDIA_PLAY_PAUSE_UNAVAILABLE
     fi
     python3 - "$app/Info.plist" "$bundle" <<'PY'
 import plistlib, sys
@@ -331,7 +335,7 @@ with open(sys.argv[1], 'wb') as stream:
         CFBundleShortVersionString='1', MinimumOSVersion='15.0', LSRequiresIPhoneOS=True,
         UIDeviceFamily=[1], UILaunchScreen={}), stream)
 PY
-    xcrun swiftc -parse-as-library -swift-version 5 "${compile_flags[@]}" -target "$TARGET" -sdk "$SDK" \
+    xcrun swiftc -parse-as-library -swift-version 5 "$compile_flag" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
         -import-objc-header "$ROOT/Tests/SettingsConstructionFixture.h" \
         "$source_root/Shared/Preferences.swift" "$source_root/Shared/Applications.swift" \

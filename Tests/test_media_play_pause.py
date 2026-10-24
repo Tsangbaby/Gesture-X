@@ -159,6 +159,77 @@ class MediaPlayPauseContracts(unittest.TestCase):
             with self.subTest(output=output), self.assertRaises(ValueError):
                 guard(code, output, mode)
 
+    def test_current_and_both_legacy_ui_compiles_always_receive_a_nonempty_scalar_feature_flag(self):
+        import subprocess
+        body = (ROOT / 'ci/settings-construction-smoke.sh').read_text().split('run_reference_case() {', 1)[1]
+        selection = '    local compile_' + body.split('    local compile_', 1)[1].split('    python3 - ', 1)[0]
+        command = '    xcrun swiftc' + body.split('    xcrun swiftc', 1)[1].split('\n    codesign', 1)[0]
+        shell = '''set -euo pipefail
+xcrun() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "$@"; }
+probe() {
+    local label="$1" source_root=/source ROOT=/root app=/app TARGET=target SDK=sdk WORK=/work
+''' + selection + command + '''
+}
+probe reference-baseline
+probe media-baseline
+probe reference-fixed
+'''
+        p = subprocess.run(['bash', '-c', shell], capture_output=True, text=True, timeout=10)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        commands = [json.loads(line) for line in p.stdout.splitlines()]
+        self.assertEqual(len(commands), 3)
+        for args, flag in zip(commands, ['-DMEDIA_PLAY_PAUSE_UNAVAILABLE', '-DMEDIA_PLAY_PAUSE_UNAVAILABLE', '-DREFERENCE_SETTINGS_CURRENT']):
+            self.assertEqual([a for a in args if a.startswith('-D')], [flag])
+        self.assertNotIn('compile_flags=()', body)
+
+    def test_workflow_rejects_false_green_settings_child_with_no_completed_reports(self):
+        import os
+        import subprocess
+        import tempfile
+        workflow = json.loads((ROOT / '.github/workflows/build.yml').read_text())
+        step = next(s['run'] for s in workflow['jobs']['roothide']['steps']
+                    if s['name'] == 'Settings constructor regression (iOS Simulator fixture)')
+        with tempfile.TemporaryDirectory() as directory:
+            environment = dict(os.environ, RUNNER_TEMP=directory, GITHUB_SHA='c' * 40)
+            shell = 'set -euo pipefail\nbash() { return 0; }\n' + step
+            p = subprocess.run(['bash', '-c', shell], cwd=ROOT, env=environment,
+                               capture_output=True, text=True, timeout=10)
+            self.assertNotEqual(p.returncode, 0, 'child exit 0 without current UIKit/startup proof must fail the parent step')
+        self.assertIn('--validate-suite', step)
+
+    def test_completed_ui_suite_requires_exact_source_both_reds_and_one_current_green(self):
+        import runpy
+        module = runpy.run_path(str(ROOT / 'ci/reference_settings_guard.py'))
+        self.assertTrue(callable(module.get('validate_completed_suite')), 'missing whole-suite completion validator')
+        guard = module['validate_completed_suite']
+        source = 'c' * 40
+        header = 'REFERENCE_UIKIT_SOURCE_COMMIT: ' + source
+        old = module['NEGATIVE']
+        media = module['MEDIA_NEGATIVE']
+        current = 'REFERENCE_SETTINGS_UIKIT_PASS: 1 assertions; six basic replacements; simulator fixture boundary only'
+        good = '\n'.join([header, 'fixture boundary metadata', old, media, current]) + '\n'
+        self.assertEqual(guard(good, source), current)
+        for bad in [good.replace(header, ''), good + '\n' + header,
+                    good.replace(source, 'd' * 40), good.replace(current, ''),
+                    good.replace(media, ''), good.replace(old, ''), good + current + '\n',
+                    good.replace(current, current.replace('1 assertions', '0 assertions')),
+                    good.replace(old + '\n' + media, media + '\n' + old),
+                    good + 'REFERENCE_SETTINGS_FAIL: interrupted\n']:
+            with self.subTest(report=bad), self.assertRaises(ValueError):
+                guard(bad, source)
+
+    def test_parent_startup_report_requires_one_nonzero_production_execution_marker(self):
+        import runpy
+        module = runpy.run_path(str(ROOT / 'ci/reference_settings_guard.py'))
+        self.assertTrue(callable(module.get('validate_startup_report')), 'missing startup completion validator')
+        guard = module['validate_startup_report']
+        marker = 'NATIVE_STARTUP_PASS: 1 executed production-startup/hook/attachment checks'
+        self.assertEqual(guard(marker + '\nBoundary: fixtures only\n'), marker)
+        for bad in ['', marker + '\n' + marker, marker.replace(': 1 executed', ': 0 executed'),
+                    marker + '\nNATIVE_STARTUP_FAIL: interrupted', 'NATIVE_STARTUP_FAIL: no completion']:
+            with self.subTest(report=bad), self.assertRaises(ValueError):
+                guard(bad)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

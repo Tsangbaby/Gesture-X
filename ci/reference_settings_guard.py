@@ -34,7 +34,35 @@ def validate_completed_run(returncode, output, mode):
     return marker
 
 
+def validate_completed_suite(output, source):
+    lines = output.splitlines()
+    sources = [line for line in lines if line.startswith('REFERENCE_UIKIT_SOURCE_COMMIT:')]
+    if re.fullmatch(r'[0-9a-f]{40}', source) is None or sources != ['REFERENCE_UIKIT_SOURCE_COMMIT: ' + source]:
+        raise ValueError('Missing, duplicate, or wrong exact-source UIKit report')
+    terminals = [line for line in lines if line.startswith((
+        'REFERENCE_SETTINGS_BASELINE_EXPECTED_FAILURE:',
+        'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:',
+        'REFERENCE_SETTINGS_UIKIT_PASS:', 'REFERENCE_SETTINGS_FAIL:'))]
+    if len(terminals) != 3 or terminals[:2] != [NEGATIVE, MEDIA_NEGATIVE]:
+        raise ValueError('Missing, duplicate, reordered, or contradictory complete-suite terminals')
+    return validate_completed_run(0, terminals[2], '--expect-reference-fixed')
+
+
+def validate_startup_report(output):
+    terminals = [line for line in output.splitlines() if line.startswith(('NATIVE_STARTUP_PASS:', 'NATIVE_STARTUP_FAIL:'))]
+    if len(terminals) != 1 or re.fullmatch(
+            r'NATIVE_STARTUP_PASS: [1-9][0-9]* executed production-startup/hook/attachment checks', terminals[0]) is None:
+        raise ValueError('Missing, duplicate, or wrong production startup completion')
+    return terminals[0]
+
+
 def main():
+    if len(sys.argv) == 5 and sys.argv[1] == '--validate-suite':
+        report, source, startup = sys.argv[2:]
+        validate_completed_suite(Path(report).read_text(), source)
+        validate_startup_report(Path(startup).read_text())
+        print('REFERENCE_SETTINGS_SUITE_PASS: exact-source both behavioral REDs, current UIKit GREEN and production startup executed')
+        return
     if len(sys.argv) != 5:
         raise SystemExit('usage: reference_settings_guard.py DEVICE BUNDLE MODE REPORT')
     device, bundle, mode, report = sys.argv[1:]

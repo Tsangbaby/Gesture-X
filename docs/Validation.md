@@ -9,6 +9,13 @@
 - UIKit另核验8个原0.1.9 source/resource输入，原播放行必须禁用且强制delegate无写入/导航；当前真实UIKit执行六基础+App的完整互斥、保存返回/重入/摘要/搜索，以及原禁用项、图标、构造、默认和资源拒绝矩阵。编译旧版的feature flag只排除旧enum不存在的映射，不修改生产实现或把编译错误当RED。
 - 此节不预先宣告云端/原包/设备通过；最终以exact-SHA Actions、MEDIA_PLAY_PAUSE_TESTS.txt、REFERENCE_SETTINGS_TESTS.txt、原包源码标记及逐切片签名代码页哈希为准。设备只需本次功能验证包的播放→暂停→继续与切回旧动作对照；不加诊断采集或索取无关日志。固定声明依据及未核实边界见MediaPlayback.md。
 
+### 交付前CI修正（不改生产代码）
+
+- 首轮候选 `c2a6dea952f2e534b738b48707091efd49f4a673` 的 Actions `40092572033` / job `120868103322` / attempt 1失败，未上传原包。完整166,841字节job日志及结构化元数据保存于 `/home/ubuntu/Gesture-X-artifacts/0.1.10-media-play-pause-c2a6dea/failed-40092572033/`。
+- 实际媒体Swift/C动态加载fixture通过三模式109/109/115项断言，旧0.1.9媒体存储RED及UIKit原行禁用RED均出现，完整arm64/arm64e生产编译和既有包验证已执行。但macOS Bash在当前UIKit编译的空数组参数处报`compile_flags[@]: unbound variable`，当前UIKit和完整启动测试未执行；子脚本却返回0，不能采信该步骤绿色状态。最终因`NATIVE_STARTUP_TESTS.txt`不存在而在收集报告时失败，不是媒体Swift或iOS编译错误。
+- 仅将测试编译参数改为始终非空的单个feature flag，并在workflow父步骤独立校验exact-source报告、两个有序行为RED、唯一非零current UIKit GREEN，以及唯一非零完整生产启动标记。未修改任何生产文件、版本、原inverse、Hook或功能路径。
+- 四个新回归先实际失败，补正后全套137项Python通过；其中执行真实shell参数展开并强制“子脚本0退出但无报告”场景失败，另拒绝报告缺项、重复、错误源、乱序和矛盾标记。所有旧生产输入和候选生产图再次独立逐字节核对。后续云端以补正后的新SHA执行，不能沿用首轮失败任务宣告当前UIKit通过。
+
 ## 当前基线：设置展示层 0.1.9（用户反馈通过）
 
 - 用户对本轮RootHide原包反馈“测试已通过”，绑定源码 `486e82e47e420ff5db647f03dcde58f40a0fc053`、成功 Actions `40082548246` 第1次attempt、job `120838894414` 与原包SHA-256 `7de40343e0af0708b588b2ac4b1c9309bca8100eb399ef422e4078e32fa13c9a`；环境沿用此前报告的iOS 15.4.1 / RootHide。这是用户设备反馈，不是助手独立复测，不扩展为逐项已测或其他系统通过。

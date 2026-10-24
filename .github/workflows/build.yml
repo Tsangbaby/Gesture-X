@@ -30,7 +30,7 @@
         },
         {
           "name": "Settings constructor regression (iOS Simulator fixture)",
-          "run": "bash ci/settings-construction-smoke.sh"
+          "run": "set -euo pipefail\nbash ci/settings-construction-smoke.sh\npython3 -B ci/reference_settings_guard.py --validate-suite \"$RUNNER_TEMP/REFERENCE_SETTINGS_TESTS.txt\" \"$GITHUB_SHA\" \"$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt\""
         },
         {
           "name": "Install packaging tools and pinned RootHide Theos",
