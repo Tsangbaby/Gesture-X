@@ -10,7 +10,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-import system_mute_baseline as system_mute
+import bottom_swipe_baseline as system_mute
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = '925df18141606b75f71c77ddd998ad2baa237efe'

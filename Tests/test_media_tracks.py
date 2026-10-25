@@ -7,7 +7,7 @@ import hashlib
 import json
 import re
 import unittest
-from system_mute_baseline import accepted_flashlight_source as flashlight_accepted_source
+from bottom_swipe_baseline import accepted_flashlight_source as flashlight_accepted_source
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -137,10 +137,10 @@ class MediaTrackBaselineContracts(unittest.TestCase):
                     invert_media_tracks(path, mutant)
 
     def test_historical_layers_do_not_implicitly_accept_tracks_or_refresh_old_hashes(self):
-        from system_mute_baseline import accepted_media_tracks_source as track_source
+        from bottom_swipe_baseline import accepted_media_tracks_source as track_source
         from media_play_pause_baseline import invert_media_play_pause
         from settings_layout_baseline import accepted_source
-        from system_mute_baseline import accepted_layout_source
+        from bottom_swipe_baseline import accepted_layout_source
         path = 'Preferences/SettingsController.swift'
         # Exercise the track-stage default rejection on its own predecessor input.
         current = flashlight_accepted_source(path)
@@ -302,7 +302,7 @@ class MediaTrackCompletionGuardContracts(unittest.TestCase):
         start = runner.index('    local compile_flag=-DREFERENCE_SETTINGS_CURRENT')
         end = runner.index('    python3 - "$app/Info.plist"', start)
         logic = runner[start:end]
-        script = ('set -euo pipefail\nchoose() {\nlocal label="$1"\n' + logic +
+        script = ('set -euo pipefail\nchoose() {\nlocal label="$1" source_root=/source\n' + logic +
                   'printf "%s\\n" "$compile_flag"\n}\n' +
                   '\n'.join('choose ' + label for label in
                             ('reference-baseline', 'media-baseline', 'track-baseline', 'reference-fixed')))

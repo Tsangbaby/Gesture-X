@@ -6,6 +6,7 @@ Run on macOS or Linux with dpkg-deb. SHA256SUMS.txt is emitted by build.sh.
 import argparse
 import hashlib
 import json
+import math
 import plistlib
 import struct
 import subprocess
@@ -161,6 +162,79 @@ def verify_settings_reference_resource(payload, expected):
             "categories": categories, "basic_catalog": basic_catalog}
 
 
+def verify_bottom_gesture_reference_resource(payload, expected):
+    """Check extracted package bytes; this does not execute a Settings controller."""
+    require(payload == expected, "Bottom reference resource does not match exact source bytes")
+    reference = json.loads(payload)
+    require(isinstance(reference, dict), "Bottom reference must be an object")
+    require(type(reference.get("schemaVersion")) is int and reference["schemaVersion"] == 1,
+            "Wrong bottom reference schema version")
+    require(reference.get("referencePackageSHA256") ==
+            "240362fc1846f697025122e4788d04bbd1920b8f5102bcfc5642a9a14b62837a" and
+            reference.get("referenceBinarySHA256") ==
+            "a3e95d0028907909bc521a687934fa362cef18c4c813a787ff2a4b9e0eba6586",
+            "Wrong bottom reference provenance")
+
+    def sections_rows(sections, identities):
+        require(isinstance(sections, list) and all(isinstance(s, dict) for s in sections),
+                "Invalid bottom sections")
+        require([s.get("id") for s in sections] == identities, "Wrong bottom section order")
+        require(all(isinstance(s.get("rows"), list) and s["rows"] and
+                    all(isinstance(r, dict) for r in s["rows"]) for s in sections),
+                "Invalid bottom control rows")
+        return [row for section in sections for row in section["rows"]]
+
+    sections = reference.get("sections")
+    root = sections_rows(sections, ["left", "right", "policy", "portrait",
+                                    "landscape-enable", "landscape-parameters"])
+    require([r.get("kind") for r in root] ==
+            ["link"] * 2 + ["switch"] * 2 + ["slider"] * 6 + ["switch"] + ["slider"] * 6,
+            "Incomplete bottom root controls")
+    require([root[i].get("destination") for i in range(2)] == ["left", "right"],
+            "Invalid bottom side destinations")
+    require(all(row.get("visibleWhen") is None for row in root if row.get("kind") != "slider"),
+            "Only landscape numeric controls may have conditional visibility")
+    require([r.get("id") for r in root if r.get("kind") == "switch"] ==
+            ["ignoreEdgeProtect", "disableBottomWhenLocked", "bottomUpOnLandscapeEnabled"],
+            "Wrong bottom policy switches")
+    controls = [r for r in root if r.get("kind") != "link"]
+    require(all(r.get("key") == r.get("id") and isinstance(r.get("key"), str) for r in controls)
+            and len({r["key"] for r in controls}) == len(controls), "Invalid bottom control keys")
+    sliders = [r for r in root if r.get("kind") == "slider"]
+    for row in sliders:
+        values = [row.get(key) for key in ("minimum", "maximum", "defaultNumber")]
+        require(all(type(value) in (int, float) and math.isfinite(value) for value in values),
+                "Invalid bottom numeric control type")
+        require(values[0] < values[1] and values[0] <= values[2] <= values[1],
+                "Invalid bottom numeric range/default")
+        expected_condition = "bottomUpOnLandscapeEnabled" if row["key"].endswith("Landscape") else None
+        require(row.get("visibleWhen") == expected_condition, "Wrong bottom landscape visibility")
+    for row in controls:
+        if row.get("kind") == "switch":
+            require(row.get("defaultBoolean") is (row["key"] != "bottomUpOnLandscapeEnabled"),
+                    "Wrong bottom policy default")
+    sides = reference.get("sides")
+    require(isinstance(sides, dict) and set(sides) == {"left", "right"}, "Wrong bottom sides")
+    gesture_count = 0
+    for side in ("left", "right"):
+        require(isinstance(sides[side], dict), "Invalid bottom side page")
+        identities = ["bottom" + side.title() + "Up" + suffix for suffix in ("", "Extra", "ExtraPlus")]
+        side_rows = sections_rows(sides[side].get("sections"), identities)
+        require(len(side_rows) == 9, "Incomplete bottom side controls")
+        for section, identity in zip(sides[side]["sections"], identities):
+            rows = section["rows"]
+            require(all(row.get("visibleWhen") is None for row in rows),
+                    "Bottom side controls must remain unconditionally visible")
+            require([r.get("kind") for r in rows] == ["switch", "actions", "switch"] and
+                    [r.get("key") for r in rows] == [identity + "Enabled", identity, identity + "FlowEnabled"] and
+                    all(r.get("id") == r.get("key") for r in rows), "Wrong bottom gesture controls")
+            require(rows[0].get("defaultBoolean") is False and rows[2].get("defaultBoolean") is False,
+                    "Bottom gestures and flow must default off")
+            gesture_count += 1
+    return {"sha256": hashlib.sha256(payload).hexdigest(), "root_controls": len(root),
+            "numeric_controls": len(sliders), "side_gestures": gesture_count}
+
+
 def verify(package):
     fields = control_fields(command("dpkg-deb", "-f", str(package)))
     expected = control_fields((ROOT / "control").read_text())
@@ -185,7 +259,8 @@ def verify(package):
                     "Library/PreferenceBundles/TapLockPrefs.bundle/TapLockPrefs",
                     "Library/PreferenceBundles/TapLockPrefs.bundle/Info.plist",
                     "Library/PreferenceLoader/Preferences/TapLock.plist",
-                    "Library/PreferenceBundles/TapLockPrefs.bundle/SettingsReference.json"]
+                    "Library/PreferenceBundles/TapLockPrefs.bundle/SettingsReference.json",
+                    "Library/PreferenceBundles/TapLockPrefs.bundle/BottomGestureReference.json"]
         for name in required:
             require((dest / name).is_file(), f"Missing payload: {name}")
         tweak = plistlib.loads((dest / required[1]).read_bytes())
@@ -193,6 +268,8 @@ def verify(package):
         entry = plistlib.loads((dest / required[4]).read_bytes())["entry"]
         settings_reference = verify_settings_reference_resource((dest / required[5]).read_bytes(),
             (ROOT / "Preferences/Resources/SettingsReference.json").read_bytes())
+        bottom_reference = verify_bottom_gesture_reference_resource((dest / required[6]).read_bytes(),
+            (ROOT / "Preferences/Resources/BottomGestureReference.json").read_bytes())
         require(tweak["Filter"] == {"Bundles": ["com.apple.springboard"]}, "Wrong injection filter")
         require(info["NSPrincipalClass"] == entry["detail"] == "TapLockSettingsController",
                 "Settings detail/principal mismatch")
@@ -280,6 +357,7 @@ def verify(package):
             "app_switcher_binary_selector": app_switcher_selector.decode(),
             "media_binary_lookup_names": [name.decode() for name in media_names],
             "settings_reference_resource": settings_reference,
+            "bottom_gesture_reference_resource": bottom_reference,
             "device_tested": False}
 
 

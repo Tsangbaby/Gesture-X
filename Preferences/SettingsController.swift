@@ -197,7 +197,12 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
     private func rowIsAvailable(_ row: SettingsReference.Row) -> Bool {
         guard reference != nil, row.available else { return false }
         switch page {
-        case .root: return row.id == "homescreenOptions" && row.kind == "link"
+        case .root:
+            if row.id == "bottomOptions" {
+                return row.kind == "link" && row.destination == "bottom" &&
+                    row.phoneOnly == true && UIDevice.current.userInterfaceIdiom == .phone
+            }
+            return row.id == "homescreenOptions" && row.kind == "link"
         case .homeScreen:
             return (row.id == "homescreenDoubleTapEnabled" && row.kind == "switch") ||
                 (row.id == "homescreenDoubleTap" && row.kind == "link")
@@ -330,6 +335,33 @@ final class TapLockSettingsController: PSViewController, UITableViewDataSource, 
             guard let row = row(at: indexPath), rowIsAvailable(row), row.kind == "link" else { return }
             switch row.destination {
             case "home" where page == .root: push(.homeScreen, reference: reference)
+            case "bottom" where page == .root && row.id == "bottomOptions":
+                guard isViewLoaded, tableView === view,
+                      let navigationController = navigationController,
+                      navigationController.topViewController === self,
+                      let window = tableView.window,
+                      navigationController.viewIfLoaded?.window === window,
+                      let cell = tableView.cellForRow(at: indexPath),
+                      tableView.indexPath(for: cell) == indexPath,
+                      tableView.visibleCells.contains(where: { $0 === cell }),
+                      cell.isDescendant(of: tableView), cell.window === window,
+                      cell.accessibilityIdentifier == row.id,
+                      cell.isUserInteractionEnabled else { return }
+                var visibleRect = cell.convert(cell.bounds, to: window)
+                    .intersection(tableView.convert(tableView.bounds, to: window))
+                    .intersection(window.bounds)
+                var target: UIView? = cell
+                while let current = target {
+                    guard !current.isHidden, current.alpha > 0.01,
+                          current.isUserInteractionEnabled else { return }
+                    if current.clipsToBounds {
+                        visibleRect = visibleRect.intersection(current.convert(current.bounds, to: window))
+                    }
+                    if current === window { break }
+                    target = current.superview
+                }
+                guard !visibleRect.isNull, !visibleRect.isEmpty else { return }
+                navigationController.pushViewController(BottomGestureSettingsController(), animated: true)
             case "actions" where page == .homeScreen: push(.doubleTapAction, reference: reference)
             default: return
             }

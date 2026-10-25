@@ -1,0 +1,100 @@
+{
+  "baseline": "470f00764d17f597286b93eb7a5c0c56654f4a9a",
+  "frozen": {
+    "Interfaces/TapLockNativeRuntime/NativeRuntime.h": "e763895e3f1429884ee3d5101bee0601ad899fb50f950db7df2a57d9a2afa760",
+    "Interfaces/TapLockNativeRuntime/module.modulemap": "e22a94cbcef24d41a163d6e1214644d2ebc4ffa445456c572aef7e8dcfaf7a21",
+    "Interfaces/TapLockPreferencesHost/PSViewController.h": "e1694c2e656c15ec16a92236159a6bd31d9a1125625ca80e154530b953074cf0",
+    "Interfaces/TapLockPreferencesHost/module.modulemap": "a8eaa6b0f7925ffa1ec469469e2f694abc02448ca89cfd1d5cbe2e4d4257b303",
+    "Makefile": "3c38a04cf5a141711b920b24b5acbbee3d41580893f67f80a0fa182b3b7773ae",
+    "Preferences/ApplicationIcons.swift": "946826d36c54e9e9bb21dd2054e7265f5b1a8b8424419f6a1a3101156ebfe9d7",
+    "Preferences/Makefile": "48ab9b33dea920d96e2202c654f2b7f9169b2fcbf212f2995ae1cd675a683d4e",
+    "Preferences/Resources/Info.plist": "d44de78ab642e1e2877e834251ba1f12fc156ae06633480636a0b81e574ae401",
+    "Preferences/Resources/SettingsReference.json": "6d6580c9a2ba2267e503f119a01adfdac4f166230d66918c9928e833c354f04f",
+    "Preferences/SettingsController.swift": "e42f46c47dd6eddffda6b70a6622927c6150322032bd82bbe519a8188a170e65",
+    "Shared/Applications.swift": "67445a7a11dfacba116e7fd7699bb96e0bf221d6a1c042b99ad182db8788b0cd",
+    "Shared/Preferences.swift": "898f345016bf47b74cfbe6602bfb657b6075c685e83263bca499bf3dc68e6df1",
+    "Sources/AppAction.swift": "aea806214ee0c17b919d3a3b61932309cd1803af4f3286e310ad57bf064a2e0b",
+    "Sources/AppSwitcherAction.swift": "55d75f79bca922028644d1d5b6bfb04735e7ca18db666da2285fdad16246af20",
+    "Sources/Bootstrap.swift": "c06f200f456f8103990378d60888e7810e0185ec3152a1026759e429c68d8e07",
+    "Sources/ControlCenterAction.swift": "9b3559acc7f975b31b95353e23e598e80a00c4705f25b61a7e48fbd5862cc99f",
+    "Sources/FlashlightAction.swift": "6991354a10287c9e7dead5d27cc9654f3e8505f12cc51cc4d06280b2c8eadec7",
+    "Sources/HomeDoubleTap.swift": "221b3e5ba02fb51485d9999cffc2330c88f652eaea2f0c8ff0ce67964cb0ac7a",
+    "Sources/LockAction.swift": "8c902edd37e44ea4b5afc4e21b078fa6415b22e6efc55264b4af6d2d66e07387",
+    "Sources/MediaPlayPauseAction.swift": "93bf70bea93dd332a05af8bd118a8f63167b27c19ffa603267f958133de187d7",
+    "Sources/NativeHook.swift": "45f6dbe10dcdceb201edf0bb8ba539b7e8be6e1f5f968ddc76ecdb2753edccba",
+    "Sources/NotificationCenterAction.swift": "181358bca4c03e11e243e4a78cbcb23a53a5f2db6da46f60d720d1ccae67ea10",
+    "Sources/PrivateAPI.swift": "a2b9fdeed907801f2259175f88e328123c6f0c759c9a3f1008b521a9f9db6aa7",
+    "Sources/ScreenshotAction.swift": "e620498c6233e1ca247791931d125b69e48618b948f8f199b2662bd5daac8989",
+    "Sources/SystemMuteAction.swift": "b10b9b5499a7bfa31ba698efb6e13a20d1220002ad78507213bde49223f75460",
+    "TapLock.plist": "22957c2b6df0a9dd9c7deba18639321701aadf1e6452b86d9be434e48c7f454f",
+    "control": "9002b9add850b0e753e29c66533c0c8303e3cdbc8c363b0a687eda14d706e175",
+    "layout/Library/PreferenceLoader/Preferences/TapLock.plist": "e534efb724cb83b9c20a0a0ec24f72718dea22e29c6728f965d8c6da3cdd195a"
+  },
+  "hunks": {
+    "Makefile": [
+      {
+        "before": "include $(THEOS)/makefiles/common.mk\n\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/NotificationCenterAction.swift Sources/ScreenshotAction.swift Sources/AppSwitcherAction.swift Sources/MediaPlayPauseAction.swift Sources/FlashlightAction.swift Sources/SystemMuteAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\nTapLock_SWIFT_VERSION = 5\n",
+        "after": "include $(THEOS)/makefiles/common.mk\n\nTWEAK_NAME = TapLock\nTapLock_FILES = Shared/Preferences.swift Shared/BottomGesturePreferences.swift Shared/BottomGestureGeometry.swift Sources/AppAction.swift Sources/ControlCenterAction.swift Sources/NotificationCenterAction.swift Sources/ScreenshotAction.swift Sources/AppSwitcherAction.swift Sources/MediaPlayPauseAction.swift Sources/FlashlightAction.swift Sources/SystemMuteAction.swift Sources/PrivateAPI.swift Sources/LockAction.swift Sources/HomeDoubleTap.swift Sources/NativeHook.swift Sources/BottomGestureSession.swift Sources/BottomGestureNative.swift Sources/BottomActions.swift Sources/Bootstrap.swift\nTapLock_FRAMEWORKS = Foundation UIKit\nTapLock_LIBRARIES = substrate\nTapLock_SWIFT_VERSION = 5\n",
+        "count": 1
+      }
+    ],
+    "Preferences/Makefile": [
+      {
+        "before": "include $(THEOS)/makefiles/common.mk\n\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift ApplicationIcons.swift SettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\nTapLockPrefs_SWIFT_VERSION = 5\n",
+        "after": "include $(THEOS)/makefiles/common.mk\n\nBUNDLE_NAME = TapLockPrefs\nTapLockPrefs_FILES = ../Shared/Preferences.swift ../Shared/Applications.swift ../Sources/PrivateAPI.swift ApplicationIcons.swift SettingsController.swift ../Shared/BottomGesturePreferences.swift BottomGestureSettingsController.swift\nTapLockPrefs_FRAMEWORKS = Foundation UIKit\nTapLockPrefs_PRIVATE_FRAMEWORKS = Preferences\nTapLockPrefs_SWIFT_VERSION = 5\n",
+        "count": 1
+      }
+    ],
+    "Preferences/Resources/SettingsReference.json": [
+      {
+        "before": "          \"id\": \"bottomOptions\",\n          \"title\": \"底部上划手势\",\n          \"kind\": \"link\",\n          \"available\": false,\n          \"destination\": null,\n          \"phoneOnly\": true\n        },\n        {\n",
+        "after": "          \"id\": \"bottomOptions\",\n          \"title\": \"底部上划手势\",\n          \"kind\": \"link\",\n          \"available\": true,\n          \"destination\": \"bottom\",\n          \"phoneOnly\": true\n        },\n        {\n",
+        "count": 1
+      }
+    ],
+    "Preferences/SettingsController.swift": [
+      {
+        "before": "    private func rowIsAvailable(_ row: SettingsReference.Row) -> Bool {\n        guard reference != nil, row.available else { return false }\n        switch page {\n        case .root: return row.id == \"homescreenOptions\" && row.kind == \"link\"\n        case .homeScreen:\n            return (row.id == \"homescreenDoubleTapEnabled\" && row.kind == \"switch\") ||\n                (row.id == \"homescreenDoubleTap\" && row.kind == \"link\")\n",
+        "after": "    private func rowIsAvailable(_ row: SettingsReference.Row) -> Bool {\n        guard reference != nil, row.available else { return false }\n        switch page {\n        case .root:\n            if row.id == \"bottomOptions\" {\n                return row.kind == \"link\" && row.destination == \"bottom\" &&\n                    row.phoneOnly == true && UIDevice.current.userInterfaceIdiom == .phone\n            }\n            return row.id == \"homescreenOptions\" && row.kind == \"link\"\n        case .homeScreen:\n            return (row.id == \"homescreenDoubleTapEnabled\" && row.kind == \"switch\") ||\n                (row.id == \"homescreenDoubleTap\" && row.kind == \"link\")\n",
+        "count": 1
+      },
+      {
+        "before": "            guard let row = row(at: indexPath), rowIsAvailable(row), row.kind == \"link\" else { return }\n            switch row.destination {\n            case \"home\" where page == .root: push(.homeScreen, reference: reference)\n            case \"actions\" where page == .homeScreen: push(.doubleTapAction, reference: reference)\n            default: return\n            }\n",
+        "after": "            guard let row = row(at: indexPath), rowIsAvailable(row), row.kind == \"link\" else { return }\n            switch row.destination {\n            case \"home\" where page == .root: push(.homeScreen, reference: reference)\n            case \"bottom\" where page == .root && row.id == \"bottomOptions\":\n                guard isViewLoaded, tableView === view,\n                      let navigationController = navigationController,\n                      navigationController.topViewController === self,\n                      let window = tableView.window,\n                      navigationController.viewIfLoaded?.window === window,\n                      let cell = tableView.cellForRow(at: indexPath),\n                      tableView.indexPath(for: cell) == indexPath,\n                      tableView.visibleCells.contains(where: { $0 === cell }),\n                      cell.isDescendant(of: tableView), cell.window === window,\n                      cell.accessibilityIdentifier == row.id,\n                      cell.isUserInteractionEnabled else { return }\n                var visibleRect = cell.convert(cell.bounds, to: window)\n                    .intersection(tableView.convert(tableView.bounds, to: window))\n                    .intersection(window.bounds)\n                var target: UIView? = cell\n                while let current = target {\n                    guard !current.isHidden, current.alpha > 0.01,\n                          current.isUserInteractionEnabled else { return }\n                    if current.clipsToBounds {\n                        visibleRect = visibleRect.intersection(current.convert(current.bounds, to: window))\n                    }\n                    if current === window { break }\n                    target = current.superview\n                }\n                guard !visibleRect.isNull, !visibleRect.isEmpty else { return }\n                navigationController.pushViewController(BottomGestureSettingsController(), animated: true)\n            case \"actions\" where page == .homeScreen: push(.doubleTapAction, reference: reference)\n            default: return\n            }\n",
+        "count": 1
+      }
+    ],
+    "Sources/NativeHook.swift": [
+      {
+        "before": "        HomeDoubleTap.shared.start()\n    }\n}\n",
+        "after": "        HomeDoubleTap.shared.start()\n        BottomGestureRuntime.activate()\n    }\n}\n",
+        "count": 1
+      }
+    ]
+  },
+  "immutable": {
+    "Tests/app_switcher_baseline.json": "f98063b2e23d3a30232c582e962b17f15dbbebe550db4cbfa890574faa1427a4",
+    "Tests/app_switcher_baseline.py": "9ee7a0f038f7668531057ef33900c3211b2b90f6a78daa9d94ac01f580f2e85f",
+    "Tests/control_center_baseline.json": "faa695114078658b15f4f51a5e951e521e2c36e6b93b931e6626064b3d79d954",
+    "Tests/control_center_baseline.py": "194554a545803b7d7814356be15208d7075b9fd4a0b186f6dbd775964716f1f5",
+    "Tests/flashlight_baseline.json": "a527237ba974b4f038733cbd970171e6144808dca8047105bcfff2eb065acdae",
+    "Tests/flashlight_baseline.py": "897348f8385e14bd6d023a69d4990b9b585c32f942b4ca7b9142742faacc93aa",
+    "Tests/media_play_pause_baseline.json": "aedf16740ddc70aecc2d742321966b8c75676c02d88d671cb9de2abb7540164b",
+    "Tests/media_play_pause_baseline.py": "52957f9e5313cdbbbb673bab8e598e7aa9c803c8b63b578f12a1e1f79483f4c9",
+    "Tests/media_tracks_baseline.json": "aca11fe24775cb5704bc2a17e48e866cf80d9f403b2ab3e442a34019f3fa1fb8",
+    "Tests/media_tracks_baseline.py": "d980fbf63d3cb7b356f780af3f15faf004623428e70c41afeddcc57a89be1ece",
+    "Tests/notification_center_baseline.json": "d45c016af9d23590cf8a87f526ba942c518b908e9eb55ecfc1740209e594e502",
+    "Tests/notification_center_baseline.py": "cee933f345fd01d3079e3e7153200335f2c284e1e35b2c53ed0d674e84c53c10",
+    "Tests/open_app_baseline.json": "ea610b08ece737450fe2ee005aecc65bec6ebb753eaeb97b9ec423cd384a8555",
+    "Tests/open_app_baseline.py": "4b51c75d136ca27730d27feacef66c1efc5c266572715f926349176d5653adcb",
+    "Tests/reference_settings_oracle.json": "a0f639ae24ece250a155ee2f88dcb3bc109c56501a05ae2f5f0a366ac4b82fd8",
+    "Tests/screenshot_baseline.json": "e75ff66f8b62bdef53d7e0bf102657c39ee0c30ead287efe25fae0351b71d5b1",
+    "Tests/screenshot_baseline.py": "3f175e5ad1f9f2e5c79e4e3e09503f77801a37fb10ed328665d86452c4a6cc55",
+    "Tests/settings_hierarchy_baseline.json": "701c83c22c813074ac47d65d7246f7e1c898b1648d09282c7c2c044cf5ce2c3f",
+    "Tests/settings_hierarchy_baseline.py": "9708dfebfd134089adcae4999258edba3ef4b988e6e22249d267de471143e355",
+    "Tests/settings_layout_baseline.json": "aac85e23975eb527f466534d7f074ec64197dd2fcaff2cca214edbb49bf0b73a",
+    "Tests/settings_layout_baseline.py": "11b07012b3f33066fe059f9ed7fa5f50a7aace690264d9ad75b1fbec69ae0858",
+    "Tests/system_mute_baseline.json": "caf48b7fde35baeb92b3b76a54f9325a2a3552afdab8ab2f0f22fac12dc3bd32",
+    "Tests/system_mute_baseline.py": "0f24b86c0c39f94a89dc398abc11e30e7f4a12b96318320d91c93d52b4d87bfd"
+  }
+}

@@ -187,6 +187,7 @@ class FlashlightSourceBindingTests(unittest.TestCase):
                 'Tests/test_flashlight_ci.py', 'Tests/flashlight_baseline.py',
                 'Tests/flashlight_baseline.json', 'Shared/Preferences.swift',
                 'Tests/system_mute_baseline.py', 'Tests/system_mute_baseline.json',
+                'Tests/bottom_swipe_baseline.py', 'Tests/bottom_swipe_baseline.json',
                 'ci/flashlight_guard.py', 'ci/flashlight-smoke.sh',
             ):
                 target = candidate / relative
@@ -208,7 +209,7 @@ class FlashlightSourceBindingTests(unittest.TestCase):
             self.assertNotIn('skipped', result.stderr.lower())
 
     def test_real_baseline_bytes_match_history_owned_oracle(self):
-        from system_mute_baseline import accepted_flashlight_source as accepted_source
+        from bottom_swipe_baseline import accepted_flashlight_source as accepted_source
 
         # The exact inverse verifies the inherited digest without Git history.
         # Independent git-show verification remains in native source preparation.

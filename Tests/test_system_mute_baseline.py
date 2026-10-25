@@ -7,6 +7,7 @@ import json
 import unittest
 from pathlib import Path
 from unittest import mock
+import bottom_swipe_baseline as bottom
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = '0cc50fbd3e82c336f89394f80cb298aa150a1c70'
@@ -111,7 +112,7 @@ class SystemMuteBaselineContracts(unittest.TestCase):
         self.assertEqual(hashlib.sha256(json.dumps(h.FIXTURE['frozen'], sort_keys=True).encode()).hexdigest(), MAP_SHA)
         for path, frozen in h.FIXTURE['frozen'].items():
             with self.subTest(path=path):
-                self.assertEqual(h.digest(h.accepted_source(path)), frozen)
+                self.assertEqual(h.digest(bottom.accepted_source(path)), frozen)
         self.assertNotIn(ADDED, h.FIXTURE['frozen'])
         self.assertEqual(h.FIXTURE['candidate_added_sha256'], {ADDED: ADDED_SHA})
         raw = (ROOT / ADDED).read_bytes().decode('utf-8')
@@ -122,7 +123,7 @@ class SystemMuteBaselineContracts(unittest.TestCase):
         with mock.patch('subprocess.run', side_effect=AssertionError('history unavailable')), \
              mock.patch('subprocess.check_output', side_effect=AssertionError('history unavailable')):
             for path in h.FROZEN_PATHS | h.ADDED_PATHS:
-                text = (ROOT / path).read_bytes().decode('utf-8')
+                text = bottom.system_mute_source(path)
                 for kind, mutant in source_mutants(text, h.FIXTURE['hunks'].get(path, [])):
                     self.assertNotEqual(mutant, text)
                     with self.subTest(path=path, mutation=kind), self.assertRaises(AssertionError):
@@ -137,7 +138,7 @@ class SystemMuteBaselineContracts(unittest.TestCase):
     def test_complete_line_unique_order_and_forward_replay(self):
         h = self.helper()
         for path, edits in h.FIXTURE['hunks'].items():
-            current = (ROOT / path).read_bytes().decode('utf-8')
+            current = bottom.system_mute_source(path)
             restored = h.invert_system_mute(path, current)
             for side, text in (('after', current), ('before', restored)):
                 end = -1
@@ -208,15 +209,21 @@ class SystemMuteBaselineContracts(unittest.TestCase):
         from media_tracks_baseline import invert_media_tracks
         from media_play_pause_baseline import invert_media_play_pause
         h = self.helper(); path = 'Preferences/SettingsController.swift'
-        with self.assertRaises(AssertionError): old.accepted_source(path)
-        with self.assertRaises(AssertionError): layout.accepted_source(path, flashlight=True, media_tracks=True, media_play_pause=True)
+        stage = bottom.system_mute_source(path).encode('utf-8')
+        with mock.patch.object(old, 'ROOT') as root, mock.patch.object(layout, 'ROOT') as layout_root:
+            for reader_root in (root, layout_root):
+                file = reader_root.__truediv__.return_value
+                file.is_file.return_value = True
+                file.read_bytes.return_value = stage
+            with self.assertRaises(AssertionError): old.accepted_source(path)
+            with self.assertRaises(AssertionError): layout.accepted_source(path, flashlight=True, media_tracks=True, media_play_pause=True)
         for path in h.FROZEN_PATHS:
-            text = old.invert_flashlight(path, h.accepted_source(path))
-            self.assertEqual(h.accepted_flashlight_source(path), text)
+            text = old.invert_flashlight(path, bottom.accepted_source(path))
+            self.assertEqual(bottom.accepted_flashlight_source(path), text)
             tracks = invert_media_tracks(path, text)
-            self.assertEqual(h.accepted_media_tracks_source(path), tracks)
+            self.assertEqual(bottom.accepted_media_tracks_source(path), tracks)
             expected = layout.invert_settings_layout(path, invert_media_play_pause(path, tracks))
-            self.assertEqual(h.accepted_layout_source(path, flashlight=True, media_tracks=True, media_play_pause=True), expected)
+            self.assertEqual(bottom.accepted_layout_source(path, flashlight=True, media_tracks=True, media_play_pause=True), expected)
 
     def test_raw_byte_reader_and_missing_input(self):
         h = self.helper(); path = 'Shared/Preferences.swift'

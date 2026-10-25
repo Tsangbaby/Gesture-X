@@ -9,7 +9,7 @@ from test_source import source
 from screenshot_baseline import FIXTURE, invert_screenshot
 from notification_center_baseline import invert_notification_center
 from app_switcher_baseline import invert_app_switcher
-from system_mute_baseline import accepted_layout_source as accepted_source
+from bottom_swipe_baseline import accepted_layout_source as accepted_source
 from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]

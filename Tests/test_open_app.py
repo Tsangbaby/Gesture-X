@@ -9,7 +9,7 @@ from pathlib import Path
 from test_source import source
 from open_app_baseline import FIXTURE, invert_open_app
 from control_center_baseline import invert_control_center
-from system_mute_baseline import accepted_layout_source as accepted_source
+from bottom_swipe_baseline import accepted_layout_source as accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = '7f35f9e51aa9d61d8bd052f0ab6b85127313d326'

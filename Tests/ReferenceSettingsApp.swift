@@ -288,7 +288,11 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         require(matches, "root navigation differs from reference")
         require(root.title == titles["root"], "root identity changed")
         checkpoint("reference root matched")
+        #if REFERENCE_SETTINGS_CURRENT
+        checkSections(rootTable, key: "rootSections", nav: nav, allowed: ["homescreenOptions", "bottomOptions"])
+        #else
         checkSections(rootTable, key: "rootSections", nav: nav, allowed: ["homescreenOptions"])
+        #endif
         let fullRoot = array("rootSections").flatMap { $0["rows"] as? [[String: Any]] ?? [] }
         let rootNavigationIDs = ["dockOptions", "statusBarOptions", "homescreenOptions", "bottomOptions",
             "reachabilityOptions", "hardwareButtonOptions", "advanceOptions", "editPresetURLs", "customInterface"]

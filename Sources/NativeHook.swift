@@ -28,5 +28,6 @@ enum TapLockRuntime {
             }
         }
         HomeDoubleTap.shared.start()
+        BottomGestureRuntime.activate()
     }
 }

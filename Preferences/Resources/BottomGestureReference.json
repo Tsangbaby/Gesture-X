@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "title": "底部上划手势",
+  "referencePackageSHA256": "240362fc1846f697025122e4788d04bbd1920b8f5102bcfc5642a9a14b62837a",
+  "referenceBinarySHA256": "a3e95d0028907909bc521a687934fa362cef18c4c813a787ff2a4b9e0eba6586",
+  "source": {
+    "constructor": "SGBottomSettingListController specifiers 0x78444; rows 0x7c808-0x7d214",
+    "scope": "Static original Settings reconstruction. Section IDs are local rendering identities, never preference keys."
+  },
+  "sections": [
+    {
+      "id": "left",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "bottomLeftOptions",
+          "title": "底部左边区域",
+          "kind": "link",
+          "destination": "left"
+        }
+      ]
+    },
+    {
+      "id": "right",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "bottomRightOptions",
+          "title": "底部右边区域",
+          "kind": "link",
+          "destination": "right"
+        }
+      ]
+    },
+    {
+      "id": "policy",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "ignoreEdgeProtect",
+          "title": "忽略边缘保护",
+          "kind": "switch",
+          "key": "ignoreEdgeProtect",
+          "defaultBoolean": true
+        },
+        {
+          "id": "disableBottomWhenLocked",
+          "title": "设备未解锁时禁用",
+          "kind": "switch",
+          "key": "disableBottomWhenLocked",
+          "defaultBoolean": true
+        }
+      ]
+    },
+    {
+      "id": "portrait",
+      "header": "竖屏触发设置",
+      "footer": "数值单位均为屏幕宽度或高度的百分比。\n注意：最小触发高度 < +手势最小触发高度 < ++手势最小触发高度 < 最高触发高度",
+      "rows": [
+        {
+          "id": "bottomTriggerPosition",
+          "title": "左边触发宽度",
+          "kind": "slider",
+          "key": "bottomTriggerPosition",
+          "minimum": 0,
+          "maximum": 50,
+          "defaultNumber": 30
+        },
+        {
+          "id": "bottomTriggerRightPosition",
+          "title": "右边触发宽度",
+          "kind": "slider",
+          "key": "bottomTriggerRightPosition",
+          "minimum": 0,
+          "maximum": 50,
+          "defaultNumber": 30
+        },
+        {
+          "id": "bottomTriggerSensitivity",
+          "title": "最小触发高度",
+          "kind": "slider",
+          "key": "bottomTriggerSensitivity",
+          "minimum": 0,
+          "maximum": 10,
+          "defaultNumber": 7
+        },
+        {
+          "id": "bottomTriggerArea",
+          "title": "+手势最小触发高度",
+          "kind": "slider",
+          "key": "bottomTriggerArea",
+          "minimum": 0,
+          "maximum": 100,
+          "defaultNumber": 18
+        },
+        {
+          "id": "bottomTriggerExtraArea",
+          "title": "++手势最小触发高度",
+          "kind": "slider",
+          "key": "bottomTriggerExtraArea",
+          "minimum": 0,
+          "maximum": 100,
+          "defaultNumber": 40
+        },
+        {
+          "id": "bottomTriggerExtraPlusArea",
+          "title": "最高触发高度",
+          "kind": "slider",
+          "key": "bottomTriggerExtraPlusArea",
+          "minimum": 0,
+          "maximum": 100,
+          "defaultNumber": 60
+        }
+      ]
+    },
+    {
+      "id": "landscape-enable",
+      "header": "横屏触发设置",
+      "footer": null,
+      "rows": [
+        {
+          "id": "bottomUpOnLandscapeEnabled",
+          "title": "横屏也启用底部上划",
+          "kind": "switch",
+          "key": "bottomUpOnLandscapeEnabled",
+          "defaultBoolean": false
+        }
+      ]
+    },
+    {
+      "id": "landscape-parameters",
+      "header": null,
+      "footer": null,
+      "rows": [
+        {
+          "id": "bottomTriggerPositionLandscape",
+          "title": "左边触发宽度(横屏)",
+          "kind": "slider",
+          "key": "bottomTriggerPositionLandscape",
+          "minimum": 0,
+          "maximum": 50,
+          "defaultNumber": 20,
+          "visibleWhen": "bottomUpOnLandscapeEnabled"
+        },
+        {
+          "id": "bottomTriggerRightPositionLandscape",
+          "title": "右边触发宽度(横屏)",
+          "kind": "slider",
+          "key": "bottomTriggerRightPositionLandscape",
+          "minimum": 0,
+          "maximum": 50,
+          "defaultNumber": 20,
+          "visibleWhen": "bottomUpOnLandscapeEnabled"
+        },
+        {
+          "id": "bottomTriggerSensitivityLandscape",
+          "title": "最小触发高度(横屏)",
+          "kind": "slider",
+          "key": "bottomTriggerSensitivityLandscape",
+          "minimum": 0,
+          "maximum": 10,
+          "defaultNumber": 7,
+          "visibleWhen": "bottomUpOnLandscapeEnabled"
+        },
+        {
+          "id": "bottomTriggerAreaLandscape",
+          "title": "+手势最小触发高度(横屏)",
+          "kind": "slider",
+          "key": "bottomTriggerAreaLandscape",
+          "minimum": 0,
+          "maximum": 100,
+          "defaultNumber": 40,
+          "visibleWhen": "bottomUpOnLandscapeEnabled"
+        },
+        {
+          "id": "bottomTriggerExtraAreaLandscape",
+          "title": "++手势最小触发高度(横屏)",
+          "kind": "slider",
+          "key": "bottomTriggerExtraAreaLandscape",
+          "minimum": 0,
+          "maximum": 100,
+          "defaultNumber": 70,
+          "visibleWhen": "bottomUpOnLandscapeEnabled"
+        },
+        {
+          "id": "bottomTriggerExtraPlusAreaLandscape",
+          "title": "最高触发高度(横屏)",
+          "kind": "slider",
+          "key": "bottomTriggerExtraPlusAreaLandscape",
+          "minimum": 0,
+          "maximum": 100,
+          "defaultNumber": 100,
+          "visibleWhen": "bottomUpOnLandscapeEnabled"
+        }
+      ]
+    }
+  ],
+  "sides": {
+    "left": {
+      "title": "底部左边区域",
+      "sections": [
+        {
+          "id": "bottomLeftUp",
+          "header": null,
+          "footer": null,
+          "rows": [
+            {
+              "id": "bottomLeftUpEnabled",
+              "title": "启用左侧",
+              "kind": "switch",
+              "key": "bottomLeftUpEnabled",
+              "defaultBoolean": false
+            },
+            {
+              "id": "bottomLeftUp",
+              "title": "左侧动作",
+              "kind": "actions",
+              "key": "bottomLeftUp"
+            },
+            {
+              "id": "bottomLeftUpFlowEnabled",
+              "title": "启用动作流模式",
+              "kind": "switch",
+              "key": "bottomLeftUpFlowEnabled",
+              "defaultBoolean": false
+            }
+          ]
+        },
+        {
+          "id": "bottomLeftUpExtra",
+          "header": null,
+          "footer": null,
+          "rows": [
+            {
+              "id": "bottomLeftUpExtraEnabled",
+              "title": "启用左侧+",
+              "kind": "switch",
+              "key": "bottomLeftUpExtraEnabled",
+              "defaultBoolean": false
+            },
+            {
+              "id": "bottomLeftUpExtra",
+              "title": "左侧动作+",
+              "kind": "actions",
+              "key": "bottomLeftUpExtra"
+            },
+            {
+              "id": "bottomLeftUpExtraFlowEnabled",
+              "title": "启用动作流模式",
+              "kind": "switch",
+              "key": "bottomLeftUpExtraFlowEnabled",
+              "defaultBoolean": false
+            }
+          ]
+        },
+        {
+          "id": "bottomLeftUpExtraPlus",
+          "header": null,
+          "footer": null,
+          "rows": [
+            {
+              "id": "bottomLeftUpExtraPlusEnabled",
+              "title": "启用左侧++",
+              "kind": "switch",
+              "key": "bottomLeftUpExtraPlusEnabled",
+              "defaultBoolean": false
+            },
+            {
+              "id": "bottomLeftUpExtraPlus",
+              "title": "左侧动作++",
+              "kind": "actions",
+              "key": "bottomLeftUpExtraPlus"
+            },
+            {
+              "id": "bottomLeftUpExtraPlusFlowEnabled",
+              "title": "启用动作流模式",
+              "kind": "switch",
+              "key": "bottomLeftUpExtraPlusFlowEnabled",
+              "defaultBoolean": false
+            }
+          ]
+        }
+      ]
+    },
+    "right": {
+      "title": "底部右边区域",
+      "sections": [
+        {
+          "id": "bottomRightUp",
+          "header": null,
+          "footer": null,
+          "rows": [
+            {
+              "id": "bottomRightUpEnabled",
+              "title": "启用右侧",
+              "kind": "switch",
+              "key": "bottomRightUpEnabled",
+              "defaultBoolean": false
+            },
+            {
+              "id": "bottomRightUp",
+              "title": "右侧动作",
+              "kind": "actions",
+              "key": "bottomRightUp"
+            },
+            {
+              "id": "bottomRightUpFlowEnabled",
+              "title": "启用动作流模式",
+              "kind": "switch",
+              "key": "bottomRightUpFlowEnabled",
+              "defaultBoolean": false
+            }
+          ]
+        },
+        {
+          "id": "bottomRightUpExtra",
+          "header": null,
+          "footer": null,
+          "rows": [
+            {
+              "id": "bottomRightUpExtraEnabled",
+              "title": "启用右侧+",
+              "kind": "switch",
+              "key": "bottomRightUpExtraEnabled",
+              "defaultBoolean": false
+            },
+            {
+              "id": "bottomRightUpExtra",
+              "title": "右侧动作+",
+              "kind": "actions",
+              "key": "bottomRightUpExtra"
+            },
+            {
+              "id": "bottomRightUpExtraFlowEnabled",
+              "title": "启用动作流模式",
+              "kind": "switch",
+              "key": "bottomRightUpExtraFlowEnabled",
+              "defaultBoolean": false
+            }
+          ]
+        },
+        {
+          "id": "bottomRightUpExtraPlus",
+          "header": null,
+          "footer": null,
+          "rows": [
+            {
+              "id": "bottomRightUpExtraPlusEnabled",
+              "title": "启用右侧++",
+              "kind": "switch",
+              "key": "bottomRightUpExtraPlusEnabled",
+              "defaultBoolean": false
+            },
+            {
+              "id": "bottomRightUpExtraPlus",
+              "title": "右侧动作++",
+              "kind": "actions",
+              "key": "bottomRightUpExtraPlus"
+            },
+            {
+              "id": "bottomRightUpExtraPlusFlowEnabled",
+              "title": "启用动作流模式",
+              "kind": "switch",
+              "key": "bottomRightUpExtraPlusFlowEnabled",
+              "defaultBoolean": false
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

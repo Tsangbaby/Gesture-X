@@ -276,7 +276,8 @@ class SystemMuteUIKitSourceContracts(unittest.TestCase):
         self.assertEqual(len(paths), 8)
 
         def baseline_bytes(relative):
-            text = (ROOT / relative).read_bytes().decode('utf-8')
+            from bottom_swipe_baseline import system_mute_source
+            text = system_mute_source(relative)
             for hunk in reversed(manifest['hunks'].get(relative, [])):
                 self.assertEqual(text.count(hunk['after']), 1)
                 text = text.replace(hunk['after'], hunk['before'])
@@ -348,7 +349,7 @@ class SystemMuteUIKitSourceContracts(unittest.TestCase):
         end = runner.index('    python3 - "$app/Info.plist"', start)
         labels = ('reference-baseline', 'media-baseline', 'track-baseline', 'flashlight-baseline',
                   'system-mute-baseline', 'reference-fixed')
-        script = ('set -euo pipefail\nchoose() {\nlocal label="$1"\n' + runner[start:end] +
+        script = ('set -euo pipefail\nchoose() {\nlocal label="$1" source_root=/source\n' + runner[start:end] +
                   'printf "%s\\n" "$compile_flag"\n}\n' + '\n'.join('choose ' + label for label in labels))
         result = subprocess.run(['bash', '-c', script], text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)

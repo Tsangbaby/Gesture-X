@@ -3,7 +3,7 @@ import re
 import plistlib
 import unittest
 from pathlib import Path
-from system_mute_baseline import accepted_layout_source as accepted_source
+from bottom_swipe_baseline import accepted_layout_source as accepted_source
 from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -180,6 +180,8 @@ class SettingsAndBuildContracts(unittest.TestCase):
         self.assertEqual(members("Preferences/Makefile", "TapLockPrefs"),
                          {(ROOT / "Shared/Preferences.swift").resolve(),
                           (ROOT / "Shared/Applications.swift").resolve(),
+                          (ROOT / "Shared/BottomGesturePreferences.swift").resolve(),
+                          (ROOT / "Preferences/BottomGestureSettingsController.swift").resolve(),
                           (ROOT / "Sources/PrivateAPI.swift").resolve(),
                           (ROOT / "Preferences/ApplicationIcons.swift").resolve(),
                           (ROOT / "Preferences/SettingsController.swift").resolve()})

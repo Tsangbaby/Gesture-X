@@ -244,7 +244,7 @@ class FlashlightUIKitSourceContracts(unittest.TestCase):
         # Exercise the actual bash feature selector; no xcrun/Apple invocation.
         start = runner.index('    local compile_flag=-DREFERENCE_SETTINGS_CURRENT')
         end = runner.index('    python3 - "$app/Info.plist"', start)
-        script = ('set -euo pipefail\nchoose() {\nlocal label="$1"\n' + runner[start:end] +
+        script = ('set -euo pipefail\nchoose() {\nlocal label="$1" source_root=/source\n' + runner[start:end] +
                   'printf "%s\\n" "$compile_flag"\n}\n' +
                   '\n'.join('choose ' + label for label in
                             ('reference-baseline', 'media-baseline', 'track-baseline', 'flashlight-baseline', 'reference-fixed')))
@@ -254,7 +254,7 @@ class FlashlightUIKitSourceContracts(unittest.TestCase):
                          ['-DMEDIA_TRACKS_UNAVAILABLE', '-DFLASHLIGHT_BASELINE', '-DREFERENCE_SETTINGS_CURRENT'])
 
     def test_actual_runner_byte_verifier_accepts_only_the_eight_frozen_baseline_inputs(self):
-        from system_mute_baseline import accepted_flashlight_source as accepted_source
+        from bottom_swipe_baseline import accepted_flashlight_source as accepted_source
         runner = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         blocks = re.findall(r"<<'PY'\n(.*?)\nPY(?:\n|$)", runner, re.S)
         verifier = next(block for block in blocks if 'FLASHLIGHT_UIKIT_BASELINE_BYTES_VERIFIED:' in block)

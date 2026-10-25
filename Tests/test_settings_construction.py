@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from settings_hierarchy_baseline import invert_settings_hierarchy
 from open_app_baseline import invert_open_app
-from system_mute_baseline import accepted_layout_source as accepted_source
+from bottom_swipe_baseline import accepted_layout_source as accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "72826b2a558b03e20a7dd5e98047dfdecc489202"

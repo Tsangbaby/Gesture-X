@@ -45,7 +45,8 @@ class ReferenceSettingsRenderingTests(unittest.TestCase):
         self.assertIn('InstalledApplications.choice(identifier: choice.identifier) != nil', source)
 
     def test_disabled_rows_have_ui_and_direct_delivery_guards(self):
-        source = SOURCE.read_text()
+        from bottom_swipe_baseline import system_mute_source
+        source = system_mute_source('Preferences/SettingsController.swift')
         self.assertIn('guard let reference = reference else { return }', source)
         self.assertIn('rowIsAvailable(row), row.kind == "link" else { return }', source)
         self.assertIn('reference.actionCategories[indexPath.row].available, indexPath.row < 2 else { return }', source)

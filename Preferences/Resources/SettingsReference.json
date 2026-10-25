@@ -73,8 +73,8 @@
           "id": "bottomOptions",
           "title": "底部上划手势",
           "kind": "link",
-          "available": false,
-          "destination": null,
+          "available": true,
+          "destination": "bottom",
           "phoneOnly": true
         },
         {

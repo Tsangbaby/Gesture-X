@@ -425,6 +425,9 @@ run_reference_case() {
     else
         cp "$ROOT/Preferences/Resources/SettingsReference.json" "$app/SettingsReference.json"
     fi
+    if [ "$label" = reference-fixed ]; then
+        cp "$ROOT/Preferences/Resources/BottomGestureReference.json" "$app/BottomGestureReference.json"
+    fi
     # macOS /bin/bash 3.2 treats an empty array expansion under nounset as
     # unbound. Use one always-present scalar; each baseline lacks newer enums.
     local compile_flag=-DREFERENCE_SETTINGS_CURRENT
@@ -437,6 +440,13 @@ run_reference_case() {
     elif [ "$label" != reference-fixed ]; then
         compile_flag=-DMEDIA_PLAY_PAUSE_UNAVAILABLE
     fi
+    local preference_sources=("$source_root/Shared/Preferences.swift" "$source_root/Shared/Applications.swift"
+        "$source_root/Sources/PrivateAPI.swift" "$source_root/Preferences/ApplicationIcons.swift"
+        "$source_root/Preferences/SettingsController.swift")
+    if [ "$label" = reference-fixed ]; then
+        preference_sources+=("$source_root/Shared/BottomGesturePreferences.swift"
+            "$source_root/Preferences/BottomGestureSettingsController.swift")
+    fi
     python3 - "$app/Info.plist" "$bundle" <<'PY'
 import plistlib, sys
 with open(sys.argv[1], 'wb') as stream:
@@ -448,9 +458,7 @@ PY
     xcrun swiftc -parse-as-library -swift-version 5 "$compile_flag" -target "$TARGET" -sdk "$SDK" \
         -I "$source_root/Interfaces" -F "$WORK/frameworks" \
         -import-objc-header "$ROOT/Tests/SettingsConstructionFixture.h" \
-        "$source_root/Shared/Preferences.swift" "$source_root/Shared/Applications.swift" \
-        "$source_root/Sources/PrivateAPI.swift" "$source_root/Preferences/ApplicationIcons.swift" \
-        "$source_root/Preferences/SettingsController.swift" "$ROOT/Tests/ReferenceSettingsApp.swift" \
+        "${preference_sources[@]}" "$ROOT/Tests/ReferenceSettingsApp.swift" \
         -Xlinker -rpath -Xlinker @executable_path/Frameworks -o "$app/ReferenceSettings"
     codesign --force --sign - "$app"
     xcrun simctl install "$DEVICE" "$app"

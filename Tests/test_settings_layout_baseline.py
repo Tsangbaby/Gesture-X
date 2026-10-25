@@ -210,7 +210,7 @@ class SettingsLayoutCurrentSourceContracts(unittest.TestCase):
 
     def test_explicit_inverse_restores_all_24_device_accepted_018_files(self):
         from settings_layout_baseline import FIXTURE
-        from system_mute_baseline import accepted_layout_source as accepted_source
+        from bottom_swipe_baseline import accepted_layout_source as accepted_source
         for path, digest in FIXTURE['frozen'].items():
             with self.subTest(path=path):
                 self.assertEqual(hashlib.sha256(accepted_source(path, media_play_pause=True, media_tracks=True, flashlight=True).encode()).hexdigest(), digest)
@@ -219,7 +219,7 @@ class SettingsLayoutCurrentSourceContracts(unittest.TestCase):
         from settings_layout_baseline import FIXTURE, ROOT, invert_settings_layout
         from media_play_pause_baseline import invert_media_play_pause
         for path in FIXTURE['before_text']:
-            from system_mute_baseline import accepted_media_tracks_source as track_accepted_source
+            from bottom_swipe_baseline import accepted_media_tracks_source as track_accepted_source
             text = invert_media_play_pause(path, track_accepted_source(path))
             # Validate before entering assertRaises so stale manifest/current
             # source mismatch cannot masquerade as a successful negative test.
@@ -240,7 +240,7 @@ class SettingsLayoutCurrentSourceContracts(unittest.TestCase):
         from open_app_baseline import invert_open_app
         from settings_hierarchy_baseline import invert_settings_hierarchy
         path = 'Preferences/SettingsController.swift'
-        from system_mute_baseline import accepted_media_tracks_source as track_accepted_source
+        from bottom_swipe_baseline import accepted_media_tracks_source as track_accepted_source
         text = invert_media_play_pause(path, track_accepted_source(path))
         invert_settings_layout(path, text)
         for inverse in (invert_app_switcher, invert_screenshot, invert_notification_center,

@@ -5,6 +5,7 @@ import plistlib
 import re
 import unittest
 from pathlib import Path
+from bottom_swipe_baseline import system_mute_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -134,12 +135,12 @@ class SystemMuteSourceTests(unittest.TestCase):
             'Sources/FlashlightAction.swift': '6991354a10287c9e7dead5d27cc9654f3e8505f12cc51cc4d06280b2c8eadec7',
         }
         for path, digest in frozen.items():
-            self.assertEqual(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), digest, path)
+            self.assertEqual(hashlib.sha256(system_mute_source(path).encode('utf-8')).hexdigest(), digest, path)
         home = (ROOT / 'Sources/HomeDoubleTap.swift').read_bytes()
         added = b'        case .systemMute:\n            SystemMuteAction.toggle()\n'
         self.assertEqual(home.count(added), 1)
         self.assertEqual(hashlib.sha256(home.replace(added, b'')).hexdigest(), '71f9027d460677dfc7107d0303f8f459f1935cddb976249a1ded2d7ff78fc87b')
-        reference = (ROOT / 'Preferences/Resources/SettingsReference.json').read_bytes()
+        reference = system_mute_source('Preferences/Resources/SettingsReference.json').encode('utf-8')
         before = b'"referenceActionNumber": 50,\n      "available": true,\n      "actionKind": "systemMute"'
         self.assertEqual(reference.count(before), 1)
         original = reference.replace(before, b'"referenceActionNumber": 50,\n      "available": false,\n      "actionKind": null')

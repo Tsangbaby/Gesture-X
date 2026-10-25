@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from system_mute_baseline import accepted_source
+from bottom_swipe_baseline import accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED_BASIC = {
