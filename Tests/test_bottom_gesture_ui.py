@@ -105,6 +105,38 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_bottom_simulators_use_sdk_matching_runtime_not_highest_foreign_runtime(self):
+        for runner, override in [('bottom-gesture-settings', 'BOTTOM_UI_RUNTIME'),
+                                 ('bottom-gesture-native', 'BOTTOM_NATIVE_RUNTIME'),
+                                 ('bottom-actions', 'BOTTOM_ACTIONS_RUNTIME')]:
+            script = (ROOT / ('ci/' + runner + '-smoke.sh')).read_text()
+            with self.subTest(runner=runner):
+                selector = re.search(r'RUNTIME="\$\(python3[^\n]*<<\x27PY\x27\n(.*?)\nPY\n\)"', script, re.S)
+                self.assertIsNotNone(selector)
+                assert selector is not None
+                runtime = lambda version: {'name': 'iOS ' + version, 'version': version,
+                                          'identifier': 'test.runtime.' + version, 'isAvailable': True}
+                with tempfile.TemporaryDirectory() as work:
+                    path = Path(work) / 'runtimes.json'
+                    path.write_text(json.dumps({'runtimes': [runtime('18.4'), runtime('18.5'), runtime('26.0')]}))
+                    env = os.environ.copy()
+                    env.pop(override, None)
+                    def select(requested=None):
+                        current = env.copy()
+                        if requested is not None:
+                            current[override] = requested
+                        return subprocess.run([sys.executable, '-', str(path), '18.5'],
+                                              input=selector[1], text=True, capture_output=True, env=current)
+                    result = select()
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout.strip(), 'test.runtime.18.5')
+                    self.assertEqual(select('test.runtime.18.4').stdout.strip(), 'test.runtime.18.4')
+                    self.assertNotEqual(select('test.runtime.26.0').returncode, 0)
+                    path.write_text(json.dumps({'runtimes': [runtime('26.0')]}))
+                    self.assertNotEqual(select().returncode, 0)
+                self.assertIn('SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"', script)
+                self.assertIn('"$WORK/runtimes.json" "$SDK_VERSION"', script)
+
     def test_cloud_diagnosis_runs_bottom_ui_first_without_changing_any_gate(self):
         workflow = json.loads((ROOT / '.github/workflows/build.yml').read_bytes())
         steps = workflow['jobs']['roothide']['steps']

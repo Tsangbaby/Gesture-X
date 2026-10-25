@@ -32,6 +32,7 @@ done
 xcrun --find swiftc >/dev/null
 xcrun --find simctl >/dev/null
 SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
+SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"
 TARGET="$(uname -m)-apple-ios15.0-simulator"
 WORK="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:?Apple temporary directory required}}/bottom-settings.XXXXXX")"
 DEVICE=""
@@ -44,9 +45,10 @@ cleanup() {
 trap cleanup EXIT
 xcrun simctl list runtimes --json > "$WORK/runtimes.json"
 xcrun simctl list devicetypes --json > "$WORK/device-types.json"
-RUNTIME="$(python3 - "$WORK/runtimes.json" <<'PY'
+RUNTIME="$(python3 - "$WORK/runtimes.json" "$SDK_VERSION" <<'PY'
 import json, os, sys
-runtimes = [r for r in json.load(open(sys.argv[1]))['runtimes'] if r.get('isAvailable') and r['name'].startswith('iOS ') and int(r['version'].split('.')[0]) >= 15]
+sdk_major = int(sys.argv[2].split('.')[0])
+runtimes = [r for r in json.load(open(sys.argv[1]))['runtimes'] if r.get('isAvailable') and r['name'].startswith('iOS ') and int(r['version'].split('.')[0]) == sdk_major and sdk_major >= 15]
 requested = os.environ.get('BOTTOM_UI_RUNTIME')
 if requested:
     runtimes = [r for r in runtimes if r['identifier'] == requested]
@@ -55,6 +57,7 @@ if not runtimes:
 print(max(runtimes, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier'])
 PY
 )"
+printf 'BOTTOM_UIKIT_RUNTIME: %s; SDK: %s\n' "$RUNTIME" "$SDK_VERSION"
 DEVICE_TYPE="${BOTTOM_UI_DEVICE_TYPE:-com.apple.CoreSimulator.SimDeviceType.iPhone-13}"
 python3 - "$WORK/device-types.json" "$DEVICE_TYPE" <<'PY'
 import json, sys
