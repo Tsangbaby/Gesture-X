@@ -29,12 +29,12 @@
           "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p 'test_*.py' -v\nxcodebuild -version\nxcrun swift --version\nxcrun swiftc -swift-version 5 Sources/PrivateAPI.swift Tests/PrivateAPIRuntimeTests.swift -o \"$RUNNER_TEMP/private-api-tests\"\n\"$RUNNER_TEMP/private-api-tests\"\nbash ci/lock-action-smoke.sh\nbash ci/open-app-smoke.sh\nbash ci/control-center-smoke.sh\nbash ci/notification-center-smoke.sh\nbash ci/screenshot-smoke.sh\nbash ci/app-switcher-smoke.sh\nbash ci/media-play-pause-smoke.sh\nbash ci/media-tracks-smoke.sh\npython3 -B ci/media_tracks_guard.py --validate-suite \"$RUNNER_TEMP/MEDIA_TRACKS_TESTS.txt\" \"$GITHUB_SHA\"\nbash ci/flashlight-smoke.sh\npython3 -B ci/flashlight_guard.py --validate-suite \"$RUNNER_TEMP/FLASHLIGHT_TESTS.txt\" \"$GITHUB_SHA\"\nbash ci/system-mute-smoke.sh\npython3 -B ci/system_mute_guard.py --validate-suite \"$RUNNER_TEMP/SYSTEM_MUTE_TESTS.txt\" \"$GITHUB_SHA\""
         },
         {
-          "name": "Settings constructor regression (iOS Simulator fixture)",
-          "run": "set -euo pipefail\nbash ci/settings-construction-smoke.sh\npython3 -B ci/reference_settings_guard.py --validate-suite \"$RUNNER_TEMP/REFERENCE_SETTINGS_TESTS.txt\" \"$GITHUB_SHA\" \"$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt\" --with-track-baseline --with-flashlight-baseline --with-system-mute-baseline"
-        },
-        {
           "name": "Bottom gesture model and UIKit gates",
           "run": "set -euo pipefail\nbash ci/bottom-gesture-model-smoke.sh | tee \"$RUNNER_TEMP/BOTTOM_GESTURE_MODEL_TESTS.txt\"\nbash ci/bottom-gesture-settings-smoke.sh | tee \"$RUNNER_TEMP/BOTTOM_GESTURE_SETTINGS_TESTS.txt\"\nbash ci/bottom-gesture-native-smoke.sh | tee \"$RUNNER_TEMP/BOTTOM_GESTURE_NATIVE_TESTS.txt\"\nbash ci/bottom-actions-smoke.sh | tee \"$RUNNER_TEMP/BOTTOM_ACTIONS_TESTS.txt\""
+        },
+        {
+          "name": "Settings constructor regression (iOS Simulator fixture)",
+          "run": "set -euo pipefail\nbash ci/settings-construction-smoke.sh\npython3 -B ci/reference_settings_guard.py --validate-suite \"$RUNNER_TEMP/REFERENCE_SETTINGS_TESTS.txt\" \"$GITHUB_SHA\" \"$RUNNER_TEMP/NATIVE_STARTUP_TESTS.txt\" --with-track-baseline --with-flashlight-baseline --with-system-mute-baseline"
         },
         {
           "name": "Install packaging tools and pinned RootHide Theos",

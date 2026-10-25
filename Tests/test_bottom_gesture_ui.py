@@ -105,6 +105,23 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_cloud_diagnosis_runs_bottom_ui_first_without_changing_any_gate(self):
+        workflow = json.loads((ROOT / '.github/workflows/build.yml').read_bytes())
+        steps = workflow['jobs']['roothide']['steps']
+        names = [step['name'] for step in steps]
+        self.assertLess(names.index('Source and real Swift runtime tests'),
+                        names.index('Bottom gesture model and UIKit gates'))
+        self.assertLess(names.index('Bottom gesture model and UIKit gates'),
+                        names.index('Settings constructor regression (iOS Simulator fixture)'))
+        self.assertLess(names.index('Settings constructor regression (iOS Simulator fixture)'),
+                        names.index('Install packaging tools and pinned RootHide Theos'))
+        # Freeze all existing commands, assertions, timeouts, permissions, refs,
+        # job conditions and toolchain pins; only the step ordering may differ.
+        steps.sort(key=lambda step: step['name'])
+        canonical = json.dumps(workflow, sort_keys=True, separators=(',', ':')).encode()
+        self.assertEqual(hashlib.sha256(canonical).hexdigest(),
+                         'b32b28a264ad8049570d4a52092445d31cc23733674b3ca6005673b651f0a02c')
+
     def test_uikit_incomplete_execution_retains_host_only_discriminating_evidence(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
         script = (ROOT / 'ci/bottom-gesture-settings-smoke.sh').read_text()
