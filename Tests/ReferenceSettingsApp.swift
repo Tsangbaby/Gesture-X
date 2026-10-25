@@ -3,7 +3,7 @@ import ObjectiveC.runtime
 import CoreFoundation
 import Darwin
 
-// The same executable is compiled against frozen 0.1.8/9/10/11 and the candidate.
+// The same executable is compiled against frozen 0.1.8/9/10/11/12 and the candidate.
 // Observe only UIKit datasource/delegate and existing Shared APIs: never new
 // renderer/model internals. The JSON oracle is independently pinned by CI.
 @main
@@ -233,8 +233,11 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         case "previousTrack": return .previousTrack
         case "nextTrack": return .nextTrack
         #endif
-        #if REFERENCE_SETTINGS_CURRENT
+        #if REFERENCE_SETTINGS_CURRENT || SYSTEM_MUTE_BASELINE
         case "flashlight": return .flashlight
+        #endif
+        #if REFERENCE_SETTINGS_CURRENT
+        case "systemMute": return .systemMute
         #endif
         default: return nil
         }
@@ -329,17 +332,36 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
         let expectedBasicCount = 6
         #elseif FLASHLIGHT_BASELINE
         let expectedBasicCount = 8
-        #else
+        #elseif SYSTEM_MUTE_BASELINE
         let expectedBasicCount = 9
+        #else
+        let expectedBasicCount = 10
         #endif
         let implementedEntries = entries.filter { $0["available"] as? Bool == true }
         require(entries.count == 68 && implementedEntries.count == expectedBasicCount, "oracle basic scope differs")
         #if REFERENCE_SETTINGS_CURRENT
         let currentBasicIdentities: Set<String> = [
             "SYSTEM_SCREENSHOT", "SYSTEM_CONTROLCENTER", "SYSTEM_COVER", "SYSTEM_LOCKSCREEN",
-            "SYSTEM_SWITCHER", "PLAYPAUSE_MEDIA", "PREVIOUS_MEDIA", "NEXT_MEDIA", "TOGGLE_FLASHLIGHT"]
+            "SYSTEM_SWITCHER", "PLAYPAUSE_MEDIA", "PREVIOUS_MEDIA", "NEXT_MEDIA", "TOGGLE_FLASHLIGHT", "SYSTEM_MUTE"]
         require(Set(implementedEntries.compactMap { $0["id"] as? String }) == currentBasicIdentities,
-                "current nine basic identities differ")
+                "current ten basic identities differ")
+        let currentBasicKinds: [String: String] = [
+            "SYSTEM_SCREENSHOT": "screenshot", "SYSTEM_CONTROLCENTER": "controlCenter",
+            "SYSTEM_COVER": "notificationCenter", "SYSTEM_LOCKSCREEN": "lock",
+            "SYSTEM_SWITCHER": "appSwitcher", "PLAYPAUSE_MEDIA": "playPause",
+            "PREVIOUS_MEDIA": "previousTrack", "NEXT_MEDIA": "nextTrack",
+            "TOGGLE_FLASHLIGHT": "flashlight", "SYSTEM_MUTE": "systemMute"]
+        require(implementedEntries.allSatisfy { entry in
+            guard let id = entry["id"] as? String, let kind = entry["actionKind"] as? String else { return false }
+            return currentBasicKinds[id] == kind
+        }, "current ten basic action mappings differ or alias")
+        guard let systemMuteEntry = entries.first(where: { $0["id"] as? String == "SYSTEM_MUTE" }) else {
+            finish("REFERENCE_SETTINGS_FAIL: original system-mute entry missing", status: 1)
+        }
+        require(systemMuteEntry["referenceSlot"] as? Int == 32 &&
+                systemMuteEntry["referenceActionNumber"] as? Int == 50 &&
+                systemMuteEntry["title"] as? String == "系统静音" &&
+                systemMuteEntry["image"] as? String == "bell.slash", "original system-mute identity changed")
         #endif
         let basic = push(actionTable, IndexPath(row: 0, section: 1), nav, title: titles["basic"]!)
         let basicTable = table(basic)
@@ -366,13 +388,20 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             require(nav.topViewController === basic, "disabled baseline flashlight left basic picker")
             finish("FLASHLIGHT_SETTINGS_BASELINE_EXPECTED_FAILURE: original flashlight row is disabled", status: 0)
         }
+        if ProcessInfo.processInfo.arguments.contains("--expect-system-mute-baseline-failure") {
+            let systemMute = find(basicTable, id: "SYSTEM_MUTE")
+            require(cell(basicTable, systemMute).textLabel?.text == "系统静音", "baseline system-mute identity differs")
+            checkInert(basicTable, systemMute, nav)
+            require(nav.topViewController === basic, "disabled baseline system-mute left basic picker")
+            finish("SYSTEM_MUTE_SETTINGS_BASELINE_EXPECTED_FAILURE: original system-mute row is disabled", status: 0)
+        }
         checkBasic(basicTable, entries: entries, nav: nav, selected: .lock)
         guard let search = basic.navigationItem.searchController,
               let updater = search.searchResultsUpdater else {
             finish("REFERENCE_SETTINGS_FAIL: real search controller/updater missing", status: 1)
         }
         let searchSnapshot = preferences()
-        for query in ["hammerit", "HAMMERIT", "系统", "播放/暂停", "上一首", "下一首", "开关手电", "no-such-reference-action", ""] {
+        for query in ["hammerit", "HAMMERIT", "系统", "播放/暂停", "上一首", "下一首", "开关手电", "系统静音", "no-such-reference-action", ""] {
             search.searchBar.text = query
             updater.updateSearchResults(for: search)
             let expected = query.isEmpty ? entries : entries.filter {
@@ -419,7 +448,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             nav.pushViewController(actions, animated: false)
         }
         let beforeApp = preferences()
-        checkpoint("basic search and nine single-value replacements matched")
+        checkpoint("basic search and ten single-value replacements matched")
         let app = push(table(actions), IndexPath(row: 1, section: 1), nav, title: titles["application"]!)
         let appTable = table(app)
         let appPaths = paths(appTable)
@@ -595,7 +624,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let arguments = ProcessInfo.processInfo.arguments
-        let modes = ["--expect-reference-baseline-failure", "--expect-media-baseline-failure", "--expect-track-baseline-failure", "--expect-flashlight-baseline-failure", "--expect-reference-fixed"]
+        let modes = ["--expect-reference-baseline-failure", "--expect-media-baseline-failure", "--expect-track-baseline-failure", "--expect-flashlight-baseline-failure", "--expect-system-mute-baseline-failure", "--expect-reference-fixed"]
         require(modes.filter { arguments.contains($0) }.count == 1, "choose exactly one reference test mode")
         guard let host = NSClassFromString("PSViewController") else {
             finish("REFERENCE_SETTINGS_FAIL: native Preferences fixture missing", status: 1)
@@ -626,7 +655,7 @@ final class ReferenceSettingsApp: UIResponder, UIApplicationDelegate {
             self.runRoundTrip(false)
             self.checkpoint("resource fail-closed probes")
             self.checkUnavailableResources()
-            self.finish("REFERENCE_SETTINGS_UIKIT_PASS: \(self.checks) assertions; both native constructors; reference root/Home/categories; inert controls; 68-row search; nine single-value replacements; installed App snapshot/real 32pt icon/save/reentry; defaults/malformed/resource fail-closed; simulator fixture boundary only", status: 0)
+            self.finish("REFERENCE_SETTINGS_UIKIT_PASS: \(self.checks) assertions; both native constructors; reference root/Home/categories; inert controls; 68-row search; ten single-value replacements; installed App snapshot/real 32pt icon/save/reentry; defaults/malformed/resource fail-closed; simulator fixture boundary only", status: 0)
         }
         return true
     }

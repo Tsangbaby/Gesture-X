@@ -10,6 +10,8 @@ import importlib.util
 import unittest
 from pathlib import Path
 
+import system_mute_baseline as system_mute
+
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = '925df18141606b75f71c77ddd998ad2baa237efe'
 CHANGED = frozenset({
@@ -84,9 +86,9 @@ class FlashlightBaselineContracts(unittest.TestCase):
         self.assertNotIn(ADDED, fixture['frozen'], 'Do not fabricate an absent predecessor file')
         for path, frozen in fixture['frozen'].items():
             with self.subTest(path=path):
-                text = (ROOT / path).read_bytes().decode('utf-8')
+                text = system_mute.accepted_source(path)
                 self.assertEqual(digest(helper.invert_flashlight(path, text)), frozen)
-                self.assertEqual(helper.accepted_source(path), helper.invert_flashlight(path, text))
+                self.assertEqual(system_mute.accepted_flashlight_source(path), helper.invert_flashlight(path, text))
 
     def test_added_provider_is_digest_protected_without_a_fabricated_before_file(self):
         helper = self.helper()
@@ -122,7 +124,7 @@ class FlashlightBaselineContracts(unittest.TestCase):
                     fixture[key]['Sources/Unexpected.swift'] = 'not authorized'
                 with self.subTest(key=key, operation=operation), mock.patch.object(helper, 'FIXTURE', fixture):
                     with self.assertRaises(AssertionError):
-                        helper.accepted_source('Shared/Preferences.swift')
+                        helper.invert_flashlight('Shared/Preferences.swift', system_mute.accepted_source('Shared/Preferences.swift'))
         for mutation in ('count', 'empty-before', 'empty-after', 'same', 'empty-hunks', 'extra-field'):
             fixture = copy.deepcopy(helper.FIXTURE)
             edit = fixture['hunks']['Shared/Preferences.swift'][0]
@@ -138,7 +140,7 @@ class FlashlightBaselineContracts(unittest.TestCase):
                 edit[mutation.removeprefix('empty-')] = ''
             with self.subTest(mutation=mutation), mock.patch.object(helper, 'FIXTURE', fixture):
                 with self.assertRaises(AssertionError):
-                    helper.accepted_source('Shared/Preferences.swift')
+                    helper.invert_flashlight('Shared/Preferences.swift', system_mute.accepted_source('Shared/Preferences.swift'))
 
     def test_unlisted_paths_are_identity_not_path_aliases(self):
         helper = self.helper()
@@ -160,24 +162,35 @@ class FlashlightBaselineContracts(unittest.TestCase):
         self.assertIsNotNone(flag, 'Missing explicit default-false flashlight restoration')
         self.assertIs(flag.default, False)
         path = 'Preferences/SettingsController.swift'
-        current = (ROOT / path).read_bytes().decode('utf-8')
+        current = system_mute.accepted_source(path)
         import media_tracks_baseline
-        with self.assertRaisesRegex(AssertionError, 'track'):
-            media_tracks_baseline.accepted_source(path)
+        from unittest import mock
+        # Default-rejection probes must see the actual flashlight stage, not
+        # fail early because an unrelated newer system-mute hunk remains.
+        with mock.patch.object(media_tracks_baseline, 'ROOT') as root:
+            file = root.__truediv__.return_value
+            file.is_file.return_value = True
+            file.read_bytes.return_value = current.encode('utf-8')
+            with self.assertRaisesRegex(AssertionError, 'track'):
+                media_tracks_baseline.accepted_source(path)
         for inverse in (invert_media_tracks, invert_media_play_pause, invert_settings_layout):
             with self.subTest(inverse=inverse.__name__), self.assertRaises(AssertionError):
                 inverse(path, current)
-        for flags in ({}, {'media_tracks': True}, {'media_play_pause': True, 'media_tracks': True}):
-            with self.subTest(flags=flags), self.assertRaises(AssertionError):
-                accepted_source(path, **flags)
+        with mock.patch('settings_layout_baseline.ROOT') as root:
+            file = root.__truediv__.return_value
+            file.is_file.return_value = True
+            file.read_bytes.return_value = current.encode('utf-8')
+            for flags in ({}, {'media_tracks': True}, {'media_play_pause': True, 'media_tracks': True}):
+                with self.subTest(flags=flags), self.assertRaises(AssertionError):
+                    accepted_source(path, **flags)
         for relative in helper.FIXTURE['frozen']:
             with self.subTest(relative=relative):
-                before_tracks = helper.accepted_media_tracks_source(relative)
+                before_tracks = system_mute.accepted_media_tracks_source(relative)
                 self.assertEqual(digest(before_tracks), tracks['frozen'][relative])
                 before_media = invert_media_play_pause(relative, before_tracks)
                 if relative in media['frozen']:
                     self.assertEqual(digest(before_media), media['frozen'][relative])
-                restored = accepted_source(relative, flashlight=True, media_tracks=True, media_play_pause=True)
+                restored = system_mute.accepted_layout_source(relative, flashlight=True, media_tracks=True, media_play_pause=True)
                 self.assertEqual(restored, invert_settings_layout(relative, before_media))
                 if relative in layout['frozen']:
                     self.assertEqual(digest(restored), layout['frozen'][relative])
@@ -196,7 +209,7 @@ class FlashlightBaselineContracts(unittest.TestCase):
                                      file.name + ': direct latest-stage source read bypasses flashlight')
                 if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
                     continue
-                if node.func.id != 'accepted_source':
+                if node.func.id not in ('accepted_source', 'accepted_layout_source'):
                     continue
                 flags = {k.arg: k.value.value for k in node.keywords if isinstance(k.value, ast.Constant)}
                 if flags.get('media_play_pause') is True and flags.get('media_tracks') is True:
@@ -218,8 +231,8 @@ class FlashlightBaselineContracts(unittest.TestCase):
         with mock.patch('subprocess.run', side_effect=AssertionError('Git/history unavailable')), \
              mock.patch('subprocess.check_output', side_effect=AssertionError('Git/history unavailable')):
             for path, raw in originals.items():
-                text = raw.decode('utf-8')
-                restored = helper.accepted_source(path)
+                text = system_mute.accepted_source(path)
+                restored = system_mute.accepted_flashlight_source(path)
                 self.assertEqual(digest(restored), helper.FIXTURE['frozen'][path])
                 for kind, mutant in candidate_mutants(text, helper.FIXTURE['hunks'].get(path, [])):
                     self.assertNotEqual(mutant, text)
@@ -234,7 +247,7 @@ class FlashlightBaselineContracts(unittest.TestCase):
         helper = self.helper()
         self.assertEqual(sum(len(edits) for edits in helper.FIXTURE['hunks'].values()), 10)
         for path, edits in helper.FIXTURE['hunks'].items():
-            current = (ROOT / path).read_bytes().decode('utf-8')
+            current = system_mute.accepted_source(path)
             before = helper.invert_flashlight(path, current)
             for side, text in (('after', current), ('before', before)):
                 end = -1
@@ -271,7 +284,7 @@ class FlashlightBaselineContracts(unittest.TestCase):
                          'Preferences/ApplicationIcons.swift',
                          'layout/Library/PreferenceLoader/Preferences/TapLock.plist'} <= untouched)
         for path in untouched:
-            text = (ROOT / path).read_bytes().decode('utf-8')
+            text = system_mute.accepted_source(path)
             self.assertEqual(digest(text), helper.FIXTURE['frozen'][path], path)
             self.assertEqual(helper.invert_flashlight(path, text), text)
 
@@ -279,7 +292,7 @@ class FlashlightBaselineContracts(unittest.TestCase):
         from unittest import mock
         helper = self.helper()
         path = 'Shared/Preferences.swift'
-        raw = (ROOT / path).read_bytes()
+        raw = system_mute.accepted_source(path).encode('utf-8')
         with mock.patch.object(helper, 'ROOT') as root:
             file = root.__truediv__.return_value
             file.is_file.return_value = True

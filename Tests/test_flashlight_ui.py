@@ -200,21 +200,21 @@ class FlashlightUIKitSourceContracts(unittest.TestCase):
                        'MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:', 'MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE:'):
             self.assertIn(marker, app)
 
-    def test_current_nine_identity_set_and_bidirectional_app_replacements_cover_every_basic_row(self):
+    def test_current_ten_identity_set_and_bidirectional_app_replacements_cover_every_basic_row(self):
         app = (ROOT / 'Tests/ReferenceSettingsApp.swift').read_text()
-        self.assertIn('let expectedBasicCount = 9', app, 'Current UIKit must expect all nine basics')
-        self.assertRegex(app, r'#if REFERENCE_SETTINGS_CURRENT\s+case "flashlight": return \.flashlight\s+#endif')
+        self.assertIn('let expectedBasicCount = 10', app, 'Current UIKit must expect all ten basics')
+        self.assertRegex(app, r'#if REFERENCE_SETTINGS_CURRENT \|\| SYSTEM_MUTE_BASELINE\s+case "flashlight": return \.flashlight\s+#endif')
         self.assertIn('#elseif FLASHLIGHT_BASELINE\n        let expectedBasicCount = 8', app)
         self.assertIn('let implementedEntries = entries.filter { $0["available"] as? Bool == true }', app)
         identity = app.split('let currentBasicIdentities: Set<String> = [', 1)[1].split(']', 1)[0]
         self.assertEqual(set(re.findall(r'"([A-Z_]+)"', identity)), {
             'SYSTEM_SCREENSHOT', 'SYSTEM_CONTROLCENTER', 'SYSTEM_COVER', 'SYSTEM_LOCKSCREEN',
-            'SYSTEM_SWITCHER', 'PLAYPAUSE_MEDIA', 'PREVIOUS_MEDIA', 'NEXT_MEDIA', 'TOGGLE_FLASHLIGHT'})
+            'SYSTEM_SWITCHER', 'PLAYPAUSE_MEDIA', 'PREVIOUS_MEDIA', 'NEXT_MEDIA', 'TOGGLE_FLASHLIGHT', 'SYSTEM_MUTE'})
         self.assertIn('Set(implementedEntries.compactMap { $0["id"] as? String }) == currentBasicIdentities', app)
         self.assertIn('for entry in implementedEntries {', app)
         self.assertIn('for entry in implementedEntries {', app.split('let previousActions = actions', 1)[1])
         self.assertNotIn('eight single-value replacements', app)
-        self.assertIn('nine single-value replacements', app)
+        self.assertIn('ten single-value replacements', app)
         for token in ('"开关手电"', 'basic selection did not replace the single value',
                       'basic checkmark not exclusive/current', 'Home summary did not refresh',
                       'App-to-basic replacement is not a single value',
@@ -238,7 +238,8 @@ class FlashlightUIKitSourceContracts(unittest.TestCase):
         self.assertIn('compile_flag=-DFLASHLIGHT_BASELINE', selection)
         cases = re.findall(r'^run_reference_case .*$', runner, re.M)
         self.assertEqual([line.split()[2] for line in cases],
-                         ['reference-baseline', 'media-baseline', 'track-baseline', 'flashlight-baseline', 'reference-fixed'])
+                         ['reference-baseline', 'media-baseline', 'track-baseline', 'flashlight-baseline',
+                          'system-mute-baseline', 'reference-fixed'])
         self.assertLess(runner.index(cases[-1]), runner.index('bash "$ROOT/ci/native-startup-smoke.sh"'))
         # Exercise the actual bash feature selector; no xcrun/Apple invocation.
         start = runner.index('    local compile_flag=-DREFERENCE_SETTINGS_CURRENT')
@@ -253,7 +254,7 @@ class FlashlightUIKitSourceContracts(unittest.TestCase):
                          ['-DMEDIA_TRACKS_UNAVAILABLE', '-DFLASHLIGHT_BASELINE', '-DREFERENCE_SETTINGS_CURRENT'])
 
     def test_actual_runner_byte_verifier_accepts_only_the_eight_frozen_baseline_inputs(self):
-        from flashlight_baseline import accepted_source
+        from system_mute_baseline import accepted_flashlight_source as accepted_source
         runner = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         blocks = re.findall(r"<<'PY'\n(.*?)\nPY(?:\n|$)", runner, re.S)
         verifier = next(block for block in blocks if 'FLASHLIGHT_UIKIT_BASELINE_BYTES_VERIFIED:' in block)

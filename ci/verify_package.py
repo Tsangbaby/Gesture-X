@@ -174,7 +174,7 @@ def verify(package):
     listing = command("dpkg-deb", "-c", str(package))
     require("./var/jb/" not in listing, "Rootless payload in RootHide package")
     require(not any(name in listing for name in
-                    ("NativeHookFixture", "NativeHookReactivation", "NativeStartupApp", "MediaRemoteFixture", "MediaPlayPauseRuntimeTests", "FlashlightRuntimeTests")),
+                    ("NativeHookFixture", "NativeHookReactivation", "NativeStartupApp", "MediaRemoteFixture", "MediaPlayPauseRuntimeTests", "FlashlightRuntimeTests", "SystemMuteRuntimeTests")),
             "Simulator fixture leaked into package")
     with tempfile.TemporaryDirectory(prefix="taplock-verify-") as directory:
         dest = Path(directory)
@@ -250,6 +250,18 @@ def verify(package):
         for name in (b"TLFlashlight", b"FLASHLIGHT_RUNTIME_", b"FLASHLIGHT_NATIVE_"):
             require(all(name not in (dest / path).read_bytes() for path in binaries),
                     "Flashlight test fixture leaked into shipped binary")
+        # These established long SEL strings are emitted through the Objective-C
+        # selector loader. Short class/getter names may use Swift small strings;
+        # their positive membership proof is the exact-target compiler graph and
+        # executed source-bound receiver fixtures, not a guessed byte threshold.
+        system_mute_selector = b"activateRingerHUDFromMuteSwitch:"
+        require_selector_per_slice(tweak_bytes, binaries[required[0]], system_mute_selector)
+        for name in (b"SBRingerControl", b"setRingerMuted:", system_mute_selector):
+            require(name not in (dest / required[2]).read_bytes(),
+                    "System mute provider leaked into Settings binary")
+        for name in (b"TLSystemMute", b"SYSTEM_MUTE_RUNTIME_", b"SYSTEM_MUTE_NATIVE_"):
+            require(all(name not in (dest / path).read_bytes() for path in binaries),
+                    "System mute test fixture leaked into shipped binary")
         require_selector_per_slice((dest / required[2]).read_bytes(), binaries[required[2]],
                                    b"_applicationIconImageForBundleIdentifier:format:scale:")
         for record in binaries[required[0]]:

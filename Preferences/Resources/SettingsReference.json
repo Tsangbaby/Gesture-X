@@ -702,8 +702,8 @@
       "image": "bell.slash",
       "referenceSlot": 32,
       "referenceActionNumber": 50,
-      "available": false,
-      "actionKind": null
+      "available": true,
+      "actionKind": "systemMute"
     },
     {
       "id": "VOLUME_MUTE",

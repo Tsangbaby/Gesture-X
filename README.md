@@ -9,9 +9,11 @@
 暂定名称 TapLock，最新获用户通过反馈功能版本 0.1.12，包标识 `com.tsangbaby.taplock`。
 这是一份新工程，不改动 Actra、SquidGesture 或其他既有项目；不包含其二进制、反编译输出或授权逻辑。
 
-## 一条手势链，单个动作（手电原包已获通过反馈）
+**当前开发候选：0.1.13 / `feat/system-mute`，仅新增「系统静音」；未获本轮设备反馈，不晋级 main。原包调用依据、BOOL/Int32 ABI 与 owner getter 移植边界见 `docs/SystemMute.md`。**
 
-`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开应用 / 控制中心 / 通知中心 / 系统截屏 / 应用切换界面 / 播放/暂停 / 上一首 / 下一首 / 开关手电（一次只选一个）`
+## 一条手势链，单个动作（手电已通过，系统静音待验）
+
+`一个默认关闭的开关 → 主屏幕空白处单指双击 → 系统锁屏 / 打开应用 / 控制中心 / 通知中心 / 系统截屏 / 应用切换界面 / 播放/暂停 / 上一首 / 下一首 / 开关手电 / 系统静音（一次只选一个）`
 
 锁屏动作使用实际 SpringBoard 单例的 `_simulateLockButtonPress`，不再先直接锁定 UI 或自行拼灭屏/动画。支持目标为 iOS 15.0 起，不写死版本上限；按运行时对象、selector 与准确 ABI 判断能力。最低部署值不等于所有未来系统已验证。
 
@@ -25,6 +27,7 @@
 - 0.1.10 仅解禁原目录的“播放/暂停”，该原包已获用户实测通过反馈：设置只保存，双击通过原门后动态解析系统 MediaRemote，单次发送 command=2、options=nil。该阶段不切歌、不判断播放状态、不模拟按键或重试，见 `docs/MediaPlayback.md`；本轮反馈独立记录于 `docs/Acceptance.md`。
 - 0.1.11 同轮解禁原目录“上一首 / 下一首”，原包已获用户实测通过反馈；分别严格发送一次 command=5 / 4、options=nil；保留原 loader、失败缓存、ABI 和 toggle 方法体字节。沿用原线程/解锁/双击门，设置只保存一个；不读曲目/播放状态、不强制播放、跳进度或补发，原生非零只表示提交结果，不证明切歌完成。见 `docs/MediaTracks.md`。
 - 0.1.12 只解禁原目录「开关手电」，该原始 RootHide 包已获用户「测试已通过」反馈：读取系统 level，非零则关闭，零则原样恢复系统保存亮度；全部方法精确 UInt64/void ABI 门先于状态读取。设置只保存，旧链保留；本地 true 仍只代表 void 效果调用尝试。用户反馈不等于运行时 ABI dump，也不外推其他系统；缺失/不匹配则拒绝。见 `docs/Flashlight.md`。
+- 0.1.13 候选仅解禁原目录「系统静音」：通过有声明的系统 owner getter 取得 `SBRingerControl`，完整核对 BOOL 状态/void(BOOL) setter/void(Int32) HUD 后，读旧状态、写反值、HUD 传旧状态；只代表调用尝试。与媒体静音/勿扰严格分开，不增加初始化 Hook、重试或日志；本轮 Apple/产物/设备结果分开记录。
 - 不加入通用动作引擎、多动作串联、主题、轮询、授权模块或后台日志采集。锁屏实现保持已接受版本的字节，App 动作通过实际 SpringBoard 对象上归属于该类链、精确 ABI 检查后的原生单次入口执行；SpringBoard 目标不再包含 LaunchServices 目录或客户端启动代码。不走 URL Scheme，不重试或换入口。
 
 最新获用户通过反馈原包绑定源码 `d31faa0febfd24d7b438ac900a4003930a8d4386`、成功 Actions `40106758959` 第 1 次 attempt、SHA-256 `b5a982985e370f31d9f0b16d2ab02674e1ce344b931abe9ec1d2d31a41c8901d`。`feat/toggle-flashlight` 和 `feat/media-track-navigation` 均保持各自已构建 SHA，main 只追加本轮验收文档并纳入已测功能；文档提交不是新包源码或新设备测试。`feat/media-play-pause`、0.1.10 原包、0.1.9 设置分支及更早回退点均保留。无法读取必需状态、对象不存在或 ABI 不匹配时，拒绝识别/调用，不猜备用接口。
@@ -50,7 +53,7 @@ TapLock（保留自己的身份）
 ├─ 已选择：当前单个动作（编辑、删除、排序未实现）
 └─ 选择动作
    ├─ 基础动作 → 选择基础动作（可搜索，原68项主目录顺序）
-   │  └─ 可用：系统截屏、控制中心、通知中心、系统锁屏、开关手电、播放/暂停、上一首、下一首、应用切换界面（沿原目录顺序）
+   │  └─ 可用：系统截屏、控制中心、通知中心、系统锁屏、开关手电、播放/暂停、上一首、下一首、系统静音、应用切换界面（沿原目录顺序）
    ├─ 打开应用 → 选择应用（真实图标 + 名称 + Bundle ID）
    └─ 快捷方式／快捷指令／打开链接／预设链接（禁用）
 ```
@@ -75,6 +78,7 @@ Sources/ScreenshotAction.swift        单次原生 takeScreenshot 请求；不�
 Sources/AppSwitcherAction.swift       单次原生打开多任务；精确 BOOL/int64/BOOL ABI，无备用入口
 Sources/MediaPlayPauseAction.swift    同一 loader 的单次播放/暂停、上一首、下一首；enum32/对象nil/unsigned-byte ABI
 Sources/FlashlightAction.swift       单次系统手电开/关请求；UInt64状态/保存亮度、void效果、精确运行时ABI门
+Sources/SystemMuteAction.swift      单次铃声反值与旧态 Int32 HUD；有声明的 owner getter、全部 ABI 前置拒绝
 Shared/Applications.swift            仅设置目标：已安装 App 快照与选择时校验，无启动方法
 Preferences/ApplicationIcons.swift   仅设置目标：按需真实图标、32pt 等比画布和缓存
 Preferences/SettingsController.swift UIKit 设置首页 / 主屏幕手势 / 动作及 App 选择
@@ -105,7 +109,7 @@ python3 -B -m unittest discover -s Tests -p 'test_*.py' -v
 
 1. 执行 Python 源码/CI 合同检查。
 2. 用 Xcode 16.4 的 Swift 编译并执行真实 `Sources/PrivateAPI.swift` runtime harness，并对旧版/当前生产 LockAction 执行同一按钮动作回归；另执行动作存储和设置 App 筛选，以及旧 LS 启动触及禁用服务边界的预期失败 / 当前原生单次启动的 receiver、ABI、继承客户端方法与非主线程拒绝测试。系统服务是测试替身，不证明设备灭屏/动画、App 切换或卡死已修复；失败就停止。
-3. 历史UIKit harness继续对逐字节核验的0.1.8执行所有原断言。`ReferenceSettingsApp.swift` 同编旧0.1.8、0.1.9、0.1.10、0.1.11与当前UI：分别要求旧根页布局RED、旧播放/暂停行禁用RED、旧上一首/下一首行禁用RED、旧手电行禁用RED，禁用行均不得有副作用；当前完成两路构造、21控件/6类别/68目录与搜索、禁用项不写入或导航、九基础+App单值保存/返回/重入、真实32pt图标、默认/损坏配置与资源失效安全。两个媒体Swift harness运行真实生产偏好/解锁/loader与不连接播放器的独立C库，覆盖旧偏好行为RED、命令2/4/5、UInt8返回、exactly-once、共享失败缓存和线程门；新增手电 harness 编译真实生产偏好/PrivateAPI/解锁/provider，以唯一 ObjC fixture 覆盖旧偏好RED、完整UInt64传递、void单次分支和失败门。workflow父步骤另核验exact-source完整报告，缺失、重复、错序或错误标记均失败，不把模拟器传输成功当测试通过。在同一临时模拟器加载优化后的完整tweak dylib，保持dyld启动、Hook转发/挂载/移除回归；父类/Hook/媒体服务替身不冒充设备系统。
+3. 历史UIKit harness继续对逐字节核验的0.1.8执行所有原断言。`ReferenceSettingsApp.swift` 同编旧0.1.8、0.1.9、0.1.10、0.1.11、0.1.12与当前UI：分别要求旧根页布局RED、旧播放/暂停行禁用RED、旧上一首/下一首行禁用RED、旧手电行禁用RED及旧系统静音行禁用RED，禁用行均不得有副作用；当前完成两路构造、21控件/6类别/68目录与搜索、禁用项不写入或导航、十基础+App单值保存/返回/重入、真实32pt图标、默认/损坏配置与资源失效安全。两个媒体Swift harness运行真实生产偏好/解锁/loader与不连接播放器的独立C库，覆盖旧偏好行为RED、命令2/4/5、UInt8返回、exactly-once、共享失败缓存和线程门；新增手电 harness 编译真实生产偏好/PrivateAPI/解锁/provider，以唯一 ObjC fixture 覆盖旧偏好RED、完整UInt64传递、void单次分支和失败门；系统静音 harness 编译真实偏好/PrivateAPI/解锁/provider，以唯一可逆重绑定的 ObjC fixture 覆盖旧 0.1.12 偏好行为 RED、完整十一动作替换、两路 owner／错误 direct 不回退、BOOL/Int32 ABI、old→反值→HUD 顺序与恰好次数。workflow父步骤另核验exact-source完整报告，缺失、重复、错序或错误标记均失败，不把模拟器传输成功当测试通过。在同一临时模拟器加载优化后的完整tweak dylib，保持dyld启动、Hook转发/挂载/移除回归；父类/Hook/媒体服务替身不冒充设备系统。
 4. 安装打包/签名工具，按固定 commit 获取 `roothide/theos`、其子模块及 SDK；不修改用户本机工具链。
 5. 完整编译 tweak 和 Preferences，架构为 arm64 + arm64e、部署下限 iOS 15.0，再生成原始 RootHide `.deb`。
 6. 检查包内路径、版本、设置入口、Substrate 运行库链接、Orion 依赖不存在、每个架构的启动表/最低系统版本及嵌入签名结构。

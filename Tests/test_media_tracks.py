@@ -7,7 +7,7 @@ import hashlib
 import json
 import re
 import unittest
-from flashlight_baseline import accepted_source as flashlight_accepted_source
+from system_mute_baseline import accepted_flashlight_source as flashlight_accepted_source
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,7 +93,7 @@ class MediaTrackContracts(unittest.TestCase):
         for token in ('"上一首"', '"下一首"', '--expect-track-baseline-failure',
                       'MEDIA_TRACKS_SETTINGS_BASELINE_EXPECTED_FAILURE:', 'MEDIA_TRACKS_UNAVAILABLE',
                       'case "nextTrack": return .nextTrack', 'case "previousTrack": return .previousTrack',
-                      'nine single-value replacements'):
+                      'ten single-value replacements'):
             self.assertIn(token, ui)
         startup = (ROOT / 'ci/settings-construction-smoke.sh').read_text()
         self.assertIn('run_reference_case "$TRACK_UI" track-baseline --expect-track-baseline-failure', startup)
@@ -137,9 +137,10 @@ class MediaTrackBaselineContracts(unittest.TestCase):
                     invert_media_tracks(path, mutant)
 
     def test_historical_layers_do_not_implicitly_accept_tracks_or_refresh_old_hashes(self):
-        from flashlight_baseline import accepted_media_tracks_source as track_source
+        from system_mute_baseline import accepted_media_tracks_source as track_source
         from media_play_pause_baseline import invert_media_play_pause
         from settings_layout_baseline import accepted_source
+        from system_mute_baseline import accepted_layout_source
         path = 'Preferences/SettingsController.swift'
         # Exercise the track-stage default rejection on its own predecessor input.
         current = flashlight_accepted_source(path)
@@ -155,7 +156,7 @@ class MediaTrackBaselineContracts(unittest.TestCase):
             with self.assertRaises(AssertionError):
                 accepted_source(path, media_play_pause=True)
         invert_media_play_pause(path, track_source(path))
-        restored = accepted_source(path, media_play_pause=True, media_tracks=True, flashlight=True)
+        restored = accepted_layout_source(path, media_play_pause=True, media_tracks=True, flashlight=True)
         self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', restored)
         self.assertNotIn('return .nextTrack', restored)
         self.assertNotIn('return .previousTrack', restored)

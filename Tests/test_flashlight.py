@@ -3,6 +3,8 @@ import json
 import unittest
 from pathlib import Path
 
+from system_mute_baseline import accepted_source
+
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED_BASIC = {
     'SYSTEM_SCREENSHOT', 'SYSTEM_CONTROLCENTER', 'SYSTEM_COVER',
@@ -13,7 +15,7 @@ ACCEPTED_BASIC = {
 
 class FlashlightContracts(unittest.TestCase):
     def test_original_flashlight_row_is_one_more_available_exclusive_action(self):
-        data = json.loads((ROOT / 'Preferences/Resources/SettingsReference.json').read_bytes())
+        data = json.loads(accepted_source('Preferences/Resources/SettingsReference.json'))
         rows = {row['id']: row for row in data['basicActions']}
         row = rows['TOGGLE_FLASHLIGHT']
         self.assertEqual((row['title'], row['image'], row['referenceSlot'], row['referenceActionNumber']),
@@ -24,15 +26,15 @@ class FlashlightContracts(unittest.TestCase):
                          ACCEPTED_BASIC | {'TOGGLE_FLASHLIGHT'})
 
     def test_single_record_storage_save_only_settings_and_proven_dispatch_are_connected(self):
-        prefs = (ROOT / 'Shared/Preferences.swift').read_text()
+        prefs = accepted_source('Shared/Preferences.swift')
         for token in ('case flashlight', 'kind == "flashlight", record.count == 1',
                       'case .flashlight:', 'record = ["kind": "flashlight"]'):
             self.assertIn(token, prefs)
-        settings = (ROOT / 'Preferences/SettingsController.swift').read_text()
+        settings = accepted_source('Preferences/SettingsController.swift')
         self.assertIn('case "flashlight": return .flashlight', settings)
         self.assertIn('basicActions.compactMap({ $0.action }).count == 9', settings)
         self.assertNotIn('FlashlightAction', settings)
-        dispatch = (ROOT / 'Sources/HomeDoubleTap.swift').read_text().split('func recognized(', 1)[1]
+        dispatch = accepted_source('Sources/HomeDoubleTap.swift').split('func recognized(', 1)[1]
         self.assertIn('case .flashlight:\n            FlashlightAction.toggle()', dispatch)
         self.assertEqual(dispatch.count('FlashlightAction.toggle()'), 1)
         self.assertLess(dispatch.index('isBlankHit('), dispatch.index('FlashlightAction.toggle()'))
@@ -77,7 +79,7 @@ class FlashlightContracts(unittest.TestCase):
         baseline = re.search(r'(?m)^Version: (\S+)$', original_control).group(1)
         pieces = [int(value) for value in baseline.split('.')]
         pieces[-1] += 1
-        self.assertEqual(EXPECTED_RELEASE_VERSION, '.'.join(map(str, pieces)))
+        self.assertEqual(re.search(r'(?m)^Version: (\S+)$', accepted_source('control')).group(1), '.'.join(map(str, pieces)))
         self.assertIn('Version: ' + EXPECTED_RELEASE_VERSION + '\n', (ROOT / 'control').read_text())
         info = plistlib.loads((ROOT / 'Preferences/Resources/Info.plist').read_bytes())
         self.assertEqual(info['CFBundleVersion'], EXPECTED_RELEASE_VERSION)

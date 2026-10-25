@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest import mock
 from settings_hierarchy_baseline import FIXTURE, invert_settings_hierarchy
 from open_app_baseline import invert_open_app
-from settings_layout_baseline import accepted_source
+from system_mute_baseline import accepted_layout_source as accepted_source
 from release_contract import EXPECTED_RELEASE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]

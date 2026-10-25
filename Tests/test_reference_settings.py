@@ -31,7 +31,7 @@ class ReferenceSettingsContract(unittest.TestCase):
     def resource(self):
         self.assertTrue(RESOURCE.is_file(), 'Missing source-bound SettingsReference.json')
         # Preserve the eight-action historical catalog assertion at its exact input stage.
-        from flashlight_baseline import accepted_source as flashlight_accepted_source
+        from system_mute_baseline import accepted_flashlight_source as flashlight_accepted_source
         return json.loads(flashlight_accepted_source('Preferences/Resources/SettingsReference.json'))
 
     def test_original_evidence_oracle_is_frozen_independently_of_ui_resource(self):
@@ -141,7 +141,7 @@ class ReferenceSettingsContract(unittest.TestCase):
 
     def test_existing_runtime_and_storage_files_are_byte_exact_018(self):
         from media_play_pause_baseline import invert_media_play_pause
-        from flashlight_baseline import accepted_media_tracks_source as track_accepted_source
+        from system_mute_baseline import accepted_media_tracks_source as track_accepted_source
         manifest = json.loads((ROOT / 'Tests/settings_layout_baseline.json').read_text())
         self.assertEqual(manifest['baseline'], 'f3a2e138fa9ac93d250645e9c66226b074d429ee')
         self.assertEqual(len(manifest['frozen']), 24)

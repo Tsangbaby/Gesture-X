@@ -1,5 +1,16 @@
 # 验证分层记录
 
+## 当前候选 0.1.13：系统静音（本地门已过，Apple／设备待验）
+
+- 新候选 `feat/system-mute` 基于已固化 0.1.12 main `0cc50fbd3e82c336f89394f80cb298aa150a1c70`；main、已测 0.1.12 功能分支和原包保持不变，不自动合并或发布。
+- 原包三层身份、216 条关键指令及 8 个 selector 槽经父独核；固定 SHA 的 15.0/16.0 声明核实 BOOL state/setter、void(Int32) HUD 与 owner 迁移。目标补丁版本／真实对象生命周期／系统实际效果未实测；实现采用精确签名与对象身份拒绝门，不把声明当设备兼容证明。证据详见 `SystemMute.md`。
+- 新 native report／runner source 及 synthetic protocol、真实 CLI writer/validator、无 PATH CLI 和非 Darwin 拒绝门合同已观察缺失时断言 RED，再转 GREEN；新增 11 项本地通过，零跳过；其中执行真实子进程驱动 synthetic completion writer，并以实际 byte verifier 验证冻结偏好，仍不冒充 native 行为。这些不是 Apple Swift 执行。
+- 生产垂直链与同一真实 Swift／UIKit harness 源码整合完成；7 个既有生产／metadata 输入仅含 10 个授权 hunk，新增 1 个 provider，其余 20 个继承生产输入逐字节保持。父代理独立从真实 `git show` 核对全部 27 个恢复结果，20 个旧 helper／fixture 及独立 UI oracle 均不改摘要。新 inverse 拒绝 198 个 source 及 178 个 manifest mutants；旧 stage 的变异在先恢复该 stage 后独立执行，不借新 inverse 的拒绝冒充旧覆盖。
+- 父代理独立执行完整 230 项 Python：零失败／错误／跳过，含候选副本无 `.git`、空 `PATH` 的 151 项历史 source／byte 子进程回归；4 项需要裸 bash 的非历史协议测试在正常 PATH 全量套件执行，不宣称空 PATH 全套。实际解析 44 个 Python、13 个 shell、44 个 shell 内嵌 Python、14 个 JSON/workflow、3 个 XML/binary plist；`git diff --check` 通过。第五 UIKit baseline byte gate 的原实现接受“换成另一有效 frozen 文件仍凑足 8 项”，父先复现断言 RED，再补 exact 八路径集合并转 GREEN，生产实现不变。
+- 独立规范／质量复核尚待最后冻结的同一份输入；同一真实 Swift 旧偏好行为 RED／当前 fixture GREEN、第五 UIKit 原行禁用 RED／当前十基础 + App 互斥矩阵均为待云端实际编译执行，不能由上述 Python 合同代替。
+- Apple Swift/UIKit、RootHide arm64 + arm64e 完整目标构建及新原包下载／独立核验：尚未执行。最终 exact SHA、run/attempt/job/artifact/原包摘要按真实结果记录。
+- 设备状态：未验收。这里不回写历史已交付报告中的 `device_tested: false`，也不将旧版本反馈扩展到本轮。
+
 ## 当前已验收功能基线：0.1.12 开关手电
 
 - 用户对交付的原始 RootHide 包反馈「测试已通过」，并授权仅追加验收文档固化到 main。原始构建 SHA `d31faa0febfd24d7b438ac900a4003930a8d4386`、Actions `40106758959` / attempt 1 / job `120909944475`、artifact `12565008166`、94,428 字节原包 SHA-256 `b5a982985e370f31d9f0b16d2ab02674e1ce344b931abe9ec1d2d31a41c8901d` 保持不变。用户反馈不是助手设备复测，未新增系统／越狱版本细节，不代勾未逐项报告的测试。

@@ -8,7 +8,7 @@ from test_source import source
 from control_center_baseline import FIXTURE, invert_control_center
 from open_app_baseline import invert_open_app
 from notification_center_baseline import invert_notification_center
-from settings_layout_baseline import accepted_source
+from system_mute_baseline import accepted_layout_source as accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPTED = 'b8d6994be7defcc37ceac3bb158c5526c952ac3a'

@@ -6,7 +6,7 @@ record coverage are not enlarged to accommodate a newly valid action.
 import json
 from pathlib import Path
 import unittest
-from flashlight_baseline import accepted_media_tracks_source as track_accepted_source
+from system_mute_baseline import accepted_media_tracks_source as track_accepted_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -114,13 +114,14 @@ class MediaPlayPauseContracts(unittest.TestCase):
         harness = (ROOT / 'Tests/ReferenceSettingsApp.swift').read_text()
         self.assertIn('case "playPause": return .playPause', harness)
         self.assertIn('MEDIA_SETTINGS_BASELINE_EXPECTED_FAILURE:', harness)
-        self.assertIn('nine single-value replacements', harness)
+        self.assertIn('ten single-value replacements', harness)
         verifier = (ROOT / 'ci/verify_package.py').read_text()
         self.assertIn('b"MRMediaRemoteSendCommand"', verifier)
         self.assertIn('Media provider leaked into Settings binary', verifier)
 
     def test_older_inverse_is_still_strict_unless_media_opt_in_is_explicit(self):
         from settings_layout_baseline import accepted_source
+        from system_mute_baseline import accepted_layout_source
         path = 'Preferences/SettingsController.swift'
         from unittest import mock
         # Exercise the old layout default against the media stage, after newer
@@ -132,7 +133,7 @@ class MediaPlayPauseContracts(unittest.TestCase):
             file.read_bytes.return_value = stage.encode('utf-8')
             with self.assertRaises(AssertionError):
                 accepted_source(path)
-        self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', accepted_source(path, media_play_pause=True, media_tracks=True, flashlight=True))
+        self.assertIn('TapLockPreferences.writeAction(.appSwitcher)', accepted_layout_source(path, media_play_pause=True, media_tracks=True, flashlight=True))
 
     def test_media_swift_completion_guard_rejects_nonzero_wrong_duplicate_and_extra_output(self):
         import tempfile
