@@ -1,6 +1,16 @@
 # 验证分层记录
 
-## 当前候选 0.1.12：开关手电（本地门通过，Apple执行待验）
+## 当前已验收功能基线：0.1.12 开关手电
+
+- 用户对交付的原始 RootHide 包反馈「测试已通过」，并授权仅追加验收文档固化到 main。原始构建 SHA `d31faa0febfd24d7b438ac900a4003930a8d4386`、Actions `40106758959` / attempt 1 / job `120909944475`、artifact `12565008166`、94,428 字节原包 SHA-256 `b5a982985e370f31d9f0b16d2ab02674e1ce344b931abe9ec1d2d31a41c8901d` 保持不变。用户反馈不是助手设备复测，未新增系统／越狱版本细节，不代勾未逐项报告的测试。
+- exact-run 完整 202,332 字节 job 原日志及独立下载报告核对：192 项 Python 零失败／错误／跳过；同一真实 Swift harness 的旧 0.1.11 偏好行为 RED、当前手电生产实现 4,975 项断言 GREEN；原四路 UIKit 行为 RED、当前 64,713 项断言 GREEN；10 项生产启动／Hook 检查。替身不冒充 SpringBoard 硬件或真实 Settings 宿主。
+- tweak 与 Preferences 完整编译图共 36 条 target／source／architecture 编译记录，两个签名阶段；两个 Mach-O 的 arm64／arm64e 共四个切片结构签名、实际 iOS 15.0 下限、依赖、设置资源、源码标记与原包摘要独立核验。外层 ZIP SHA-256 `29321434c16f72aee3443979ef5dacfb1edcb6a69749127115f0481e6659e848` 与内层 deb 摘要分列，不把结构签名当签发者信任或设备效果。
+- 证据保留于工程外 `Gesture-X-artifacts/0.1.12-flashlight-research/cloud-run-40106758959-attempt-1/FINAL_ARTIFACT_CLOSURE.json`；报告中的 `device_tested: false` 保留交付时事实，后续用户反馈另记。
+- 固化仅 README 和本阶段文档，`feat/toggle-flashlight` 保持原构建 SHA，旧分支／原包保留。main 纳入已测生产提交，完整 push 范围不全是文档；新文档提交使用官方 `[skip ci]` 避免重复构建，不改 workflow、不重编、不创建 Tag／Release。
+
+## 历史：0.1.12 开关手电（交付前冻结）
+
+以下保留当时源码／Apple待验状态；最终执行、原包及用户反馈以上段为准，不作为当前未完成指令。
 
 - 保护 main `925df18141606b75f71c77ddd998ad2baa237efe` 与已测 0.1.11 原包；新功能仅位于 `feat/toggle-flashlight`，不自动合并或发布。
 - 原包消费者父代理重核 deb／FAT成员／arm64e切片摘要、保留指令字节、format12 fixup、Class生产者、零/非零分支与原样亮度参数。相邻仓库标称 iOS15.5 header 与真实调用者声明经固定commit/Git blob交叉复核，支持 Q/Q/v/v(Q)；目标15.4.1/16的实际系统方法ABI仍未测，明确保留运行时精确门和设备验收缺口。
@@ -10,7 +20,7 @@
 - 后续必须在复核稳定的同一最终SHA运行完整本地门、云端Swift/UIKit/10项生产启动与RootHide arm64+arm64e构建；报告source/fixture字节attestation与behavior terminal严格分开，exact SHA/返回码/次序/正断言数均须核验。最终run/attempt/job/artifact与包摘要据真实结果追加，不预填。
 - 设备状态：**未验收**。功能清单见 `Acceptance.md`；完整原包/ABI与void返回语义见 `Flashlight.md`。
 
-## 当前已验收功能基线：0.1.11 下一首 / 上一首
+## 历史已验收功能基线：0.1.11 下一首 / 上一首
 
 - 用户对交付原包反馈「测试已通过」，并授权纯文档固化到 main。原始构建 SHA `9f942e8abad9c04835a189aadb5ec8526609596f`、Actions `40099002702` / attempt 1 / job `120887100474`、artifact `12562735119`、原包 SHA-256 `b06cbb986684430fa95585de6960ca77f4cdd7581d2833dfc36a21f7ec4eddc6` 保持不变。用户反馈不视作助手设备复测，也不扩展未单独报告的子项或环境。
 - exact-run 完整189,760字节job日志核对149项Python零跳过、切歌Swift三模式586/586/613断言、三路UIKit行为RED、当前19,557断言GREEN、10项生产启动，以及完整两个目标34条source／architecture编译记录和两个签名阶段。原包独立资源、路径、版本、4个切片嵌入签名结构及代码页摘要复核另列，不作为设备证明。
