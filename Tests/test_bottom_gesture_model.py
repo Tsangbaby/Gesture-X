@@ -75,6 +75,15 @@ def body(text, signature):
 
 
 class BottomGestureSourceTests(unittest.TestCase):
+    def test_source_geometry_imports_coregraphics_equatable_overlay_on_darwin(self):
+        # The cloud-Mac model target compiles without UIKit. Foundation alone
+        # leaves CGSize without the CoreGraphics overlay's Equatable conformance.
+        # This is a source guard; the actual Apple compiler remains the gate.
+        text = code(read(GEOMETRY))
+        self.assertRegex(text, r'(?m)^import CoreGraphics$',
+                         'geometry requires the explicit CoreGraphics value-type overlay')
+        self.assertIn('struct Bounds: Equatable', text)
+
     def test_source_preferences_contract_defaults_and_independent_keys(self):
         text = code(read(PREFS))
         self.assertIn('enum BottomGesturePreferences', text, 'SOURCE RED: preferences model missing')

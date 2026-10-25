@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Pure policy in the callback's unrotated reference space. The caller supplies
 /// the matching point/size units and freezes orientation + Snapshot at Began.
