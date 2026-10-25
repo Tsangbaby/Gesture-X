@@ -105,6 +105,28 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_uikit_incomplete_execution_retains_host_only_discriminating_evidence(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        script = (ROOT / 'ci/bottom-gesture-settings-smoke.sh').read_text()
+        self.assertIn('BOTTOM_UIKIT_CHECKPOINT:', harness)
+        checkpoint = swift_body(harness, 'private func checkpoint(')
+        self.assertIn('fflush(stdout)', checkpoint)
+        run = swift_body(harness, 'private func run()')
+        for name in ('testRootEntryAdmission', 'testRootEntry', 'testNumbers',
+                     'testDisabledAndStaleNumericEntry', 'testSixIndependentLists',
+                     'testDisabledAndSearch', 'testAppSnapshot', 'testIllegalVisibilityResources',
+                     'testBasicIdentityResources', 'testInvalidResources', 'testSaveFailure',
+                     'testNarrowDynamicType'):
+            self.assertIn('checkpoint("before ' + name + '")\n        ' + name + '()', run)
+        self.assertIn('BOTTOM_UIKIT_TRANSPORT_STATUS:', script)
+        self.assertIn('BottomGestureSettings crash report:', script)
+        self.assertIn("['sample', pid, '1', '1', '-file'", script)
+        self.assertIn('timeout=240', script)
+        self.assertIn('status = 124', script)
+        self.assertIn('bash "$0" --verify-output "$STATUS" "$WORK/console.txt"', script)
+        for relative in ('Makefile', 'Preferences/Makefile'):
+            self.assertNotIn('Tests/', (ROOT / relative).read_text())
+
     def test_catalog_freezes_exact_id_order_and_action_identity(self):
         source = production_source()
         assert_catalog_contract(self, source)

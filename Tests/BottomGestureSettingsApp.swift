@@ -21,6 +21,10 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         ("TOGGLE_FLASHLIGHT", .flashlight), ("SYSTEM_MUTE", .systemMute)
     ]
 
+    private func checkpoint(_ stage: String) {
+        print("BOTTOM_UIKIT_CHECKPOINT: \(stage); assertions=\(checks)")
+        fflush(stdout)
+    }
     private func finish(_ error: String? = nil) -> Never {
         if let backup = backup { replacePreferences(backup) }
         if let error = error { print("BOTTOM_GESTURE_UIKIT_FAIL: " + error) }
@@ -808,6 +812,7 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         require(descendants(cell).compactMap { $0 as? UIStackView }.contains(where: { $0.axis == .vertical }), "number controls must use constraints/stack layout")
     }
     private func run() {
+        checkpoint("run entered")
         guard let bottomData = BottomGestureSettingsIO().data("BottomGestureReference"),
               let actionData = BottomGestureSettingsIO().data("SettingsReference"),
               let bottom = try? JSONSerialization.jsonObject(with: bottomData) as? [String: Any],
@@ -816,22 +821,35 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         actionCatalog = actions
         backup = preferences()
         replacePreferences([TapLockPreferences.enabledKey: true, TapLockPreferences.actionKey: ["kind": "systemMute"]])
+        checkpoint("before testRootEntryAdmission")
         testRootEntryAdmission()
+        checkpoint("before testRootEntry")
         testRootEntry()
+        checkpoint("before testNumbers")
         testNumbers()
+        checkpoint("before testDisabledAndStaleNumericEntry")
         testDisabledAndStaleNumericEntry()
+        checkpoint("before testSixIndependentLists")
         testSixIndependentLists()
+        checkpoint("before testDisabledAndSearch")
         testDisabledAndSearch()
+        checkpoint("before testAppSnapshot")
         testAppSnapshot()
+        checkpoint("before testIllegalVisibilityResources")
         testIllegalVisibilityResources()
+        checkpoint("before testBasicIdentityResources")
         testBasicIdentityResources()
+        checkpoint("before testInvalidResources")
         testInvalidResources()
+        checkpoint("before testSaveFailure")
         testSaveFailure()
+        checkpoint("before testNarrowDynamicType")
         testNarrowDynamicType()
         require(TapLockPreferences.readEnabled() && TapLockPreferences.readAction() == .systemMute, "old double-tap must remain byte-independent")
         finish()
     }
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        checkpoint("didFinishLaunching")
         UIView.setAnimationsEnabled(false)
         let window = UIWindow(frame: UIScreen.main.bounds)
         nav = UINavigationController()

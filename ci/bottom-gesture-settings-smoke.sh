@@ -124,6 +124,38 @@ except subprocess.TimeoutExpired as error:
     status = 124
 Path(sys.argv[2]).write_text(text)
 print(text, end='', flush=True)
+print('BOTTOM_UIKIT_TRANSPORT_STATUS:', status, flush=True)
+if status != 0 or 'BOTTOM_GESTURE_UIKIT_PASS: assertions=' not in text:
+    # Cloud-only evidence, collected before our owned simulator is removed.
+    # It changes neither production bytes nor the exact terminal-marker gate.
+    roots = [Path.home() / 'Library/Logs/DiagnosticReports',
+             Path.home() / 'Library/Developer/CoreSimulator/Devices' / sys.argv[1] /
+             'data/Library/Logs/CrashReporter']
+    reports = [path for root in roots for path in root.glob('BottomGestureSettings*') if path.is_file()]
+    for path in sorted(reports, key=lambda item: item.stat().st_mtime, reverse=True)[:2]:
+        print('BottomGestureSettings crash report:', path.name, flush=True)
+        print(path.read_text(errors='replace')[:24000], flush=True)
+    try:
+        processes = subprocess.run(['ps', '-axo', 'pid=,command='], capture_output=True,
+                                   text=True, timeout=10)
+        targets = [line.strip().split(None, 1)[0] for line in processes.stdout.splitlines()
+                   if sys.argv[1] in line and 'BottomGestureSettings.app/BottomGestureSettings' in line]
+        print('BOTTOM_UIKIT_RUNNING_PIDS:', targets, flush=True)
+        for pid in targets[:1]:
+            sample_path = Path(sys.argv[2]).with_name('main-thread-sample.txt')
+            sample = subprocess.run(['sample', pid, '1', '1', '-file', str(sample_path)],
+                                    capture_output=True, text=True, timeout=20)
+            print('BOTTOM_UIKIT_SAMPLE_STATUS:', sample.returncode, sample.stdout, sample.stderr, flush=True)
+            if sample_path.is_file():
+                print(sample_path.read_text(errors='replace')[:26000], flush=True)
+        logs = subprocess.run(['xcrun', 'simctl', 'spawn', sys.argv[1], 'log', 'show',
+                               '--last', '4m', '--style', 'compact', '--predicate',
+                               'process == "BottomGestureSettings" OR (process == "SpringBoard" AND eventMessage CONTAINS "com.tsangbaby.taplock.bottom-ui-tests")'],
+                              capture_output=True, text=True, timeout=30)
+        print('BOTTOM_UIKIT_SYSTEM_LOG_STATUS:', logs.returncode, flush=True)
+        print((logs.stdout + logs.stderr)[-26000:], flush=True)
+    except subprocess.TimeoutExpired as error:
+        print('BOTTOM_UIKIT_EVIDENCE_PROBE_TIMEOUT:', error.cmd, flush=True)
 raise SystemExit(status)
 PY
 STATUS=$?
