@@ -105,6 +105,25 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_discovery_and_foreign_fixture_cannot_reparent_production_cached_controls(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        discovery = swift_body(harness, 'private func find(')
+        self.assertNotIn('source.tableView(', discovery,
+                         'discovery must not ask the datasource for shadow cells with live cached controls')
+        for token in ('for path in paths(table)', 'table.scrollToRow(at: path',
+                      'table.layoutIfNeeded()', 'table.cellForRow(at: path)'):
+            self.assertIn(token, discovery)
+        admission = swift_body(harness, 'private func testRootEntryAdmission()')
+        self.assertIn('foreignTable.dataSource = foreignSource', admission)
+        self.assertIn('foreignTable.delegate = originalRoot', admission)
+        self.assertNotIn('foreignTable.dataSource = originalRoot', admission)
+        for token in ('cachedRootToggle.isDescendant(of: originalSwitchCell)',
+                      'cachedRootToggle.superview === originalSwitchOwner'):
+            self.assertIn(token, admission, 'missing executed UIKit control-ownership regression')
+        foreign = swift_body(harness, 'private final class BottomRootForeignDataSource:')
+        self.assertIn('UITableViewCell(style:', foreign)
+        self.assertNotIn('UISwitch(', foreign)
+
     def test_bottom_simulators_use_sdk_matching_runtime_not_highest_foreign_runtime(self):
         for runner, override in [('bottom-gesture-settings', 'BOTTOM_UI_RUNTIME'),
                                  ('bottom-gesture-native', 'BOTTOM_NATIVE_RUNTIME'),

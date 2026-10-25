@@ -2,6 +2,29 @@ import UIKit
 import CoreFoundation
 import Darwin
 
+// The hostile table keeps the original production delegate, but must not ask
+// that delegate's datasource to hand one cached accessory view to two tables.
+private final class BottomRootForeignDataSource: NSObject, UITableViewDataSource {
+    private let target: IndexPath
+    private let identifier: String
+    init(target: IndexPath, identifier: String) {
+        self.target = target
+        self.identifier = identifier
+        super.init()
+    }
+    func numberOfSections(in tableView: UITableView) -> Int { target.section + 1 }
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        section == target.section ? target.row + 1 : 0
+    }
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+        cell.accessibilityIdentifier = indexPath == target ? identifier : "bottom.foreign.placeholder"
+        cell.textLabel?.text = "底部上划手势"
+        cell.accessoryType = .disclosureIndicator
+        return cell
+    }
+}
+
 // Executes production controllers and their actual table-owned controls. I/O
 // failure/catalog fixtures do not replace rendering, parsing, mutation or guards.
 @main
@@ -78,14 +101,16 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
             (0..<source.tableView(table, numberOfRowsInSection: section)).map { IndexPath(row: $0, section: section) }
         }
     }
-    // Discovery-only cells are never used for events. Delivery below scrolls and
-    // retrieves UITableView.cellForRow(at:), not a fresh datasource construction.
+    // Discover through the table's actual cells. A direct datasource request
+    // creates shadow cells that can steal a production cached UISwitch and
+    // make both cells repeatedly reparent it during Core Animation layout.
     private func find(_ table: UITableView, _ id: String) -> IndexPath {
-        guard let source = table.dataSource,
-              let path = paths(table).first(where: { source.tableView(table, cellForRowAt: $0).accessibilityIdentifier == id }) else {
-            finish("missing row: " + id)
+        for path in paths(table) {
+            table.scrollToRow(at: path, at: .middle, animated: false)
+            table.layoutIfNeeded()
+            if table.cellForRow(at: path)?.accessibilityIdentifier == id { return path }
         }
-        return path
+        finish("missing row: " + id)
     }
     private func ownedCell(_ table: UITableView, _ path: IndexPath) -> UITableViewCell {
         table.scrollToRow(at: path, at: .middle, animated: false)
@@ -178,6 +203,13 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         let originalRoot = TapLockSettingsController()
         show(originalRoot)
         let rootTable = table(originalRoot)
+        let originalSwitchCell = ownedCell(rootTable, IndexPath(row: 0, section: 0))
+        guard let cachedRootToggle = originalSwitchCell.accessoryView as? UISwitch else {
+            finish("root ownership fixture must use the actual production cached toggle")
+        }
+        require(cachedRootToggle.isDescendant(of: originalSwitchCell), "root toggle fixture lacks its cell owner")
+        _ = find(rootTable, "enabled")
+        require(cachedRootToggle.isDescendant(of: originalSwitchCell), "row discovery stole a production cached control")
         let path = find(rootTable, "bottomOptions")
         let retainedCell = ownedCell(rootTable, path)
         let rootDelegate = rootTable.delegate
@@ -198,15 +230,20 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         // A foreign table has a genuine owned, visible, matching row, but never
         // owns this controller's admission authority.
         let foreignTable = UITableView(frame: rootTable.frame, style: .insetGrouped)
-        foreignTable.dataSource = originalRoot
+        let foreignSource = BottomRootForeignDataSource(target: path, identifier: "bottomOptions")
+        let originalSwitchOwner = cachedRootToggle.superview
+        foreignTable.dataSource = foreignSource
         foreignTable.delegate = originalRoot
-        nav.view.addSubview(foreignTable)
-        foreignTable.reloadData()
-        let foreignCell = ownedCell(foreignTable, path)
-        require(foreignCell.accessibilityIdentifier == retainedCell.accessibilityIdentifier &&
-                foreignCell.window === rootTable.window, "foreign table fixture must otherwise match")
-        reject(foreignTable, "foreign-table")
-        foreignTable.removeFromSuperview()
+        withExtendedLifetime(foreignSource) {
+            nav.view.addSubview(foreignTable)
+            foreignTable.reloadData()
+            let foreignCell = ownedCell(foreignTable, path)
+            require(foreignCell.accessibilityIdentifier == retainedCell.accessibilityIdentifier &&
+                    foreignCell.window === rootTable.window, "foreign table fixture must otherwise match")
+            require(cachedRootToggle.superview === originalSwitchOwner, "foreign fixture stole a production cached control")
+            reject(foreignTable, "foreign-table")
+            foreignTable.removeFromSuperview()
+        }
 
         let cellFrame = retainedCell.frame
         guard let cellOwner = retainedCell.superview else { finish("retained cell lacks real owner") }
