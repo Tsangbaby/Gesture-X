@@ -51,25 +51,135 @@ struct BottomGestureSample {
 
     static func captureValidated(_ receiver: AnyObject, _ tongue: AnyObject?, _ gesture: AnyObject?,
                                  capabilities: Capabilities) -> BottomGestureSample? {
-        guard Thread.isMainThread,
-              UIApplication.shared.applicationState == .active,
-              let receiver = receiver as? NSObject, receiver.isKind(of: capabilities.manager),
-              let deck = PrivateAPI.object(receiver, "deckGrabberTongue"), deck === tongue,
-              deck.isKind(of: capabilities.tongue),
-              let recognizer = edgeRecognizer(in: deck), recognizer === gesture,
-              let container = recognizer.view,
-              let window = container.window, window.screen === UIScreen.main,
-              let scene = window.windowScene, scene.activationState == .foregroundActive,
-              scene.screen === window.screen,
-              let referenceRect = referenceRectangle(of: window.screen),
-              let orientationRaw = interfaceOrientation(of: capabilities.application),
-              orientationRaw == scene.interfaceOrientation.rawValue else { return nil }
+        guard Thread.isMainThread else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleOffMain)
+            #endif
+            return nil
+        }
+        guard UIApplication.shared.applicationState == .active else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleApplicationInactive)
+            #endif
+            return nil
+        }
+        guard let receiver = receiver as? NSObject else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleReceiverUnavailable)
+            #endif
+            return nil
+        }
+        guard receiver.isKind(of: capabilities.manager) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleReceiverWrongType)
+            #endif
+            return nil
+        }
+        guard let deck = PrivateAPI.object(receiver, "deckGrabberTongue") else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleDeckUnavailable)
+            #endif
+            return nil
+        }
+        guard deck === tongue else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleDeckMismatch)
+            #endif
+            return nil
+        }
+        guard deck.isKind(of: capabilities.tongue) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleDeckWrongType)
+            #endif
+            return nil
+        }
+        guard let recognizer = edgeRecognizer(in: deck) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleRecognizerUnavailable)
+            #endif
+            return nil
+        }
+        guard recognizer === gesture else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleRecognizerMismatch)
+            #endif
+            return nil
+        }
+        guard let container = recognizer.view else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleRecognizerDetached)
+            #endif
+            return nil
+        }
+        guard let window = container.window else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleContainerDetached)
+            #endif
+            return nil
+        }
+        guard window.screen === UIScreen.main else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleWrongScreen)
+            #endif
+            return nil
+        }
+        guard let scene = window.windowScene else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleSceneUnavailable)
+            #endif
+            return nil
+        }
+        guard scene.activationState == .foregroundActive else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleSceneInactive)
+            #endif
+            return nil
+        }
+        guard scene.screen === window.screen else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleSceneWrongScreen)
+            #endif
+            return nil
+        }
+        guard let referenceRect = referenceRectangle(of: window.screen) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleReferenceUnavailable)
+            #endif
+            return nil
+        }
+        guard let orientationRaw = interfaceOrientation(of: capabilities.application) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleOrientationUnavailable)
+            #endif
+            return nil
+        }
+        guard orientationRaw == scene.interfaceOrientation.rawValue else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleOrientationMismatch)
+            #endif
+            return nil
+        }
         let referenceSpace = window.screen.fixedCoordinateSpace
-        guard referenceSpace.bounds == referenceRect else { return nil }
+        guard referenceSpace.bounds == referenceRect else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleReferenceMismatch)
+            #endif
+            return nil
+        }
         let localPoint = recognizer.location(in: container)
-        guard localPoint.x.isFinite, localPoint.y.isFinite else { return nil }
+        guard localPoint.x.isFinite, localPoint.y.isFinite else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleRawNonfinite)
+            #endif
+            return nil
+        }
         let point = container.convert(localPoint, to: referenceSpace)
-        guard point.x.isFinite, point.y.isFinite else { return nil }
+        guard point.x.isFinite, point.y.isFinite else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.sampleConvertedNonfinite)
+            #endif
+            return nil
+        }
         return BottomGestureSample(point: point, referenceRect: referenceRect,
             orientationRaw: orientationRaw, scene: scene, screen: window.screen, referenceSpace: referenceSpace,
             container: container, recognizer: recognizer, deck: deck)
@@ -158,11 +268,67 @@ final class BottomGestureSession {
             self.receiver === receiver && self.gesture === gesture
         }
         func accepts(_ sample: Sample, tongue: AnyObject?) -> Bool {
-            self.tongue === tongue && sample.scene === scene && sample.container === container &&
-                sample.recognizer === recognizer && sample.deck === deck &&
-                sample.screen === screen && sample.referenceSpace === referenceSpace &&
-                sample.referenceRect == referenceRect &&
-                sample.orientationRaw == orientationRaw && sample.referenceSize == referenceSize
+            guard self.tongue === tongue else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextTongueChanged)
+                #endif
+                return false
+            }
+            guard sample.scene === scene else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextSceneChanged)
+                #endif
+                return false
+            }
+            guard sample.container === container else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextContainerChanged)
+                #endif
+                return false
+            }
+            guard sample.recognizer === recognizer else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextRecognizerChanged)
+                #endif
+                return false
+            }
+            guard sample.deck === deck else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextDeckChanged)
+                #endif
+                return false
+            }
+            guard sample.screen === screen else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextScreenChanged)
+                #endif
+                return false
+            }
+            guard sample.referenceSpace === referenceSpace else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextReferenceChanged)
+                #endif
+                return false
+            }
+            guard sample.referenceRect == referenceRect else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextRectangleChanged)
+                #endif
+                return false
+            }
+            guard sample.orientationRaw == orientationRaw else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextOrientationChanged)
+                #endif
+                return false
+            }
+            guard sample.referenceSize == referenceSize else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.contextSizeChanged)
+                #endif
+                return false
+            }
+            return true
         }
     }
 
@@ -192,6 +358,9 @@ final class BottomGestureSession {
 
     func invalidate() {
         guard Thread.isMainThread else { return }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.sessionInvalidated)
+        #endif
         active = nil
         cancelAll()
     }
@@ -225,28 +394,129 @@ final class BottomGestureSession {
         return enabledSide(side, snapshot: snapshot)
     }
 
+    #if BOTTOM_PANEL_DIAGNOSTIC
+    private func observeClassification(_ saved: Active, _ current: Sample) {
+        guard let bounds = BottomGestureGeometry.bounds(snapshot: saved.snapshot,
+            referenceSize: saved.referenceSize, orientationRaw: saved.orientationRaw) else {
+            BottomPanelDiagnostic.mark(.classificationBoundsRejected); return
+        }
+        guard BottomGestureGeometry.side(origin: saved.origin, bounds: bounds) != nil else {
+            BottomPanelDiagnostic.mark(.classificationOutsideSide); return
+        }
+        guard let displacement = BottomGestureGeometry.displacement(origin: saved.origin,
+            current: current.point, orientationRaw: saved.orientationRaw) else {
+            BottomPanelDiagnostic.mark(.classificationNonfinite); return
+        }
+        guard let tier = BottomGestureGeometry.tier(displacement: displacement, bounds: bounds) else {
+            if displacement <= bounds.h0 { BottomPanelDiagnostic.mark(.classificationBelowMinimum) }
+            else { BottomPanelDiagnostic.mark(.classificationAboveMaximum) }
+            return
+        }
+        switch tier {
+        case .ordinary: BottomPanelDiagnostic.mark(.classificationOrdinary)
+        case .extra: BottomPanelDiagnostic.mark(.classificationExtra)
+        case .extraPlus: BottomPanelDiagnostic.mark(.classificationExtraPlus)
+        }
+        let side = BottomGestureGeometry.side(origin: saved.origin, bounds: bounds)!
+        let selection = saved.snapshot.selection(BottomGestureGeometry.gestureID(side: side, tier: tier))
+        if !selection.enabled { BottomPanelDiagnostic.mark(.classificationDisabledTier) }
+        else if selection.actions.isEmpty { BottomPanelDiagnostic.mark(.classificationEmptyActions) }
+        else { BottomPanelDiagnostic.mark(.classificationInvalidActions) }
+    }
+    #endif
+
     func receive(_ phase: BottomGestureHooks.Phase, receiver: AnyObject,
                  tongue: AnyObject?, gesture: AnyObject?, forward: () -> Void) {
         guard Thread.isMainThread else { forward(); return }
         switch phase {
         case .began:
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.admission(true)
+            defer { BottomPanelDiagnostic.admission(false) }
+            #endif
             // Until separately proven lock-screen ingress is available, fluid
             // callbacks require known-unlocked eligibility EVEN if the setting
             // permits locked use. Unknown/locked preserves native input.
-            guard active == nil, let gesture = gesture, let tongue = tongue,
-                  snapshot.available, unlocked(),
-                  let current = sample(receiver, tongue, gesture),
-                  let bounds = BottomGestureGeometry.bounds(snapshot: snapshot,
-                      referenceSize: current.referenceSize, orientationRaw: current.orientationRaw),
-                  let side = BottomGestureGeometry.side(origin: current.point, bounds: bounds),
-                  enabledSide(side, snapshot: snapshot) else { forward(); return }
+            guard active == nil else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganAlreadyOwned)
+                #endif
+                forward(); return
+            }
+            guard let gesture = gesture else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganGestureUnavailable)
+                #endif
+                forward(); return
+            }
+            guard let tongue = tongue else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganTongueUnavailable)
+                #endif
+                forward(); return
+            }
+            guard snapshot.available else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganPreferencesUnavailable)
+                #endif
+                forward(); return
+            }
+            guard unlocked() else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganLockedOrUnknown)
+                #endif
+                forward(); return
+            }
+            guard let current = sample(receiver, tongue, gesture) else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganSampleUnavailable)
+                #endif
+                forward(); return
+            }
+            guard let bounds = BottomGestureGeometry.bounds(snapshot: snapshot,
+                referenceSize: current.referenceSize, orientationRaw: current.orientationRaw) else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganBoundsUnavailable)
+                #endif
+                forward(); return
+            }
+            guard let side = BottomGestureGeometry.side(origin: current.point, bounds: bounds) else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganOutsideSide)
+                #endif
+                forward(); return
+            }
+            guard enabledSide(side, snapshot: snapshot) else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.beganSideDisabled)
+                #endif
+                forward(); return
+            }
             active = Active(receiver: receiver, gesture: gesture, tongue: tongue,
                             sample: current, snapshot: snapshot)
             cancelPendingFlow() // Never dismiss an already displayed panel here.
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.beganAdmitted)
+            #endif
             // Only admitted Began suppresses its captured predecessor.
         case .updated:
             if let saved = active, saved.owns(receiver, gesture), !saved.ending {
-                if !unlocked() || sample(receiver, tongue, gesture).map({ saved.accepts($0, tongue: tongue) }) != true {
+                if !unlocked() {
+                    #if BOTTOM_PANEL_DIAGNOSTIC
+                    BottomPanelDiagnostic.mark(.updateLocked)
+                    #endif
+                    invalidate()
+                } else if let current = sample(receiver, tongue, gesture) {
+                    if !saved.accepts(current, tongue: tongue) {
+                        #if BOTTOM_PANEL_DIAGNOSTIC
+                        BottomPanelDiagnostic.mark(.updateContextRejected)
+                        #endif
+                        invalidate()
+                    }
+                } else {
+                    #if BOTTOM_PANEL_DIAGNOSTIC
+                    BottomPanelDiagnostic.mark(.updateSampleRejected)
+                    #endif
                     invalidate()
                 }
             }
@@ -256,16 +526,47 @@ final class BottomGestureSession {
             if let saved = saved, saved.owns(receiver, gesture), !saved.ending {
                 saved.ending = true // Reentrant Ended cannot submit twice.
                 defer { reset(ifSame: saved) }
-                if unlocked(), let current = sample(receiver, tongue, gesture),
-                   saved.accepts(current, tongue: tongue) {
+                func submitIfEligible() {
+                    guard unlocked() else {
+                        #if BOTTOM_PANEL_DIAGNOSTIC
+                        BottomPanelDiagnostic.mark(.endedLocked)
+                        #endif
+                        invalidate(); return
+                    }
+                    guard let current = sample(receiver, tongue, gesture) else {
+                        #if BOTTOM_PANEL_DIAGNOSTIC
+                        BottomPanelDiagnostic.mark(.endedSampleRejected)
+                        #endif
+                        invalidate(); return
+                    }
+                    guard saved.accepts(current, tongue: tongue) else {
+                        #if BOTTOM_PANEL_DIAGNOSTIC
+                        BottomPanelDiagnostic.mark(.endedContextRejected)
+                        #endif
+                        invalidate(); return
+                    }
                     if let match = BottomGestureGeometry.classify(origin: saved.origin, current: current.point,
                         snapshot: saved.snapshot, referenceSize: saved.referenceSize,
                         orientationRaw: saved.orientationRaw) {
+                        #if BOTTOM_PANEL_DIAGNOSTIC
+                        BottomPanelDiagnostic.mark(.actionSubmitted)
+                        #endif
                         trigger(match.selection, saved.scene, false)
+                    } else {
+                        #if BOTTOM_PANEL_DIAGNOSTIC
+                        observeClassification(saved, current)
+                        BottomPanelDiagnostic.mark(.endedClassificationRejected)
+                        #endif
                     }
-                } else { invalidate() }
+                }
+                submitIfEligible()
                 forward() // Submission BEFORE native; own cleanup AFTER native.
-            } else { forward() }
+            } else {
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.endedWithoutOwner)
+                #endif
+                forward()
+            }
         case .canceled:
             let saved = active
             if let saved = saved, saved.owns(receiver, gesture) { saved.ending = true }

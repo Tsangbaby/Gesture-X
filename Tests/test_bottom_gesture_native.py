@@ -6,12 +6,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from bottom_panel_inverse import source as baseline_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def code(path):
-    text = (ROOT / path).read_text()
+    text = baseline_source(path)
     return re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
                   lambda m: m[0] if m[0].startswith('"') else '', text, flags=re.S)
 

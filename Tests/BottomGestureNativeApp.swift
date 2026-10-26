@@ -110,6 +110,7 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
     private var size = CGSize(width: 400, height: 800)
     private var allowed = true
     private var sampleAvailable = true
+    private var useActualSampler = false
     private var alternateContainer: UIView?
     private var coordinator: BottomActionCoordinator?
     private var providerActions: [TapLockPreferences.Action] = []
@@ -221,6 +222,14 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
 
     private func scriptedSample(_ target: AnyObject, _ tongue: AnyObject?, _ gesture: AnyObject?) -> BottomGestureSample? {
         sampleReads += 1
+        if useActualSampler {
+            guard sampleAvailable, let target = target as? NativeReceiverFixture else { return nil }
+            let orientation = NativeOrientationFixture()
+            orientation.raw = Int64(scene.interfaceOrientation.rawValue)
+            return BottomGestureSample.captureValidated(target, tongue, gesture,
+                capabilities: .init(manager: NativeReceiverFixture.self,
+                    tongue: NativeDeckFixture.runtimeType, application: orientation))
+        }
         guard sampleAvailable, let target = target as? NativeReceiverFixture,
               tongue === target.deck.object, gesture === target.deck.recognizer else { return nil }
         return BottomGestureSample(point: target.deck.recognizer.point,
@@ -618,6 +627,73 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
         require(providerActions == [.playPause, .nextTrack, .playPause], "new admitted Began did not cancel old delayed generation")
         owner.invalidate(); coordinator?.cancelAll(); coordinator = nil
     }
+    @MainActor private func testClosedFlowChooserBridge() async {
+        checkpoint("flow-disabled hook/actual sampler/chooser integration")
+        useActualSampler = true
+        defer { useActualSampler = false; owner.invalidate(); coordinator = nil }
+        func installCoordinator() {
+            coordinator = BottomActionCoordinator(io: .init(now: { 0 },
+                schedule: { [unowned self] _, job in self.jobs.append(job) },
+                invoke: { [unowned self] action in self.providerActions.append(action) },
+                permission: { _, _ in true }))
+        }
+        let fixed = UIScreen.main.fixedCoordinateSpace
+        let attached = receiver.deck.recognizer.view!
+        func position(_ fraction: CGFloat) {
+            receiver.deck.recognizer.point = attached.convert(
+                CGPoint(x: 10, y: fixed.bounds.height - 10 - fixed.bounds.height * fraction), from: fixed)
+        }
+        func swipe(_ fraction: CGFloat) {
+            position(0); invoke(.began)
+            position(fraction); invoke(.updated); invoke(.ended)
+        }
+        prepare(configured(flow: false)); installCoordinator()
+        swipe(0.1)
+        require(calls.count == 2 && selections.count == 1, "closed flow must consume Began and submit before forwarding Ended")
+        require(providerActions.isEmpty && jobs.isEmpty, "closed flow must not execute a provider before choice")
+        guard let chooser = coordinator?.panelWindow,
+              let panel = chooser.rootViewController as? BottomActionPanelController else {
+            require(false, "closed flow must create production chooser"); return
+        }
+        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap { descendants($0) } }
+        require(!chooser.isHidden && chooser.windowScene === scene && panel.actions == [.lock], "closed flow chooser exact scene and selection")
+        require(descendants(panel.view).contains { $0.accessibilityIdentifier == "bottom.action.0" }, "closed flow actual action control exists")
+        var progressed = false
+        DispatchQueue.main.async { progressed = true }
+        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        require(progressed, "main queue progressed while chooser is presented")
+        require(coordinator?.panelWindow === chooser && !chooser.isHidden && panel.view.window === chooser,
+                "panel survives main-queue turn")
+        owner.invalidate()
+        require(coordinator?.panelWindow == nil && chooser.rootViewController == nil, "invalidation releases chooser")
+        var snapshot = configured(flow: false)
+        var tierSelections = snapshot.selections
+        tierSelections[.bottomLeftUpExtra] = .disabled
+        snapshot = .init(available: snapshot.available, numbers: snapshot.numbers,
+                         booleans: snapshot.booleans, selections: tierSelections)
+        prepare(snapshot); installCoordinator(); swipe(0.2)
+        require(coordinator?.panelWindow == nil && providerActions.isEmpty && self.selections.isEmpty,
+                "disabled higher tier must not produce a chooser")
+        prepare(configured(flow: false)); installCoordinator()
+        position(0); invoke(.began); sampleAvailable = false
+        position(0.1); invoke(.updated); sampleAvailable = true; invoke(.ended)
+        require(coordinator?.panelWindow == nil && providerActions.isEmpty,
+                "lost sampling must not produce a chooser")
+        swipe(0.1)
+        require(coordinator?.panelWindow != nil && providerActions.isEmpty,
+                "later valid gesture recovers chooser")
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        let diagnosticFields = Dictionary(uniqueKeysWithValues: BottomPanelDiagnostic.reportForTesting().split(separator: "\n").map { line -> (String, String) in
+            let pair = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            return (String(pair[0]), String(pair[1]))
+        })
+        for event in ["panelCreated", "panelNotHidden", "panelDeferredNotHidden", "classificationDisabledTier", "updateSampleRejected", "actionSubmitted"] {
+            require(Int(diagnosticFields[event] ?? "0")! > 0, "enabled observer recorded actual integration stage " + event)
+        }
+        #endif
+        checkpoint("flow-disabled chooser integration completed")
+    }
     private func run(_ scene: UIWindowScene, attempts: Int = 0) {
         guard scene.activationState == .foregroundActive && UIApplication.shared.applicationState == .active else {
             require(attempts < 100, "scene never activated")
@@ -669,12 +745,15 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
             call.tongue === receiver.deck.object && call.gesture === receiver.deck.recognizer, "installation-time seed forwarding tuple") }
         testCapabilityRejection(); testForwarding(); testOverlap(); testInvalidation()
         testLandscape(); testEdge(); testSafeObjectSlots(); testRecognizerViewSampling(); testCoordinatorBridge()
-        owner.invalidate()
-        let marker = "BOTTOM_GESTURE_NATIVE_PASS: assertions=\(checks)"
-        publishResult(marker)
-        print(marker)
-        print("Boundary: UIKit/ObjC backend fixtures; NOT handset injection, native competition, or lockscreen parity")
-        fflush(stdout); exit(0)
+        Task { @MainActor in
+            await testClosedFlowChooserBridge()
+            owner.invalidate()
+            let marker = "BOTTOM_GESTURE_NATIVE_PASS: assertions=\(checks)"
+            publishResult(marker)
+            print(marker)
+            print("Boundary: UIKit/ObjC backend fixtures; NOT handset injection, native competition, or lockscreen parity")
+            fflush(stdout); exit(0)
+        }
     }
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,

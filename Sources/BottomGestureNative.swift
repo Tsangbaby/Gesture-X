@@ -34,13 +34,21 @@ final class BottomGestureHooks {
     func install(on type: AnyClass, installer: Installer = { type, selector, imp, old in
         MSHookMessageEx(type, selector, imp, old)
     }) -> Bool {
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.hookAttempt)
+        #endif
         guard Thread.isMainThread else { return false }
         guard !started else { return true }
         let methods = Self.selectors.compactMap {
             PrivateAPI.checkedMethod(in: type, selector: $0,
                                      returns: "v", arguments: ["@", "d", "d", "@"])
         }
-        guard methods.count == Self.selectors.count else { return false }
+        guard methods.count == Self.selectors.count else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.hookRejected)
+            #endif
+            return false
+        }
         let edgeMethod = PrivateAPI.checkedMethod(in: type, selector: Self.edgeSelector,
                                                  returns: "B", arguments: ["d"])
         Self.registryLock.lock()
@@ -72,6 +80,9 @@ final class BottomGestureHooks {
             edgeOriginal = previous ?? seed
             stateLock.unlock()
         }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.hookInstalled)
+        #endif
         return true
     }
 
@@ -89,16 +100,34 @@ final class BottomGestureHooks {
     private static func route(_ phase: Phase, _ receiver: AnyObject, _ selector: Selector,
                               _ tongue: AnyObject?, _ distance: Double, _ velocity: Double,
                               _ gesture: AnyObject?) {
-        guard let owner = owner(for: receiver) else { return }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.callback(phase.rawValue)
+        #endif
+        guard let owner = owner(for: receiver) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.callbackOwnerMissing)
+            #endif
+            return
+        }
         owner.stateLock.lock()
         let original = owner.originals[phase.rawValue]
         owner.stateLock.unlock()
-        guard let original = original else { return }
+        guard let original = original else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.callbackOriginalMissing)
+            #endif
+            return
+        }
         let previous = unsafeBitCast(original, to: PullCall.self)
         // This seam, including the off-main branch, is exercised through real
         // installed ObjC IMPs by BottomGestureNativeApp (not a Python model).
         let forward = { previous(receiver, selector, tongue, distance, velocity, gesture) }
-        guard Thread.isMainThread else { forward(); return }
+        guard Thread.isMainThread else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.callbackOffMain)
+            #endif
+            forward(); return
+        }
         owner.session.receive(phase, receiver: receiver, tongue: tongue, gesture: gesture, forward: forward)
     }
 
@@ -124,7 +153,12 @@ private let bottomPreferencesChanged: CFNotificationCallback = { _, _, _, _, _ i
     DispatchQueue.main.async { BottomGestureRuntime.reloadPreferences() }
 }
 private let bottomLockChanged: CFNotificationCallback = { _, _, _, _, _ in
-    DispatchQueue.main.async { BottomGestureRuntime.invalidate() }
+    DispatchQueue.main.async {
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.lockNotification)
+        #endif
+        BottomGestureRuntime.invalidate()
+    }
 }
 
 /// Process-lifetime owner; parent adds the single activation call to old startup.
@@ -143,6 +177,9 @@ enum BottomGestureRuntime {
     static func activate() {
         guard Thread.isMainThread, !started else { return }
         started = true
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.activated)
+        #endif
         reloadPreferences()
         CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), nil,
             bottomPreferencesChanged, TapLockPreferences.changedNotification as CFString, nil, .deliverImmediately)
@@ -158,20 +195,49 @@ enum BottomGestureRuntime {
         for name in [UIApplication.willResignActiveNotification, UIApplication.didEnterBackgroundNotification,
                      UIDevice.orientationDidChangeNotification,
                      UIApplication.didChangeStatusBarOrientationNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { _ in invalidate() })
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                if name == UIDevice.orientationDidChangeNotification {
+                    BottomPanelDiagnostic.mark(.systemOrientationChanged)
+                } else { BottomPanelDiagnostic.mark(.applicationLifecycleObserved) }
+                #endif
+                invalidate()
+            })
         }
         for name in [UIScene.willDeactivateNotification, UIScene.didDisconnectNotification] {
             observers.append(center.addObserver(forName: name, object: nil, queue: .main) { note in
                 guard let scene = note.object as? UIWindowScene else { return }
+                #if BOTTOM_PANEL_DIAGNOSTIC
+                BottomPanelDiagnostic.mark(.sceneLifecycleObserved)
+                #endif
                 owner.invalidate(in: scene)
             })
         }
         if let type = NSClassFromString("SBFluidSwitcherGestureManager") { hooks.install(on: type) }
+        else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.managerMissing)
+            #endif
+        }
     }
 
     fileprivate static func reloadPreferences() {
         guard Thread.isMainThread else { return }
-        owner.reload(BottomGesturePreferences.readSnapshot())
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.preferenceReload)
+        #endif
+        let snapshot = BottomGesturePreferences.readSnapshot()
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        var enabled = 0, actions = 0, flow = 0
+        for (index, id) in BottomGesturePreferences.GestureID.allCases.enumerated() {
+            let selection = snapshot.selection(id)
+            if selection.enabled { enabled |= 1 << index }
+            if !selection.actions.isEmpty { actions |= 1 << index }
+            if selection.flowEnabled { flow |= 1 << index }
+        }
+        BottomPanelDiagnostic.preferences(available: snapshot.available, enabled: enabled, actions: actions, flow: flow)
+        #endif
+        owner.reload(snapshot)
     }
 
     fileprivate static func invalidate() {

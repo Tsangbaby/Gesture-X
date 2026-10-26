@@ -3,12 +3,13 @@ import json
 import re
 from pathlib import Path
 import unittest
+from bottom_panel_inverse import source as baseline_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def source(path):
-    return (ROOT / path).read_bytes().decode('utf-8')
+    return baseline_source(path)
 
 
 class BottomRuntimeIntegrationContracts(unittest.TestCase):

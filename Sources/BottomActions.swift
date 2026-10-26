@@ -74,15 +74,32 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
 
     func trigger(_ selection: BottomGesturePreferences.Selection,
                  in scene: UIWindowScene, allowWhileLocked: Bool) {
-        guard Thread.isMainThread else { return }
+        guard Thread.isMainThread else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorOffMain)
+            #endif
+            return
+        }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.coordinatorEntered)
+        #endif
         cancelPendingFlow()
         guard selection.enabled, !selection.actions.isEmpty,
-              selection.actions.allSatisfy(Self.isValid),
-              isEligible(scene, orientation: scene.interfaceOrientation, allowWhileLocked: allowWhileLocked) else {
+              selection.actions.allSatisfy(Self.isValid) else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorSelectionRejected)
+            #endif
+            releasePanel()
+            return
+        }
+        guard isEligible(scene, orientation: scene.interfaceOrientation, allowWhileLocked: allowWhileLocked) else {
             releasePanel()
             return
         }
         if selection.flowEnabled {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorFlow)
+            #endif
             releasePanel()
             startFlow(selection.actions, in: scene, allowWhileLocked: allowWhileLocked)
             return
@@ -90,6 +107,9 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
         // Canonical maintained policy intentionally differs from the original
         // single-item direct-action optimization: normal ALWAYS shows a chooser.
         if panelWindow != nil {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.panelToggledClosed)
+            #endif
             releasePanel()
             return // An existing chooser toggles closed; do not replace/reopen it.
         }
@@ -107,6 +127,9 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
     /// as well as the public UIKit scene/orientation/suspension notifications above.
     func cancelAll() {
         guard Thread.isMainThread else { return }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.coordinatorCanceled)
+        #endif
         cancelPendingFlow()
         releasePanel()
     }
@@ -121,12 +144,53 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
 
     private func isEligible(_ scene: UIWindowScene, orientation: UIInterfaceOrientation,
                             allowWhileLocked: Bool) -> Bool {
-        guard Thread.isMainThread, scene.screen === UIScreen.main,
-              scene.activationState == .foregroundActive,
-              UIApplication.shared.applicationState == .active,
-              !UIAccessibility.isVoiceOverRunning,
-              orientation != .unknown, scene.interfaceOrientation == orientation else { return false }
-        return io.permission(scene, allowWhileLocked)
+        guard Thread.isMainThread else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorOffMain)
+            #endif
+            return false
+        }
+        guard scene.screen === UIScreen.main else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorWrongScreen)
+            #endif
+            return false
+        }
+        guard scene.activationState == .foregroundActive else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorSceneInactive)
+            #endif
+            return false
+        }
+        guard UIApplication.shared.applicationState == .active else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorApplicationInactive)
+            #endif
+            return false
+        }
+        guard !UIAccessibility.isVoiceOverRunning else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorVoiceOver)
+            #endif
+            return false
+        }
+        guard orientation != .unknown else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorOrientationUnknown)
+            #endif
+            return false
+        }
+        guard scene.interfaceOrientation == orientation else {
+            #if BOTTOM_PANEL_DIAGNOSTIC
+            BottomPanelDiagnostic.mark(.coordinatorOrientationChanged)
+            #endif
+            return false
+        }
+        let permitted = io.permission(scene, allowWhileLocked)
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        if !permitted { BottomPanelDiagnostic.mark(.coordinatorPermissionDenied) }
+        #endif
+        return permitted
     }
 
     private func startFlow(_ actions: [TapLockPreferences.Action], in scene: UIWindowScene,
@@ -165,6 +229,9 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
         let controller = BottomActionPanelController(actions: actions)
         controller.delegate = self
         let window = BottomActionPanelWindow(windowScene: scene)
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.panelCreated)
+        #endif
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.statusBar.rawValue + 1)
         // Below system alerts; never mutate native windows.
         window.backgroundColor = .clear
@@ -178,10 +245,30 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
         window.layoutIfNeeded()
         controller.view.layoutIfNeeded()
         controller.activate()
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        if !window.isHidden { BottomPanelDiagnostic.mark(.panelNotHidden) }
+        if window.windowScene === scene { BottomPanelDiagnostic.mark(.panelSceneAttached) }
+        if controller.view.window === window { BottomPanelDiagnostic.mark(.panelViewAttached) }
+        if window.bounds.isEmpty { BottomPanelDiagnostic.mark(.panelBoundsEmpty) }
+        DispatchQueue.main.async { [weak self, weak window] in
+            guard let self = self, let window = window, self.panelWindow === window else {
+                BottomPanelDiagnostic.mark(.panelDeferredReleased); return
+            }
+            if window.isHidden { BottomPanelDiagnostic.mark(.panelDeferredHidden) }
+            else { BottomPanelDiagnostic.mark(.panelDeferredNotHidden) }
+            if window.windowScene == nil { BottomPanelDiagnostic.mark(.panelDeferredSceneDetached) }
+            if window.rootViewController?.viewIfLoaded?.window !== window {
+                BottomPanelDiagnostic.mark(.panelDeferredViewDetached)
+            }
+        }
+        #endif
     }
 
     private func releasePanel() {
         guard let window = panelWindow else { return }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.panelReleased)
+        #endif
         let controller = window.rootViewController as? BottomActionPanelController
         (window as? BottomActionPanelWindow)?.hasPresentedPanel = false
         controller?.invalidate()
@@ -229,6 +316,9 @@ final class BottomActionCoordinator: BottomActionPanelDelegate {
 
     func panelGeometryWillChange(_ panel: BottomActionPanelController) {
         guard Thread.isMainThread, panelWindow?.rootViewController === panel else { return }
+        #if BOTTOM_PANEL_DIAGNOSTIC
+        BottomPanelDiagnostic.mark(.panelGeometryChanged)
+        #endif
         cancelAll()
     }
 }

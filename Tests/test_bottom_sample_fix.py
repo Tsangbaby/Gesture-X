@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 import re
 import unittest
+from bottom_panel_inverse import source as baseline_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PATH = 'Sources/BottomGestureSession.swift'
@@ -31,7 +32,7 @@ def restore(text):
 
 class BottomSampleFixContracts(unittest.TestCase):
     def test_uses_exact_recognizer_view_without_display_ivar_dependency(self):
-        text = (ROOT / PATH).read_bytes().decode()
+        text = baseline_source(PATH)
         capture = text.split('static func captureValidated(', 1)[1].split('/// No guessed', 1)[0]
         self.assertIn(AFTER, capture, 'Sampling must use the validated recognizer attachment, not optional display UI')
         self.assertNotIn('_tongueContainer', capture)
@@ -52,7 +53,7 @@ class BottomSampleFixContracts(unittest.TestCase):
         self.assertEqual(capture.count('recognizer.location(in: container)'), 1)
 
     def test_raw_nonfinite_input_rejects_before_uikit_conversion(self):
-        capture = (ROOT / PATH).read_text().split('static func captureValidated(', 1)[1].split('/// No guessed', 1)[0]
+        capture = baseline_source(PATH).split('static func captureValidated(', 1)[1].split('/// No guessed', 1)[0]
         for token in ('let localPoint = recognizer.location(in: container)',
                       'guard localPoint.x.isFinite, localPoint.y.isFinite else { return nil }',
                       'let point = container.convert(localPoint, to: referenceSpace)',
@@ -61,7 +62,7 @@ class BottomSampleFixContracts(unittest.TestCase):
         self.assertLess(capture.index('guard localPoint.x.isFinite'), capture.index('container.convert(localPoint,'))
 
     def test_only_authorized_sample_chain_changes(self):
-        text = (ROOT / PATH).read_bytes().decode()
+        text = baseline_source(PATH)
         original = restore(text)
         self.assertIn(BEFORE, original)
         for target in ('Thread.isMainThread', 'recognizer === gesture',
@@ -144,8 +145,8 @@ class BottomSampleFixContracts(unittest.TestCase):
         self.assertIn('publishResult(marker)', app)
 
     def test_candidate_has_no_diagnostic_runtime(self):
-        native = (ROOT / 'Sources/BottomGestureNative.swift').read_text()
-        session = (ROOT / PATH).read_text()
+        native = baseline_source('Sources/BottomGestureNative.swift')
+        session = baseline_source(PATH)
         for text in (native, session):
             self.assertNotIn('BottomGestureDiagnostic', text)
             self.assertNotIn('TapLockBottomDiag1', text)

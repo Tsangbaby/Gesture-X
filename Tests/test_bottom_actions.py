@@ -5,6 +5,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+from bottom_panel_inverse import source as baseline_source
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,7 @@ def code():
     if not OWNER.is_file():
         raise AssertionError('Missing production bottom panel/flow consumer')
     return re.sub(r'"(?:\\.|[^"\\])*"|//[^\n]*|/\*.*?\*/',
-                  lambda m: m[0] if m[0].startswith('"') else ' ', OWNER.read_text(), flags=re.S)
+                  lambda m: m[0] if m[0].startswith('"') else ' ', baseline_source('Sources/BottomActions.swift'), flags=re.S)
 
 
 def body(text, anchor):
