@@ -1,0 +1,49 @@
+{
+  "name": "Settings startup — isolated diagnostic only",
+  "on": {
+    "push": {
+      "branches": ["ci/settings-startup-8271e08"],
+      "paths": [
+        ".github/workflows/settings-startup-diagnostic.yml",
+        "ci/settings_startup_diagnostic.py",
+        "Tests/SettingsStartupControl.swift",
+        "Tests/test_settings_startup_diagnostic.py"
+      ]
+    }
+  },
+  "permissions": {"contents": "read"},
+  "jobs": {
+    "settings-startup-diagnostic": {
+      "name": "One fresh Simulator · control then historical baseline",
+      "runs-on": "macos-15",
+      "timeout-minutes": 12,
+      "env": {
+        "DEVELOPER_DIR": "/Applications/Xcode_16.4.app/Contents/Developer",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "steps": [
+        {
+          "name": "Checkout exact diagnostic source",
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {"persist-credentials": false}
+        },
+        {
+          "name": "Guard tests and one-shot startup observations",
+          "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p test_settings_startup_diagnostic.py -v\npython3 -B ci/settings_startup_diagnostic.py --execute"
+        },
+        {
+          "name": "Preserve diagnostic evidence even on failure",
+          "if": "always()",
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "settings-startup-diagnostic-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}",
+            "path": "${{ runner.temp }}/settings-startup-diagnostic/",
+            "if-no-files-found": "error",
+            "retention-days": 14,
+            "compression-level": 6
+          }
+        }
+      ]
+    }
+  }
+}
