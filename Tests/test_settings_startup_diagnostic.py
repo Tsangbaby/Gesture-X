@@ -92,7 +92,8 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
             source = root / 'probe.c'
             source.write_text(module['NATIVE_PROBE'] + '\nint main(void) { TLSDRecord("main-entered"); return 0; }\n')
             binary = root / 'probe'
-            compiled = subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L', str(source), '-o', str(binary)],
+            compiled = subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L',
+                                       '-D_DARWIN_C_SOURCE=1', str(source), '-o', str(binary)],
                                       capture_output=True, text=True, timeout=30)
             self.assertEqual(compiled.returncode, 0,
                 'Native host probe compiler failed:\n' + compiled.stdout + compiled.stderr)
@@ -144,6 +145,19 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
             else:
                 self.fail('native compiler failure was accepted')
             self.assertEqual(compiler.call_count, 1)
+
+    def test_native_host_probe_enables_darwin_extensions_without_removing_nofollow(self):
+        failure = subprocess.CompletedProcess(['cc'], 2, '', 'EXPECTED_COMPILE_STOP')
+        with mock.patch('subprocess.run', return_value=failure) as compiler:
+            with self.assertRaisesRegex(AssertionError, 'EXPECTED_COMPILE_STOP'):
+                self.test_native_probe_actually_writes_identical_owned_json_to_both_channels()
+        self.assertEqual(compiler.call_count, 1)
+        arguments = compiler.call_args.args[0]
+        self.assertIn('-D_DARWIN_C_SOURCE=1', arguments)
+        self.assertIn('-D_POSIX_C_SOURCE=200809L', arguments)
+        native_open = self.module()['NATIVE_PROBE'].split('int fd = open(', 1)[1].split(';', 1)[0]
+        self.assertIn('O_NOFOLLOW', native_open)
+        self.assertIn('O_CLOEXEC', native_open)
 
     def test_real_command_timeout_retains_live_file_output_and_never_reports_success(self):
         module = self.module()
