@@ -95,9 +95,10 @@ xcrun swiftc -parse-as-library -swift-version 5 -module-name BottomGestureNative
     "$WORK/NativeHookFixture.o" -framework UIKit -framework Foundation \
     -o "$APP/BottomGestureNative"
 python3 - "$APP/Info.plist" <<'PY'
-import plistlib, sys
+import os, plistlib, sys, uuid
 with open(sys.argv[1], 'wb') as output:
     plistlib.dump(dict(CFBundleExecutable='BottomGestureNative', CFBundleName='BottomGestureNative',
+        BottomNativeSourceCommit=os.environ['GITHUB_SHA'], BottomNativeRunToken=uuid.uuid4().hex,
         CFBundleIdentifier='com.tsangbaby.taplock.bottom-native-tests', CFBundlePackageType='APPL',
         CFBundleVersion='1', CFBundleShortVersionString='1', MinimumOSVersion='15.0',
         LSRequiresIPhoneOS=True, UIDeviceFamily=[1], UILaunchScreen={},
@@ -109,22 +110,47 @@ PY
 codesign --force --sign - "$APP"
 xcrun simctl install "$DEVICE" "$APP"
 set +e
-python3 - "$DEVICE" "$WORK/console.txt" <<'PY'
-import subprocess, sys
+python3 - "$DEVICE" "$WORK/console.txt" "$APP/Info.plist" "$ROOT/ci" <<'PY'
+import json, plistlib, subprocess, sys, time
 from pathlib import Path
+sys.path.insert(0, sys.argv[4])
+from bottom_sample_fix import validate_owned_result
+metadata = plistlib.loads(Path(sys.argv[3]).read_bytes())
+container = subprocess.run(['xcrun', 'simctl', 'get_app_container', sys.argv[1],
+    'com.tsangbaby.taplock.bottom-native-tests', 'data'], capture_output=True, text=True, timeout=15)
+container.check_returncode()
+documents = Path(container.stdout.strip()) / 'Documents'
+result_file = documents / 'BottomGestureNative.result.json'
+assert not result_file.exists(), 'Owned new simulator must not contain a stale result'
+deadline = time.monotonic() + 180
 try:
     result = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
         sys.argv[1], 'com.tsangbaby.taplock.bottom-native-tests'], stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, timeout=180)
+        stderr=subprocess.STDOUT, text=True, timeout=max(1, deadline - time.monotonic()))
     text, status = result.stdout, result.returncode
 except subprocess.TimeoutExpired as error:
     text = error.stdout or b''
     if isinstance(text, bytes):
         text = text.decode(errors='replace')
     status = 124
+# simctl can return only a PID while the App is still running. Require an actual
+# App-written terminal marker bound to this exact SHA and unique launch token.
+while status in (0, 1) and not result_file.exists() and time.monotonic() < deadline:
+    time.sleep(0.2)
 Path(sys.argv[2]).write_text(text)
 print(text, end='', flush=True)
-raise SystemExit(status)
+print('BOTTOM_NATIVE_TRANSPORT_STATUS:', status, flush=True)
+state_file = documents / 'BottomGestureNative.state.json'
+if state_file.exists():
+    print('BOTTOM_NATIVE_OWNED_STATE:', state_file.read_text(), flush=True)
+record = json.loads(result_file.read_text()) if result_file.exists() else None
+marker = validate_owned_result(status, text, record,
+    metadata['BottomNativeSourceCommit'], metadata['BottomNativeRunToken'])
+if marker not in text.splitlines():
+    text += '\n' + marker + '\n'
+    print(marker, flush=True)
+Path(sys.argv[2]).write_text(text)
+raise SystemExit(0 if marker.startswith('BOTTOM_GESTURE_NATIVE_PASS:') else 1)
 PY
 STATUS=$?
 set -e

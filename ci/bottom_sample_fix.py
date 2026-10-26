@@ -26,7 +26,7 @@ ALLOWED = {
     SAMPLE, 'Tests/BottomGestureNativeApp.swift', 'Tests/test_bottom_gesture_native.py',
     'Tests/test_bottom_sample_fix.py', 'ci/bottom_sample_fix.py',
     'ci/bottom-sample-fix-smoke.sh', 'ci/bottom-sample-fix-build.sh',
-    '.github/workflows/bottom-sample-fix.yml',
+    'ci/bottom-gesture-native-smoke.sh', '.github/workflows/bottom-sample-fix.yml',
 }
 EXPECTED_RED = 'BOTTOM_GESTURE_NATIVE_FAIL: missing display container must not block attached recognizer sampling'
 
@@ -50,6 +50,23 @@ def validate_red(status, text):
     terminal = [line for line in text.splitlines()
                 if 'BOTTOM_GESTURE_NATIVE_FAIL' in line or 'BOTTOM_GESTURE_NATIVE_PASS' in line]
     assert status == 1 and terminal == [EXPECTED_RED], ('Expected behavioral RED missing or incomplete', status, terminal)
+
+
+def validate_owned_result(status, text, result, source_sha, run_token):
+    assert status in (0, 1), ('Incomplete simulator transport', status)
+    assert isinstance(result, dict) and result.get('schema') == 1, 'Missing owned terminal result'
+    assert re.fullmatch('[0-9a-f]{40}', source_sha) and re.fullmatch('[0-9a-f]{32}', run_token)
+    assert result.get('source_sha') == source_sha and result.get('run_token') == run_token, 'Stale/foreign native result'
+    marker = result.get('marker')
+    assert isinstance(marker, str) and '\n' not in marker
+    positive = re.fullmatch(r'BOTTOM_GESTURE_NATIVE_PASS: assertions=[1-9][0-9]*', marker) is not None
+    negative = marker.startswith('BOTTOM_GESTURE_NATIVE_FAIL: ') and len(marker) > len('BOTTOM_GESTURE_NATIVE_FAIL: ')
+    assert positive or negative, 'Invalid owned terminal marker'
+    assert not positive or status == 0, 'Positive result cannot override failed transport'
+    terminal = [line for line in text.splitlines()
+                if 'BOTTOM_GESTURE_NATIVE_FAIL' in line or 'BOTTOM_GESTURE_NATIVE_PASS' in line]
+    assert terminal in ([], [marker]), ('Contradictory/duplicate console completion', terminal)
+    return marker
 
 
 def verify_scope() -> dict[str, object]:
@@ -120,7 +137,7 @@ def red_fixture(stage, source_sha):
     assert digest(path.read_bytes()) == BASE_SHA256
     scope.update(fixture='only acquisition hunk restored to frozen baseline; new test unchanged',
                  baseline_sample_sha256=BASE_SHA256,
-                 expected_red=EXPECTED_RED, expected_child_transport=1)
+                 expected_red=EXPECTED_RED, expected_harness_status=1)
     return scope
 
 

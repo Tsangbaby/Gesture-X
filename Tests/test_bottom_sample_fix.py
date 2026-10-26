@@ -98,6 +98,36 @@ class BottomSampleFixContracts(unittest.TestCase):
             with self.subTest(status=status, text=text), self.assertRaises(AssertionError):
                 verify(status, text)
 
+    def test_owned_completion_binds_real_marker_to_exact_build_and_launch(self):
+        import runpy
+        helper = runpy.run_path(str(ROOT / 'ci/bottom_sample_fix.py'))
+        self.assertIn('validate_owned_result', helper, 'Missing launch-owned durable completion verifier')
+        verify = helper['validate_owned_result']
+        sha, token = 'a' * 40, 'b' * 32
+        marker = 'BOTTOM_GESTURE_NATIVE_PASS: assertions=1'
+        result = dict(schema=1, source_sha=sha, run_token=token, marker=marker)
+        self.assertEqual(verify(0, '', result, sha, token), marker)
+        self.assertEqual(verify(0, marker + '\n', result, sha, token), marker)
+        failure = dict(result, marker='BOTTOM_GESTURE_NATIVE_FAIL: exact assertion')
+        self.assertEqual(verify(1, '', failure, sha, token), failure['marker'])
+        for status, text, record in [(124, '', result), (1, '', result), (0, '', None),
+                                     (0, '', dict(result, source_sha='c' * 40)),
+                                     (0, '', dict(result, run_token='d' * 32)),
+                                     (0, '', dict(result, marker='BOTTOM_GESTURE_NATIVE_PASS: assertions=0')),
+                                     (0, '', dict(result, schema=2)),
+                                     (0, marker + '\n' + marker + '\n', result),
+                                     (0, str(failure['marker']) + '\n', result)]:
+            with self.subTest(status=status, record=record), self.assertRaises(AssertionError):
+                verify(status, text, record, sha, token)
+        runner = (ROOT / 'ci/bottom-gesture-native-smoke.sh').read_text()
+        app = (ROOT / 'Tests/BottomGestureNativeApp.swift').read_text()
+        for key in ('BottomNativeSourceCommit', 'BottomNativeRunToken', 'BottomGestureNative.result.json'):
+            self.assertIn(key, runner)
+            self.assertIn(key, app)
+        self.assertIn('validate_owned_result', runner)
+        self.assertIn('didFinishLaunchingWithOptions', app)
+        self.assertIn('publishResult(marker)', app)
+
     def test_candidate_has_no_diagnostic_runtime(self):
         native = (ROOT / 'Sources/BottomGestureNative.swift').read_text()
         session = (ROOT / PATH).read_text()

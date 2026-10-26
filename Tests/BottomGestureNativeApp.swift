@@ -130,14 +130,38 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
         return target.protected
     }
 
+    private func publish(_ marker: String, terminal: Bool) {
+        guard let sha = Bundle.main.object(forInfoDictionaryKey: "BottomNativeSourceCommit") as? String,
+              let token = Bundle.main.object(forInfoDictionaryKey: "BottomNativeRunToken") as? String,
+              let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("BOTTOM_GESTURE_NATIVE_FAIL: test result identity unavailable"); fflush(stdout); exit(1)
+        }
+        let record: [String: Any] = ["schema": 1, "source_sha": sha, "run_token": token, "marker": marker]
+        let name = terminal ? "BottomGestureNative.result.json" : "BottomGestureNative.state.json"
+        do {
+            try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+            try JSONSerialization.data(withJSONObject: record).write(to: documents.appendingPathComponent(name), options: .atomic)
+        } catch {
+            print("BOTTOM_GESTURE_NATIVE_FAIL: test result persistence failed"); fflush(stdout); exit(1)
+        }
+    }
+    private func publishResult(_ marker: String) { publish(marker, terminal: true) }
     private func require(_ condition: @autoclosure () -> Bool, _ name: String) {
         guard condition() else {
-            print("BOTTOM_GESTURE_NATIVE_FAIL: " + name); fflush(stdout); exit(1)
+            let marker = "BOTTOM_GESTURE_NATIVE_FAIL: " + name
+            publishResult(marker)
+            print(marker); fflush(stdout); exit(1)
         }
         checks += 1
     }
     private func checkpoint(_ text: String) {
+        publish(text, terminal: false)
         print("BOTTOM_GESTURE_NATIVE_CHECKPOINT: " + text); fflush(stdout)
+    }
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        checkpoint("didFinishLaunching")
+        return true
     }
     private func configured(disabled: BottomGesturePreferences.GestureID? = nil,
                             ignore: Bool = true, allOff: Bool = false,
@@ -646,7 +670,9 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
         testCapabilityRejection(); testForwarding(); testOverlap(); testInvalidation()
         testLandscape(); testEdge(); testSafeObjectSlots(); testRecognizerViewSampling(); testCoordinatorBridge()
         owner.invalidate()
-        print("BOTTOM_GESTURE_NATIVE_PASS: assertions=\(checks)")
+        let marker = "BOTTOM_GESTURE_NATIVE_PASS: assertions=\(checks)"
+        publishResult(marker)
+        print(marker)
         print("Boundary: UIKit/ObjC backend fixtures; NOT handset injection, native competition, or lockscreen parity")
         fflush(stdout); exit(0)
     }
