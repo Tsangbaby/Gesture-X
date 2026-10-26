@@ -105,6 +105,25 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_numeric_modal_lifecycle_waits_for_actual_error_and_dismissal_completion(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        wait = swift_body(harness, 'private func waitFor(')
+        for token in ('ProcessInfo.processInfo.systemUptime + 2', 'while !predicate()',
+                      'settle()', 'require(predicate(), message)'):
+            self.assertIn(token, wait)
+        entry = swift_body(harness, 'private func entry(')
+        for token in ('if expectingError', 'alert.title == "无法保存"',
+                      'alert.textFields?.isEmpty != false', '!alert.isBeingPresented',
+                      'root.presentedViewController == nil'):
+            self.assertIn(token, entry)
+        dismiss = swift_body(harness, 'private func dismissError()')
+        self.assertIn('completed = true', dismiss)
+        self.assertIn('completed && root.presentedViewController == nil', dismiss)
+        numbers = swift_body(harness, 'private func testNumbers()')
+        self.assertIn('entry("bottomTriggerPosition", invalid, expectingError: true)', numbers)
+        failure = swift_body(harness, 'private func testSaveFailure()')
+        self.assertIn('entry("bottomTriggerPosition", "4.75", expectingError: true)', failure)
+
     def test_uikit_suite_runs_from_runloop_timer_not_one_main_queue_block(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
         launch = swift_body(harness, 'func application(')

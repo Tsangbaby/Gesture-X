@@ -82,6 +82,11 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.04))
         nav.view.layoutIfNeeded()
     }
+    private func waitFor(_ message: String, _ predicate: () -> Bool) {
+        let deadline = ProcessInfo.processInfo.systemUptime + 2
+        while !predicate() && ProcessInfo.processInfo.systemUptime < deadline { settle() }
+        require(predicate(), message)
+    }
     private func show(_ root: UIViewController) {
         nav.setViewControllers([root], animated: false)
         root.loadViewIfNeeded()
@@ -153,11 +158,15 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         toggle.sendActions(for: .valueChanged)
         settle()
     }
-    private func entry(_ id: String, _ text: String) {
+    private func entry(_ id: String, _ text: String, expectingError: Bool = false) {
         let root = nav.topViewController!
+        waitFor("previous modal still owns numeric editor: " + id) { root.presentedViewController == nil }
         let button = control(table(), id: id, type: UIButton.self)
         button.sendActions(for: .touchUpInside)
-        settle()
+        waitFor("numeric editor not ready: " + id + "; input=" + text) {
+            guard let alert = root.presentedViewController as? UIAlertController else { return false }
+            return alert.textFields?.first != nil && !alert.isBeingPresented && !alert.isBeingDismissed
+        }
         guard let alert = root.presentedViewController as? UIAlertController,
               let field = alert.textFields?.first else {
             finish("numeric editor did not present: id=\(id); input=\(text); control=\(String(describing: button.accessibilityIdentifier)); presented=\(String(describing: root.presentedViewController)); assertions=\(checks)")
@@ -168,11 +177,26 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         // Same production commit as Save, through the text field's actual Return
         // event (also supports an external keyboard with the decimal input pad).
         field.sendActions(for: .editingDidEndOnExit)
-        settle()
+        if expectingError {
+            waitFor("numeric failure lacks a ready error alert: " + id + "; input=" + text) {
+                guard let alert = root.presentedViewController as? UIAlertController else { return false }
+                return alert.title == "无法保存" && alert.textFields?.isEmpty != false &&
+                    !alert.isBeingPresented && !alert.isBeingDismissed
+            }
+        } else {
+            waitFor("saved numeric editor did not dismiss: " + id) { root.presentedViewController == nil }
+        }
     }
     private func dismissError() {
-        nav.topViewController?.presentedViewController?.dismiss(animated: false)
-        settle()
+        let root = nav.topViewController!
+        waitFor("error alert not ready for dismissal") {
+            guard let alert = root.presentedViewController as? UIAlertController else { return false }
+            return alert.title == "无法保存" && alert.textFields?.isEmpty != false &&
+                !alert.isBeingPresented && !alert.isBeingDismissed
+        }
+        var completed = false
+        root.presentedViewController?.dismiss(animated: false) { completed = true }
+        waitFor("error alert dismissal did not complete") { completed && root.presentedViewController == nil }
     }
     private func root(io: BottomGestureSettingsIO? = nil) {
         if let io = io { show(BottomGestureSettingsController(io: io)) }
@@ -389,7 +413,7 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         }
         for invalid in ["not a number", "NaN", "inf", "-inf", "1e9999"] {
             let before = preferences()
-            entry("bottomTriggerPosition", invalid)
+            entry("bottomTriggerPosition", invalid, expectingError: true)
             require(samePreferences(before), "invalid/nonfinite input wrote preferences")
             require(nav.topViewController?.presentedViewController is UIAlertController, "invalid input lacks error")
             dismissError()
@@ -828,7 +852,7 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         require(nav.topViewController?.presentedViewController is UIAlertController, "failed write silently ignored")
         dismissError()
         let oldNumber = P.readSnapshot().number(.bottomTriggerPosition)
-        entry("bottomTriggerPosition", "4.75")
+        entry("bottomTriggerPosition", "4.75", expectingError: true)
         require(P.readSnapshot().number(.bottomTriggerPosition) == oldNumber, "failed number write was not restored")
         dismissError()
         side("left")
