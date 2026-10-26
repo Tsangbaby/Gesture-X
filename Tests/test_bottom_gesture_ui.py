@@ -105,6 +105,13 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_table_owner_failure_reports_actual_identity_without_relaxing_admission(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        helper = swift_body(harness, 'private func table(')
+        self.assertIn('table.delegate === controller && table.dataSource === controller', helper)
+        for token in ('wrong table owner: controller=', 'delegate=', 'dataSource=', 'assertions='):
+            self.assertIn(token, helper)
+
     def test_discovery_and_foreign_fixture_cannot_reparent_production_cached_controls(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
         discovery = swift_body(harness, 'private func find(')

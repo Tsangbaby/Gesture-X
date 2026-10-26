@@ -92,7 +92,8 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         controller.loadViewIfNeeded()
         settle()
         guard let table = controller.view as? UITableView else { finish("production controller lacks table") }
-        require(table.delegate === controller && table.dataSource === controller, "wrong table owner")
+        require(table.delegate === controller && table.dataSource === controller,
+                "wrong table owner: controller=\(controller); delegate=\(String(describing: table.delegate)); dataSource=\(String(describing: table.dataSource)); assertions=\(checks)")
         return table
     }
     private func paths(_ table: UITableView) -> [IndexPath] {
