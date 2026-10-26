@@ -92,7 +92,12 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         controller.loadViewIfNeeded()
         settle()
         guard let table = controller.view as? UITableView else { finish("production controller lacks table") }
-        require(table.delegate === controller && table.dataSource === controller,
+        // UIKit can wrap a UITableViewController's datasource. Prove the public
+        // controller-owned table identity instead of identifying that adapter.
+        // The legacy PS controller still has to be its datasource directly.
+        let ownsDataSource = table.dataSource === controller ||
+            ((controller as? UITableViewController)?.tableView === table && table.dataSource != nil)
+        require(table.delegate === controller && ownsDataSource,
                 "wrong table owner: controller=\(controller); delegate=\(String(describing: table.delegate)); dataSource=\(String(describing: table.dataSource)); assertions=\(checks)")
         return table
     }

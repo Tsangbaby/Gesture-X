@@ -108,9 +108,21 @@ class BottomGestureUISourceTests(unittest.TestCase):
     def test_table_owner_failure_reports_actual_identity_without_relaxing_admission(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
         helper = swift_body(harness, 'private func table(')
-        self.assertIn('table.delegate === controller && table.dataSource === controller', helper)
+        self.assertIn('table.delegate === controller && ownsDataSource', helper)
         for token in ('wrong table owner: controller=', 'delegate=', 'dataSource=', 'assertions='):
             self.assertIn(token, helper)
+
+    def test_table_controller_ownership_uses_public_owned_table_not_adapter_identity(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        helper = swift_body(harness, 'private func table(')
+        self.assertIn('let ownsDataSource = table.dataSource === controller ||', helper)
+        self.assertIn('(controller as? UITableViewController)?.tableView === table', helper)
+        self.assertIn('table.dataSource != nil', helper)
+        self.assertIn('table.delegate === controller && ownsDataSource', helper)
+        self.assertNotIn('_UIFilteredDataSource', helper,
+                         'do not grant admission by guessing a private adapter class name')
+        self.assertNotIn('table.dataSource = controller', helper,
+                         'a test must not rewrite production datasource ownership')
 
     def test_discovery_and_foreign_fixture_cannot_reparent_production_cached_controls(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
