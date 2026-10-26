@@ -124,14 +124,103 @@ class BottomGestureUISourceTests(unittest.TestCase):
         failure = swift_body(harness, 'private func testSaveFailure()')
         self.assertIn('entry("bottomTriggerPosition", "4.75", expectingError: true)', failure)
 
-    def test_uikit_suite_runs_from_runloop_timer_not_one_main_queue_block(self):
+    def test_uikit_suite_yields_asynchronously_on_main_actor_without_nested_runloops(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        self.assertIn('@MainActor', harness.split('final class BottomGestureSettingsApp:', 1)[0])
         launch = swift_body(harness, 'func application(')
-        self.assertIn('perform(#selector(run), with: nil, afterDelay: 0)', launch)
-        self.assertIn('@objc private func run()', harness)
+        self.assertIn('Task { @MainActor in', launch)
+        self.assertIn('await self.run()', launch)
+        self.assertNotIn('perform(#selector(run)', launch)
         self.assertNotIn('DispatchQueue.main.async { self.run() }', launch)
+        self.assertRegex(harness, r'private func run\(\)\s+async\s*\{')
+        settle = swift_body(harness, 'private func settle()')
+        self.assertIn('await Task.sleep', settle)
+        self.assertIn('40_000_000', settle)
+        self.assertNotIn('RunLoop.main.run(', harness)
         run = swift_body(harness, 'private func run()')
-        self.assertIn('testMainQueueProgress()', run)
+        for name in ('testMainQueueProgress', 'testRootEntryAdmission', 'testRootEntry',
+                     'testNumbers', 'testDisabledAndStaleNumericEntry', 'testSixIndependentLists',
+                     'testDisabledAndSearch', 'testAppSnapshot', 'testIllegalVisibilityResources',
+                     'testBasicIdentityResources', 'testInvalidResources', 'testSaveFailure',
+                     'testNarrowDynamicType'):
+            self.assertEqual(run.count('await ' + name + '()'), 1)
+
+    def test_uikit_terminal_evidence_is_atomically_persisted_before_exit(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        record = swift_body(harness, 'private func record(')
+        for token in ('BottomUIKitSourceCommit', 'BottomUIKitRunToken', 'schemaVersion',
+                      'source_commit', 'run_token', 'status', 'phase', 'assertions', 'error',
+                      '.documentDirectory', 'JSONSerialization.data(', '.atomic'):
+            self.assertIn(token, record)
+        checkpoint = swift_body(harness, 'private func checkpoint(')
+        self.assertIn('record("BottomGestureUIKit.state.json", status: "running")', checkpoint)
+        finish = swift_body(harness, 'private func finish(')
+        pending = 'record("BottomGestureUIKit.state.json", status: "finishing", error: error)'
+        completed = 'record("BottomGestureUIKit.result.json", status: error == nil ? "pass" : "fail", error: error)'
+        self.assertIn(pending, finish)
+        self.assertIn(completed, finish)
+        self.assertLess(finish.index(pending), finish.index('replacePreferences(backup)'))
+        self.assertLess(finish.index('replacePreferences(backup)'), finish.index(completed))
+        self.assertLess(finish.index(completed), finish.index('BOTTOM_GESTURE_UIKIT_PASS:'))
+        self.assertLess(finish.index(completed), finish.index('exit('))
+
+    def test_runner_collects_owned_state_and_result_without_disk_only_success_fallback(self):
+        script = (ROOT / 'ci/bottom-gesture-settings-smoke.sh').read_text()
+        for token in ('BottomUIKitSourceCommit', 'BottomUIKitRunToken', 'uuid.uuid4().hex',
+                      'get_app_container', 'BottomGestureUIKit.state.json',
+                      'BottomGestureUIKit.result.json', 'BOTTOM_UIKIT_DURABLE_STATE:',
+                      'BOTTOM_UIKIT_DURABLE_RESULT:', 'timeout=240'):
+            self.assertIn(token, script)
+        original = 'bash "$0" --verify-output "$STATUS" "$WORK/console.txt"'
+        durable = 'bash "$0" --verify-report "$STATUS" "$WORK/console.txt" "$WORK/result.json" "$SOURCE_COMMIT" "$RUN_TOKEN"'
+        self.assertIn(original, script)
+        self.assertIn(durable, script)
+        self.assertLess(script.index(original), script.index(durable))
+
+    def test_actual_runner_durable_report_guard_truth_table(self):
+        runner = ROOT / 'ci/bottom-gesture-settings-smoke.sh'
+        sha, token = 'a' * 40, 'b' * 32
+        valid = dict(schemaVersion=1, source_commit=sha, run_token=token, status='pass',
+                     phase='before testNarrowDynamicType', assertions=2652, error='')
+        console = 'BOTTOM_GESTURE_UIKIT_PASS: assertions=2652\n'
+        cases: list[tuple[str, int, str, str | None, str, str, bool]] = [
+            ('valid', 0, console, json.dumps(valid), sha, token, True)]
+        for field, value in [('schemaVersion', True), ('schemaVersion', 2),
+                             ('source_commit', 'c' * 40), ('run_token', 'd' * 32),
+                             ('status', 'fail'), ('status', 'PASS'),
+                             ('assertions', True), ('assertions', '2652'), ('assertions', 2652.0),
+                             ('assertions', 0), ('assertions', -1), ('assertions', 2651),
+                             ('assertions', 2653), ('phase', ''), ('phase', None), ('error', 'hidden failure')]:
+            changed = dict(valid, **{field: value})
+            cases.append((field + '=' + repr(value), 0, console, json.dumps(changed), sha, token, False))
+        for status in (1, 124):
+            cases.append(('transport-' + str(status), status, console, json.dumps(valid), sha, token, False))
+        for text in ('transport succeeded\n', console * 2,
+                     'BOTTOM_GESTURE_UIKIT_FAIL: no\n' + console,
+                     'WRONG_' + console, console.rstrip() + ' trailing\n'):
+            cases.append(('bad-console', 0, text, json.dumps(valid), sha, token, False))
+        cases.extend([
+            ('missing-report', 0, console, None, sha, token, False),
+            ('invalid-json', 0, console, '{', sha, token, False),
+            ('non-object', 0, console, '[]', sha, token, False),
+            ('missing-key', 0, console, json.dumps({k: v for k, v in valid.items() if k != 'run_token'}), sha, token, False),
+            ('duplicate-key', 0, console, json.dumps(valid)[:-1] + ', "status": "pass"}', sha, token, False),
+            ('bad-expected-sha', 0, console, json.dumps(dict(valid, source_commit='bad')), 'bad', token, False),
+            ('bad-expected-token', 0, console, json.dumps(dict(valid, run_token='bad')), sha, 'bad', False),
+        ])
+        with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as work:
+            output, report = Path(work) / 'console.txt', Path(work) / 'result.json'
+            for name, status, text, payload, expected_sha, expected_token, accepted in cases:
+                with self.subTest(case=name):
+                    output.write_text(text)
+                    if report.exists():
+                        report.unlink()
+                    if payload is not None:
+                        report.write_text(payload)
+                    result = subprocess.run(['bash', str(runner), '--verify-report', str(status),
+                                             str(output), str(report), expected_sha, expected_token],
+                                            capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
 
     def test_uikit_host_measures_main_queue_progress_before_interactions(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
@@ -243,7 +332,7 @@ class BottomGestureUISourceTests(unittest.TestCase):
                      'testDisabledAndSearch', 'testAppSnapshot', 'testIllegalVisibilityResources',
                      'testBasicIdentityResources', 'testInvalidResources', 'testSaveFailure',
                      'testNarrowDynamicType'):
-            self.assertIn('checkpoint("before ' + name + '")\n        ' + name + '()', run)
+            self.assertIn('checkpoint("before ' + name + '")\n        await ' + name + '()', run)
         self.assertIn('BOTTOM_UIKIT_TRANSPORT_STATUS:', script)
         self.assertIn('BottomGestureSettings crash report:', script)
         self.assertIn("['sample', pid, '1', '1', '-file'", script)

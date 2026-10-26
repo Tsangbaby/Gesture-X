@@ -118,18 +118,18 @@ class BottomGestureWiringTests(unittest.TestCase):
         # Authored UIKit coverage only; these source assertions do not compile
         # or execute the app, and cannot establish UIKit behavior on Linux.
         harness = code(read('Tests/BottomGestureSettingsApp.swift'))
-        self.assertIn('@main\nfinal class BottomGestureSettingsApp:', harness)
+        self.assertIn('@main\n@MainActor\nfinal class BottomGestureSettingsApp:', harness)
         self.assertEqual(harness.count('private func testRootEntryAdmission()'), 1)
         run = body(harness, 'private func run()')
         self.assertEqual(run.count('testRootEntryAdmission()'), 1)
         launch = body(harness, 'func application(')
-        self.assertIn('perform(#selector(run), with: nil, afterDelay: 0)', launch)
-        self.assertIn('@objc private func run()', harness)
+        self.assertIn('Task { @MainActor in await self.run() }', launch)
+        self.assertIn('private func run() async', harness)
         self.assertLess(run.index('testMainQueueProgress()'), run.index('testRootEntryAdmission()'))
         regression = body(harness, 'private func testRootEntryAdmission()')
         for token in (
             'let originalRoot = TapLockSettingsController()', 'show(originalRoot)',
-            'let rootTable = table(originalRoot)', 'let retainedCell = ownedCell(rootTable, path)',
+            'let rootTable = await table(originalRoot)', 'let retainedCell = await ownedCell(rootTable, path)',
             'let rootDelegate = rootTable.delegate', 'nav.pushViewController(other, animated: false)',
             'rootTable.cellForRow(at: path) === retainedCell',
             'rootTable.window === nav.view.window', 'nav.topViewController === other',

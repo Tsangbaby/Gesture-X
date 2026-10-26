@@ -19,6 +19,42 @@ print('Bottom UIKit completion guard accepted')
 PY
     exit $?
 fi
+if [ "${1:-}" = --verify-report ]; then
+    bash "$0" --verify-output "$2" "$3" >/dev/null
+    python3 - "$3" "$4" "$5" "$6" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('duplicate result key')
+        result[key] = value
+    return result
+try:
+    text = Path(sys.argv[1]).read_text(errors='replace')
+    result = json.loads(Path(sys.argv[2]).read_text(), object_pairs_hook=unique_object)
+    sha, token = sys.argv[3:5]
+    if not re.fullmatch(r'[0-9a-f]{40}', sha) or not re.fullmatch(r'[0-9a-f]{32}', token):
+        raise ValueError('invalid expected source/run identity')
+    if not isinstance(result, dict):
+        raise ValueError('result must be an object')
+    assertions = result['assertions']
+    markers = re.findall(r'^BOTTOM_GESTURE_UIKIT_PASS: assertions=([1-9][0-9]*)$', text, re.M)
+    if (type(result['schemaVersion']) is not int or result['schemaVersion'] != 1 or
+        result['source_commit'] != sha or result['run_token'] != token or
+        result['status'] != 'pass' or type(assertions) is not int or assertions <= 0 or
+        len(markers) != 1 or int(markers[0]) != assertions or
+        not isinstance(result['phase'], str) or not result['phase'] or result['error'] != ''):
+        raise ValueError('source/run/result does not agree with successful console completion')
+except (OSError, ValueError, KeyError, TypeError) as error:
+    raise SystemExit('Bottom UIKit durable completion rejected: ' + str(error))
+print('Bottom UIKit owned durable completion guard accepted')
+PY
+    exit $?
+fi
 if [ "$(uname -s)" != Darwin ]; then
     printf '%s\n' 'UNSUPPORTED_HOST: bottom Settings UIKit execution requires macOS + Xcode iOS Simulator SDK; no tests executed.' >&2
     exit 69
@@ -35,6 +71,14 @@ SDK="$(xcrun --sdk iphonesimulator --show-sdk-path)"
 SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"
 TARGET="$(uname -m)-apple-ios15.0-simulator"
 WORK="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:?Apple temporary directory required}}/bottom-settings.XXXXXX")"
+SOURCE_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
+RUN_TOKEN="$(python3 -c 'import uuid; print(uuid.uuid4().hex)')"
+python3 - "$SOURCE_COMMIT" <<'PY'
+import os, re, sys
+sha = sys.argv[1]
+if not re.fullmatch(r'[0-9a-f]{40}', sha) or os.environ.get('GITHUB_SHA', sha) != sha:
+    raise SystemExit('UIKit harness source identity mismatch')
+PY
 DEVICE=""
 cleanup() {
     if [ -n "$DEVICE" ]; then
@@ -77,7 +121,7 @@ xcrun clang -target "$TARGET" -isysroot "$SDK" -fobjc-arc -dynamiclib \
     -install_name @rpath/Preferences.framework/Preferences -o "$FRAMEWORK/Preferences"
 APP="$WORK/BottomGestureSettings.app"
 mkdir -p "$APP/Frameworks"
-python3 - "$FRAMEWORK/Info.plist" "$APP/Info.plist" <<'PY'
+python3 - "$FRAMEWORK/Info.plist" "$APP/Info.plist" "$SOURCE_COMMIT" "$RUN_TOKEN" <<'PY'
 import plistlib, sys
 framework = dict(CFBundleExecutable='Preferences', CFBundleName='Preferences',
     CFBundleIdentifier='com.tsangbaby.taplock.bottom-fixture', CFBundlePackageType='FMWK',
@@ -85,8 +129,9 @@ framework = dict(CFBundleExecutable='Preferences', CFBundleName='Preferences',
 app = dict(CFBundleExecutable='BottomGestureSettings', CFBundleName='BottomGestureSettings',
     CFBundleIdentifier='com.tsangbaby.taplock.bottom-ui-tests', CFBundlePackageType='APPL',
     CFBundleVersion='1', CFBundleShortVersionString='1', MinimumOSVersion='15.0',
-    LSRequiresIPhoneOS=True, UIDeviceFamily=[1], UILaunchScreen={})
-for path, values in zip(sys.argv[1:], [framework, app]):
+    LSRequiresIPhoneOS=True, UIDeviceFamily=[1], UILaunchScreen={},
+    BottomUIKitSourceCommit=sys.argv[3], BottomUIKitRunToken=sys.argv[4])
+for path, values in zip(sys.argv[1:3], [framework, app]):
     with open(path, 'wb') as output:
         plistlib.dump(values, output)
 PY
@@ -128,6 +173,23 @@ except subprocess.TimeoutExpired as error:
 Path(sys.argv[2]).write_text(text)
 print(text, end='', flush=True)
 print('BOTTOM_UIKIT_TRANSPORT_STATUS:', status, flush=True)
+try:
+    container = subprocess.run(['xcrun', 'simctl', 'get_app_container', sys.argv[1],
+        'com.tsangbaby.taplock.bottom-ui-tests', 'data'], capture_output=True, text=True, timeout=15)
+    if container.returncode != 0:
+        raise OSError('could not resolve owned test container: ' + container.stderr.strip())
+    documents = Path(container.stdout.strip()) / 'Documents'
+    for name, local, label in [('BottomGestureUIKit.state.json', 'state.json', 'BOTTOM_UIKIT_DURABLE_STATE:'),
+                               ('BottomGestureUIKit.result.json', 'result.json', 'BOTTOM_UIKIT_DURABLE_RESULT:')]:
+        evidence = documents / name
+        if evidence.is_file():
+            data = evidence.read_bytes()
+            Path(sys.argv[2]).with_name(local).write_bytes(data)
+            print(label, data.decode(errors='replace'), flush=True)
+        else:
+            print(label, 'MISSING', flush=True)
+except (OSError, subprocess.TimeoutExpired) as error:
+    print('BOTTOM_UIKIT_DURABLE_COLLECTION_FAILED:', str(error), flush=True)
 if status != 0 or 'BOTTOM_GESTURE_UIKIT_PASS: assertions=' not in text:
     # Cloud-only evidence, collected before our owned simulator is removed.
     # It changes neither production bytes nor the exact terminal-marker gate.
@@ -164,4 +226,5 @@ PY
 STATUS=$?
 set -e
 bash "$0" --verify-output "$STATUS" "$WORK/console.txt"
+bash "$0" --verify-report "$STATUS" "$WORK/console.txt" "$WORK/result.json" "$SOURCE_COMMIT" "$RUN_TOKEN"
 printf 'UIKit production execution evidence: %s\n' "$WORK/console.txt"
