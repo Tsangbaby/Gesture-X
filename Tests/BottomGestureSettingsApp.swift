@@ -159,7 +159,9 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         button.sendActions(for: .touchUpInside)
         settle()
         guard let alert = root.presentedViewController as? UIAlertController,
-              let field = alert.textFields?.first else { finish("numeric editor did not present") }
+              let field = alert.textFields?.first else {
+            finish("numeric editor did not present: id=\(id); input=\(text); control=\(String(describing: button.accessibilityIdentifier)); presented=\(String(describing: root.presentedViewController)); assertions=\(checks)")
+        }
         guard let key = P.NumericKey(rawValue: id) else { finish("invalid test numeric key") }
         require(field.text == String(format: "%.2f", P.readSnapshot().number(key)), "entry prefill must preserve two decimals")
         field.text = text
@@ -204,6 +206,12 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
               let item = rows.first(where: { $0["actionKind"] as? String == kind }),
               let id = item["id"] as? String else { finish("missing basic oracle kind " + kind) }
         tap(table(), id)
+    }
+    private func testMainQueueProgress() {
+        var progressed = false
+        DispatchQueue.main.async { progressed = true }
+        settle()
+        require(progressed, "UIKit harness nested run loop did not service the main queue")
     }
     private func testRootEntryAdmission() {
         let originalRoot = TapLockSettingsController()
@@ -864,6 +872,8 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         actionCatalog = actions
         backup = preferences()
         replacePreferences([TapLockPreferences.enabledKey: true, TapLockPreferences.actionKey: ["kind": "systemMute"]])
+        checkpoint("before testMainQueueProgress")
+        testMainQueueProgress()
         checkpoint("before testRootEntryAdmission")
         testRootEntryAdmission()
         checkpoint("before testRootEntry")

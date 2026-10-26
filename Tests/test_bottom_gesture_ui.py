@@ -105,6 +105,17 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_uikit_host_measures_main_queue_progress_before_interactions(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        probe = swift_body(harness, 'private func testMainQueueProgress()')
+        for token in ('DispatchQueue.main.async', 'progressed = true', 'settle()', 'require(progressed,'):
+            self.assertIn(token, probe)
+        run = swift_body(harness, 'private func run()')
+        self.assertLess(run.index('testMainQueueProgress()'), run.index('testRootEntryAdmission()'))
+        entry = swift_body(harness, 'private func entry(')
+        for token in ('numeric editor did not present: id=', 'input=', 'control=', 'presented=', 'assertions='):
+            self.assertIn(token, entry)
+
     def test_table_owner_failure_reports_actual_identity_without_relaxing_admission(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
         helper = swift_body(harness, 'private func table(')
