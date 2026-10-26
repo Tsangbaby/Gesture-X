@@ -451,15 +451,38 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
             to: UIScreen.main.fixedCoordinateSpace) && transformed?.point != sample?.point,
             "raw local coordinates must be converted through real UIKit transforms")
         receiver.deck.container.transform = .identity
+        let fixedSpace = UIScreen.main.fixedCoordinateSpace
+        let referenceBefore = BottomGestureSample.referenceRectangle(of: UIScreen.main)
+        require(referenceBefore != nil && fixedSpace.bounds == referenceBefore,
+                "rectangle rejection fixture needs a valid matching positive control")
         let referenceMethod = class_getInstanceMethod(object_getClass(UIScreen.main)!, NSSelectorFromString("_referenceBounds"))!
+        let fixedBoundsMethod = class_getInstanceMethod(object_getClass(fixedSpace as AnyObject)!, NSSelectorFromString("bounds"))!
+        // UIKit's fixed bounds and the optional reference-getter fixture may
+        // delegate to one another. Freeze one external read and vary the other
+        // so the negative test actually presents two incompatible rectangles.
+        let frozenReference = referenceBefore!
+        let referenceSnapshot: @convention(block) (AnyObject) -> CGRect = { _ in frozenReference }
+        let referenceSnapshotIMP = imp_implementationWithBlock(referenceSnapshot as Any)
+        let previousReference = method_setImplementation(referenceMethod, referenceSnapshotIMP)
         let incompatible: @convention(c) (AnyObject, Selector) -> CGRect = { _, _ in
             CGRect(x: 0, y: 0, width: 1, height: 1)
         }
-        let previousReference = method_setImplementation(referenceMethod, unsafeBitCast(incompatible, to: IMP.self))
+        let previousFixedBounds = method_setImplementation(fixedBoundsMethod, unsafeBitCast(incompatible, to: IMP.self))
+        let referenceDuring = BottomGestureSample.referenceRectangle(of: UIScreen.main)
+        let fixedDuring = fixedSpace.bounds
         let incompatibleSample = BottomGestureSample.captureValidated(receiver, receiver.deck.object, receiver.deck.recognizer,
             capabilities: capabilities)
+        method_setImplementation(fixedBoundsMethod, previousFixedBounds)
         method_setImplementation(referenceMethod, previousReference)
+        imp_removeBlock(referenceSnapshotIMP)
+        checkpoint("rectangle fixture: before=\(String(describing: referenceBefore)); reference=\(String(describing: referenceDuring)); fixed=\(fixedDuring)")
+        require(referenceDuring == referenceBefore && fixedDuring != referenceDuring,
+                "negative fixture did not isolate incompatible fixed/reference rectangles")
         require(incompatibleSample == nil, "incompatible fixed/reference rectangle must fail open")
+        let restoredSample = BottomGestureSample.captureValidated(receiver, receiver.deck.object, receiver.deck.recognizer,
+            capabilities: capabilities)
+        require(restoredSample?.point == expected && restoredSample?.referenceRect == referenceBefore,
+                "restoring rectangle capabilities did not recover the valid production capture")
         orientation.raw = orientation.raw == 1 ? 3 : 1
         require(BottomGestureSample.captureValidated(receiver, receiver.deck.object, receiver.deck.recognizer,
             capabilities: capabilities) == nil, "conflicting SpringBoard/scene orientation must reject")

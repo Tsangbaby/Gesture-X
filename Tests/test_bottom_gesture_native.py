@@ -17,6 +17,32 @@ def code(path):
 
 
 class BottomNativeSourceTests(unittest.TestCase):
+    def test_reference_rectangle_negative_fixture_isolates_fixed_bounds_and_checks_recovery(self):
+        text = code('Tests/BottomGestureNativeApp.swift')
+        fixture = text.split('private func testSafeObjectSlots()', 1)[1].split('private func testCoordinatorBridge()', 1)[0]
+        for token in ('let fixedSpace = UIScreen.main.fixedCoordinateSpace',
+                      'let referenceBefore = BottomGestureSample.referenceRectangle(of: UIScreen.main)',
+                      'object_getClass(fixedSpace as AnyObject)', 'NSSelectorFromString("bounds")',
+                      'let frozenReference = referenceBefore!',
+                      'let referenceSnapshot: @convention(block) (AnyObject) -> CGRect = { _ in frozenReference }',
+                      'let referenceSnapshotIMP = imp_implementationWithBlock(referenceSnapshot as Any)',
+                      'method_setImplementation(referenceMethod, referenceSnapshotIMP)',
+                      'method_setImplementation(fixedBoundsMethod, unsafeBitCast(incompatible, to: IMP.self))',
+                      'let referenceDuring = BottomGestureSample.referenceRectangle(of: UIScreen.main)',
+                      'let fixedDuring = fixedSpace.bounds',
+                      'method_setImplementation(fixedBoundsMethod, previousFixedBounds)',
+                      'method_setImplementation(referenceMethod, previousReference)',
+                      'imp_removeBlock(referenceSnapshotIMP)',
+                      'referenceDuring == referenceBefore && fixedDuring != referenceDuring',
+                      'require(incompatibleSample == nil', 'let restoredSample = BottomGestureSample.captureValidated(',
+                      'restoredSample?.point == expected && restoredSample?.referenceRect == referenceBefore'):
+            self.assertIn(token, fixture)
+        self.assertNotIn('method_setImplementation(referenceMethod, unsafeBitCast(incompatible,', fixture)
+        self.assertLess(fixture.index('let referenceBefore ='), fixture.index('let previousFixedBounds ='))
+        self.assertLess(fixture.index('let fixedDuring ='), fixture.index('let incompatibleSample ='))
+        self.assertLess(fixture.index('method_setImplementation(fixedBoundsMethod, previousFixedBounds)'),
+                        fixture.index('require(incompatibleSample == nil'))
+
     def test_full_abi_is_gated_before_any_install(self):
         path = ROOT / 'Sources/BottomGestureNative.swift'
         self.assertTrue(path.is_file(), 'missing real four-callback native owner')
