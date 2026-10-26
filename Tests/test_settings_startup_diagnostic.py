@@ -92,8 +92,10 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
             source = root / 'probe.c'
             source.write_text(module['NATIVE_PROBE'] + '\nint main(void) { TLSDRecord("main-entered"); return 0; }\n')
             binary = root / 'probe'
-            subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L', str(source), '-o', str(binary)],
-                           check=True, capture_output=True, text=True, timeout=30)
+            compiled = subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L', str(source), '-o', str(binary)],
+                                      capture_output=True, text=True, timeout=30)
+            self.assertEqual(compiled.returncode, 0,
+                'Native host probe compiler failed:\n' + compiled.stdout + compiled.stderr)
             home = root / 'valid-home'
             home.mkdir()
             env = dict(os.environ, HOME=str(home), SETTINGS_DIAGNOSTIC_SOURCE=SOURCE,
@@ -130,6 +132,19 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
             'owned-device', 'com.tsangbaby.taplock.constructor-baseline', '--expect-legacy-failure'],
             timeout=120, env=env)
 
+    def test_native_probe_compiler_failure_surfaces_stderr_before_any_execution(self):
+        failure = subprocess.CompletedProcess(['cc'], 2, '', 'COMPILER_STDERR_MUST_SURVIVE')
+        with mock.patch('subprocess.run', return_value=failure) as compiler:
+            try:
+                self.test_native_probe_actually_writes_identical_owned_json_to_both_channels()
+            except AssertionError as error:
+                self.assertIn('COMPILER_STDERR_MUST_SURVIVE', str(error))
+            except Exception:
+                self.fail('native compiler failure was not surfaced before trying to execute the binary')
+            else:
+                self.fail('native compiler failure was accepted')
+            self.assertEqual(compiler.call_count, 1)
+
     def test_real_command_timeout_retains_live_file_output_and_never_reports_success(self):
         module = self.module()
         self.assertIn('CommandRunner', module, 'Missing bounded output-preserving command runner')
@@ -159,6 +174,9 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
         self.assertLessEqual(job['timeout-minutes'], 12)
         self.assertEqual(job['env']['DEVELOPER_DIR'], '/Applications/Xcode_16.4.app/Contents/Developer')
         steps = job['steps']
+        commands = '\n'.join(step.get('run', '') for step in steps)
+        self.assertIn('mkdir -p "$RUNNER_TEMP/settings-startup-diagnostic"', commands)
+        self.assertIn('tee "$RUNNER_TEMP/settings-startup-diagnostic/guard-tests.log"', commands)
         self.assertIn('python3 -B ci/settings_startup_diagnostic.py --execute',
                       '\n'.join(step.get('run', '') for step in steps))
         serialized = json.dumps(workflow)

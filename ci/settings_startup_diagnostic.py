@@ -253,7 +253,9 @@ def execute_diagnostic():
         raise RuntimeError('execute only on the authorized isolated cloud Mac')
     evidence = Path(os.environ['RUNNER_TEMP']) / 'settings-startup-diagnostic'
     work = Path(os.environ['RUNNER_TEMP']) / 'settings-startup-work'
-    evidence.mkdir(exist_ok=False)
+    evidence.mkdir(exist_ok=True)
+    if (evidence / 'RESULT.json').exists():
+        raise RuntimeError('refusing to overwrite a prior diagnostic run')
     work.mkdir(exist_ok=False)
     runner = CommandRunner(evidence)
     source = os.environ.get('GITHUB_SHA', '')

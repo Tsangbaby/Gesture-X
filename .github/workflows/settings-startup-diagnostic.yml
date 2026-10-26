@@ -29,7 +29,7 @@
         },
         {
           "name": "Guard tests and one-shot startup observations",
-          "run": "set -euo pipefail\npython3 -B -m unittest discover -s Tests -p test_settings_startup_diagnostic.py -v\npython3 -B ci/settings_startup_diagnostic.py --execute"
+          "run": "set -euo pipefail\nmkdir -p \"$RUNNER_TEMP/settings-startup-diagnostic\"\npython3 -B -m unittest discover -s Tests -p test_settings_startup_diagnostic.py -v 2>&1 | tee \"$RUNNER_TEMP/settings-startup-diagnostic/guard-tests.log\"\npython3 -B ci/settings_startup_diagnostic.py --execute"
         },
         {
           "name": "Preserve diagnostic evidence even on failure",
