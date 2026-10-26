@@ -247,14 +247,21 @@ PY
     python3 - "$DEVICE" "$bundle" "$mode" "$marker" "$RESULTS" <<'PY'
 import subprocess, sys
 from pathlib import Path
-p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
-                    sys.argv[1], sys.argv[2], sys.argv[3]],
-                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
-print(p.stdout, flush=True)
-print('simctl launch exit:', p.returncode, flush=True)
+try:
+    p = subprocess.run(['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process',
+                        sys.argv[1], sys.argv[2], sys.argv[3]],
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+    output, status = p.stdout, p.returncode
+except subprocess.TimeoutExpired as error:
+    partial = error.stdout
+    output = partial.decode(errors='replace') if isinstance(partial, bytes) else partial or ''
+    status = 124
+    print('SETTINGS_CONSTRUCTION_LAUNCH_TIMEOUT: 120 seconds', flush=True)
+print(output, flush=True)
+print('simctl launch exit:', status, flush=True)
 # simctl reports transport success, not the app's exit status. Every case
 # still requires its own exact terminal assertion/completion marker.
-if p.returncode or sys.argv[4] not in p.stdout:
+if status or sys.argv[4] not in output:
     # This is CI-harness evidence only, collected before the disposable
     # simulator is deleted. Never weaken the exact-marker failure gate.
     roots = [Path.home() / 'Library/Logs/DiagnosticReports',
@@ -274,7 +281,7 @@ if p.returncode or sys.argv[4] not in p.stdout:
         print('CI-only SettingsConstruction log read timed out', flush=True)
     raise SystemExit('Constructor test failed: missing verified completion marker / nonzero exit')
 with open(sys.argv[5], 'a') as f:
-    f.write(p.stdout + '\n')
+    f.write(output + '\n')
 PY
 }
 run_case "$OLD" baseline --expect-legacy-failure BASELINE_EXPECTED_FAILURE
