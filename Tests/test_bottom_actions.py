@@ -169,6 +169,36 @@ class BottomActionsRunnerContracts(unittest.TestCase):
                       'BOTTOM_ACTIONS_UIKIT_FAIL:', 'weak var released: UIWindow?'):
             self.assertIn(token, text)
 
+    def test_actions_host_yields_for_actual_animation_completion_without_nested_runloops(self):
+        text = (ROOT / 'Tests/BottomActionsApp.swift').read_text()
+        self.assertIn('@main\n@MainActor\nfinal class BottomActionsApp:', text)
+        self.assertRegex(text, r'private func run\(_ scene: UIWindowScene\)\s+async\s*\{')
+        settle = body(text, 'private func settle(')
+        self.assertIn('await Task.sleep', settle)
+        self.assertIn('duration * 1_000_000_000', settle)
+        self.assertNotIn('RunLoop.main.run(', text)
+        self.assertIn('Task { @MainActor in await self.run(scene) }', text)
+        run = body(text, 'private func run(')
+        self.assertIn('await testMainQueueProgress()', run)
+        self.assertIn('await testPanel(scene)', run)
+        self.assertIn('await testRejections(scene)', run)
+        self.assertLess(run.index('await testMainQueueProgress()'), run.index('testFlow(scene)'))
+        panel = body(text, 'private func testPanel(')
+        self.assertIn('await settle(0.03)', panel)
+        self.assertIn('await settle()', panel)
+        self.assertIn('events.map { $0.0 } == [.previousTrack] && owner.panelWindow == nil', panel)
+        self.assertIn('timeout=180', self.runner.read_text())
+
+    def test_actions_host_reports_phases_and_actual_selection_state(self):
+        text = (ROOT / 'Tests/BottomActionsApp.swift').read_text()
+        checkpoint = body(text, 'private func checkpoint(')
+        for token in ('BOTTOM_ACTIONS_CHECKPOINT:', 'checks', 'events.map', 'owner?.panelWindow', 'fflush(stdout)'):
+            self.assertIn(token, checkpoint)
+        self.assertIn('checkpoint("selection after double tap")', body(text, 'private func testPanel('))
+        self.assertIn('BOTTOM_ACTIONS_SELECTION_STATE:', text)
+        self.assertIn('selected.isEnabled', body(text, 'private func testPanel('))
+        self.assertIn('checkpoint("terminal")', body(text, 'private func finish('))
+
     @unittest.skipIf(platform.system() == 'Darwin', 'Apple execution is a separate gate')
     def test_unsupported_host_is_explicit_failure_not_a_skip_pass(self):
         self.assertTrue(self.runner.is_file(), 'Missing executable UIKit runner')

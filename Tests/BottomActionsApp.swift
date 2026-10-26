@@ -4,6 +4,7 @@ import Darwin
 // Executes the actual coordinator. Only clock/queue, provider effects and lock
 // permission are replaced. UIKit ownership, admission and event paths are real.
 @main
+@MainActor
 final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneDelegate {
     var window: UIWindow?
     private var checks = 0
@@ -31,7 +32,12 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
             now = deadline
         }
     }
+    private func checkpoint(_ phase: String) {
+        print("BOTTOM_ACTIONS_CHECKPOINT: \(phase); assertions=\(checks); events=\(events.map { $0.0 }); panel=\(String(describing: owner?.panelWindow))")
+        fflush(stdout)
+    }
     private func finish(_ error: String? = nil) -> Never {
+        checkpoint("terminal")
         if let error = error { print("BOTTOM_ACTIONS_UIKIT_FAIL: " + error) }
         else { print("BOTTOM_ACTIONS_UIKIT_PASS: assertions=\(checks)") }
         fflush(stdout)
@@ -113,10 +119,17 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
         }
         return button
     }
-    private func settle(_ duration: TimeInterval = 0.25) {
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: duration))
+    private func settle(_ duration: TimeInterval = 0.25) async {
+        do { try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000)) }
+        catch { finish("actions harness task cancelled") }
     }
-    private func testPanel(_ scene: UIWindowScene) {
+    private func testMainQueueProgress() async {
+        var progressed = false
+        DispatchQueue.main.async { progressed = true }
+        await settle()
+        require(progressed, "actions harness did not yield to the real main queue")
+    }
+    private func testPanel(_ scene: UIWindowScene) async {
         reset()
         let originalKey = scene.windows.first(where: { $0.isKeyWindow })
         let baseCount = scene.windows.count
@@ -150,17 +163,19 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
         require(owner.panelWindow == nil && panelWindow.rootViewController == nil && panel.delegate == nil,
                 "normal trigger must toggle closed and release root/delegate")
         action.sendActions(for: .touchUpInside)
-        settle()
+        await settle()
         require(events.isEmpty, "stale retained button dispatched after toggle")
         var configured: [TapLockPreferences.Action] = [.playPause, .previousTrack, .nextTrack]
         owner.trigger(selection(configured, flow: false), in: scene, allowWhileLocked: false)
         configured[1] = .lock
-        settle(0.03)
+        await settle(0.03)
         let selected = button("bottom.action.1")
         selected.sendActions(for: .touchUpInside)
         selected.sendActions(for: .touchUpInside)
+        print("BOTTOM_ACTIONS_SELECTION_STATE: enabled=\(selected.isEnabled); frame=\(selected.frame); bounds=\(selected.bounds); attached=\(selected.window != nil); scene=\(scene.activationState.rawValue); app=\(UIApplication.shared.applicationState.rawValue)")
+        checkpoint("selection after double tap")
         require(events.isEmpty, "selection must wait for dismissal")
-        settle()
+        await settle()
         require(events.map { $0.0 } == [.previousTrack] && owner.panelWindow == nil, "selection must execute exactly one immutable index")
         require(scene.windows.first(where: { $0.isKeyWindow }) === originalKey, "other windows were mutated")
         reset()
@@ -170,19 +185,19 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
         let outsidePoint = CGPoint(x: showing.bounds.midX, y: showing.safeAreaInsets.top + 2)
         require(showing.hitTest(outsidePoint, with: nil) === outside, "outside point must dismiss, not leak through while shown")
         outside.sendActions(for: .touchUpInside)
-        settle()
+        await settle()
         require(owner.panelWindow == nil && events.isEmpty, "outside close must execute nothing")
         owner.trigger(selection([.lock], flow: false), in: scene, allowWhileLocked: false)
         button("bottom.cancel").sendActions(for: .touchUpInside)
-        settle()
+        await settle()
         require(owner.panelWindow == nil && events.isEmpty, "cancel must execute nothing")
         owner.trigger(selection([.lock], flow: false), in: scene, allowWhileLocked: false)
-        settle(0.03)
+        await settle(0.03)
         button("bottom.action.0").sendActions(for: .touchUpInside)
         owner.cancelAll()
         owner.trigger(selection([.flashlight], flow: false), in: scene, allowWhileLocked: false)
         let replacement = owner.panelWindow
-        settle()
+        await settle()
         require(events.isEmpty && replacement != nil && owner.panelWindow === replacement,
                 "old animation completion dispatched/destroyed a replacement panel")
         owner.trigger(selection([.playPause, .nextTrack]), in: scene, allowWhileLocked: false)
@@ -203,7 +218,7 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
         passthrough.isHidden = true
         passthrough.rootViewController = nil
     }
-    private func testRejections(_ scene: UIWindowScene) {
+    private func testRejections(_ scene: UIWindowScene) async {
         for flow in [false, true] {
             for input in [selection([], flow: flow), selection([.unavailable], flow: flow),
                           selection([.openApp("bad identifier")], flow: flow),
@@ -233,14 +248,14 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
         owner.trigger(selection([.lock], flow: false), in: scene, allowWhileLocked: false)
         allowed = false
         button("bottom.action.0").sendActions(for: .touchUpInside)
-        settle()
+        await settle()
         require(owner.panelWindow == nil && events.isEmpty, "selection-time permission change dispatched")
         reset()
         owner.trigger(selection([.lock], flow: false), in: scene, allowWhileLocked: false)
-        settle(0.03)
+        await settle(0.03)
         button("bottom.action.0").sendActions(for: .touchUpInside)
         allowed = false
-        settle()
+        await settle()
         require(owner.panelWindow == nil && events.isEmpty, "dismiss-completion permission change dispatched")
         reset()
         owner.trigger(selection([.openApp("com.example.Example")], flow: false), in: scene, allowWhileLocked: false)
@@ -252,7 +267,7 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
             released = owner.panelWindow
             owner.cancelAll()
         }
-        settle()
+        await settle()
         require(released == nil, "dismissed overlay leaked window/root/closure ownership")
     }
     private func testOffMainAdmission(_ scene: UIWindowScene) {
@@ -278,11 +293,9 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
                 "off-main cancellation mutated live UIKit ownership")
         owner.cancelAll()
     }
-    private func run(_ scene: UIWindowScene) {
-        guard scene.activationState == .foregroundActive,
-              UIApplication.shared.applicationState == .active else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.run(scene) }
-            return
+    private func run(_ scene: UIWindowScene) async {
+        while scene.activationState != .foregroundActive || UIApplication.shared.applicationState != .active {
+            await settle(0.05)
         }
         UIView.setAnimationsEnabled(true)
         owner = BottomActionCoordinator(io: .init(now: { [unowned self] in self.clock.now },
@@ -297,9 +310,15 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
                 self.permissions.append(allowWhileLocked)
                 return self.allowed
             }))
+        checkpoint("before testMainQueueProgress")
+        await testMainQueueProgress()
+        checkpoint("before testFlow")
         testFlow(scene)
-        testPanel(scene)
-        testRejections(scene)
+        checkpoint("before testPanel")
+        await testPanel(scene)
+        checkpoint("before testRejections")
+        await testRejections(scene)
+        checkpoint("before testOffMainAdmission")
         testOffMainAdmission(scene)
         owner.cancelAll()
         finish()
@@ -318,6 +337,6 @@ final class BottomActionsApp: UIResponder, UIApplicationDelegate, UIWindowSceneD
         window.rootViewController?.view.backgroundColor = .systemBackground
         self.window = window
         window.makeKeyAndVisible()
-        DispatchQueue.main.async { self.run(scene) }
+        Task { @MainActor in await self.run(scene) }
     }
 }
