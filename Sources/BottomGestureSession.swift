@@ -66,7 +66,9 @@ struct BottomGestureSample {
               orientationRaw == scene.interfaceOrientation.rawValue else { return nil }
         let referenceSpace = window.screen.fixedCoordinateSpace
         guard referenceSpace.bounds == referenceRect else { return nil }
-        let point = container.convert(recognizer.location(in: container), to: referenceSpace)
+        let localPoint = recognizer.location(in: container)
+        guard localPoint.x.isFinite, localPoint.y.isFinite else { return nil }
+        let point = container.convert(localPoint, to: referenceSpace)
         guard point.x.isFinite, point.y.isFinite else { return nil }
         return BottomGestureSample(point: point, referenceRect: referenceRect,
             orientationRaw: orientationRaw, scene: scene, screen: window.screen, referenceSpace: referenceSpace,

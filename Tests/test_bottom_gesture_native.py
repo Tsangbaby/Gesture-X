@@ -177,7 +177,7 @@ class BottomNativeSourceTests(unittest.TestCase):
         text = code('Sources/BottomGestureSession.swift')
         for token in ('let referenceSpace: UICoordinateSpace', 'let screen: UIScreen',
                       'referenceSpace.bounds == referenceRect',
-                      'container.convert(recognizer.location(in: container), to: referenceSpace)',
+                      'container.convert(localPoint, to: referenceSpace)',
                       'sample.referenceSpace === referenceSpace', 'sample.screen === screen',
                       'activeInterfaceOrientation', 'returns: "q"', '"SBGrabberTongue"',
                       '"SBFluidSwitcherGestureManager"', '"edgePullGestureRecognizer"',

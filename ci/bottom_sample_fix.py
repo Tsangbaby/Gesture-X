@@ -22,6 +22,11 @@ BEFORE = '''              let container = objectIvar(deck, "_tongueContainer") a
 AFTER = '''              let recognizer = edgeRecognizer(in: deck), recognizer === gesture,
               let container = recognizer.view,
 '''
+POINT_BEFORE = '        let point = container.convert(recognizer.location(in: container), to: referenceSpace)\n'
+POINT_AFTER = '''        let localPoint = recognizer.location(in: container)
+        guard localPoint.x.isFinite, localPoint.y.isFinite else { return nil }
+        let point = container.convert(localPoint, to: referenceSpace)
+'''
 ALLOWED = {
     SAMPLE, 'Tests/BottomGestureNativeApp.swift', 'Tests/test_bottom_gesture_native.py',
     'Tests/test_bottom_sample_fix.py', 'ci/bottom_sample_fix.py',
@@ -41,7 +46,8 @@ def digest(data):
 
 def restore_sample(text):
     assert text.count(AFTER) == 1, 'sample-view inverse anchor'
-    original = text.replace(AFTER, BEFORE, 1)
+    assert text.count(POINT_AFTER) == 1, 'raw-point inverse anchor'
+    original = text.replace(AFTER, BEFORE, 1).replace(POINT_AFTER, POINT_BEFORE, 1)
     assert digest(original.encode()) == BASE_SHA256, 'unrelated sample-view runtime drift'
     return original
 
@@ -135,7 +141,7 @@ def red_fixture(stage, source_sha):
     assert text.count(before) == 1
     runner.write_text(text.replace(before, after, 1))
     assert digest(path.read_bytes()) == BASE_SHA256
-    scope.update(fixture='only acquisition hunk restored to frozen baseline; new test unchanged',
+    scope.update(fixture='only acquisition and raw-point hunks restored to frozen baseline; new test unchanged',
                  baseline_sample_sha256=BASE_SHA256,
                  expected_red=EXPECTED_RED, expected_harness_status=1)
     return scope

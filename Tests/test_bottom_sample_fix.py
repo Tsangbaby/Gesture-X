@@ -14,11 +14,17 @@ BEFORE = '''              let container = objectIvar(deck, "_tongueContainer") a
 AFTER = '''              let recognizer = edgeRecognizer(in: deck), recognizer === gesture,
               let container = recognizer.view,
 '''
+POINT_BEFORE = '        let point = container.convert(recognizer.location(in: container), to: referenceSpace)\n'
+POINT_AFTER = '''        let localPoint = recognizer.location(in: container)
+        guard localPoint.x.isFinite, localPoint.y.isFinite else { return nil }
+        let point = container.convert(localPoint, to: referenceSpace)
+'''
 
 
 def restore(text):
     assert text.count(AFTER) == 1, 'sample-view inverse anchor'
-    original = text.replace(AFTER, BEFORE, 1)
+    assert text.count(POINT_AFTER) == 1, 'raw-point inverse anchor'
+    original = text.replace(AFTER, BEFORE, 1).replace(POINT_AFTER, POINT_BEFORE, 1)
     assert hashlib.sha256(original.encode()).hexdigest() == BASE_SHA256, 'unrelated sample-view runtime drift'
     return original
 
@@ -35,7 +41,7 @@ class BottomSampleFixContracts(unittest.TestCase):
                       'window.windowScene', 'scene.activationState == .foregroundActive',
                       'scene.screen === window.screen', 'orientationRaw == scene.interfaceOrientation.rawValue',
                       'referenceSpace.bounds == referenceRect',
-                      'container.convert(recognizer.location(in: container), to: referenceSpace)',
+                      'container.convert(localPoint, to: referenceSpace)',
                       'point.x.isFinite', 'point.y.isFinite'):
             self.assertIn(token, capture)
         ordered = ['deck === tongue', 'recognizer === gesture', 'let container = recognizer.view',
@@ -45,7 +51,16 @@ class BottomSampleFixContracts(unittest.TestCase):
         self.assertEqual(capture.count('recognizer.view'), 1)
         self.assertEqual(capture.count('recognizer.location(in: container)'), 1)
 
-    def test_only_authorized_three_line_acquisition_changes(self):
+    def test_raw_nonfinite_input_rejects_before_uikit_conversion(self):
+        capture = (ROOT / PATH).read_text().split('static func captureValidated(', 1)[1].split('/// No guessed', 1)[0]
+        for token in ('let localPoint = recognizer.location(in: container)',
+                      'guard localPoint.x.isFinite, localPoint.y.isFinite else { return nil }',
+                      'let point = container.convert(localPoint, to: referenceSpace)',
+                      'guard point.x.isFinite, point.y.isFinite else { return nil }'):
+            self.assertIn(token, capture)
+        self.assertLess(capture.index('guard localPoint.x.isFinite'), capture.index('container.convert(localPoint,'))
+
+    def test_only_authorized_sample_chain_changes(self):
         text = (ROOT / PATH).read_bytes().decode()
         original = restore(text)
         self.assertIn(BEFORE, original)
