@@ -123,7 +123,9 @@ class BottomGestureWiringTests(unittest.TestCase):
         run = body(harness, 'private func run()')
         self.assertEqual(run.count('testRootEntryAdmission()'), 1)
         launch = body(harness, 'func application(')
-        self.assertIn('DispatchQueue.main.async { self.run() }', launch)
+        self.assertIn('perform(#selector(run), with: nil, afterDelay: 0)', launch)
+        self.assertIn('@objc private func run()', harness)
+        self.assertLess(run.index('testMainQueueProgress()'), run.index('testRootEntryAdmission()'))
         regression = body(harness, 'private func testRootEntryAdmission()')
         for token in (
             'let originalRoot = TapLockSettingsController()', 'show(originalRoot)',

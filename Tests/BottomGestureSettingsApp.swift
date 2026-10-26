@@ -862,7 +862,7 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         require(!cell.hasAmbiguousLayout && !cell.contentView.hasAmbiguousLayout, "narrow Dynamic Type layout ambiguous")
         require(descendants(cell).compactMap { $0 as? UIStackView }.contains(where: { $0.axis == .vertical }), "number controls must use constraints/stack layout")
     }
-    private func run() {
+    @objc private func run() {
         checkpoint("run entered")
         guard let bottomData = BottomGestureSettingsIO().data("BottomGestureReference"),
               let actionData = BottomGestureSettingsIO().data("SettingsReference"),
@@ -909,7 +909,9 @@ final class BottomGestureSettingsApp: UIResponder, UIApplicationDelegate {
         window.rootViewController = nav
         self.window = window
         window.makeKeyAndVisible()
-        DispatchQueue.main.async { self.run() }
+        // Enter from a native RunLoop timer, not one long main-queue block.
+        // Nested settle() loops must be able to service UIKit's queued work.
+        perform(#selector(run), with: nil, afterDelay: 0)
         return true
     }
 }

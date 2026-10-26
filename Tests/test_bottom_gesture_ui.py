@@ -105,6 +105,15 @@ def assert_catalog_contract(case, source):
 
 
 class BottomGestureUISourceTests(unittest.TestCase):
+    def test_uikit_suite_runs_from_runloop_timer_not_one_main_queue_block(self):
+        harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
+        launch = swift_body(harness, 'func application(')
+        self.assertIn('perform(#selector(run), with: nil, afterDelay: 0)', launch)
+        self.assertIn('@objc private func run()', harness)
+        self.assertNotIn('DispatchQueue.main.async { self.run() }', launch)
+        run = swift_body(harness, 'private func run()')
+        self.assertIn('testMainQueueProgress()', run)
+
     def test_uikit_host_measures_main_queue_progress_before_interactions(self):
         harness = (ROOT / 'Tests/BottomGestureSettingsApp.swift').read_text()
         probe = swift_body(harness, 'private func testMainQueueProgress()')
