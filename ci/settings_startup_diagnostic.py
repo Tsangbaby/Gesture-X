@@ -8,6 +8,7 @@ import platform
 import re
 import signal
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -165,16 +166,32 @@ class CommandRunner:
         self.directory = directory
         self.directory.mkdir(parents=True, exist_ok=True)
 
-    def run(self, label, argv, timeout=30, env=None) -> dict:
+    def run(self, label, argv, timeout=30, env=None, wait_probe=None, probe_after=10) -> dict:
+        if wait_probe is not None and not 0 <= probe_after < timeout:
+            raise ValueError('wait probe must start before the unchanged command deadline')
         path = self.directory / (label + '.log')
         if path.exists():
             raise ValueError('refusing repeated command label: ' + label)
         started = time.monotonic()
         status, timed_out = 127, False
+        stopping = threading.Event()
+        probe_state: dict = dict(invoked=False, error=None)
+        observer = None
         with path.open('wb') as output:
             try:
                 proc = subprocess.Popen(argv, cwd=ROOT, env=env, stdout=output,
                                         stderr=subprocess.STDOUT, start_new_session=True)
+                if wait_probe is not None:
+                    def observe_wait():
+                        if stopping.wait(probe_after) or proc.poll() is not None:
+                            return
+                        probe_state['invoked'] = True
+                        try:
+                            wait_probe(proc.pid)
+                        except Exception as error:
+                            probe_state['error'] = type(error).__name__ + ': ' + str(error)
+                    observer = threading.Thread(target=observe_wait, daemon=True)
+                    observer.start()
                 try:
                     status = proc.wait(timeout=timeout)
                 except subprocess.TimeoutExpired:
@@ -190,9 +207,18 @@ class CommandRunner:
                         proc.wait(timeout=3)
             except OSError as error:
                 output.write((type(error).__name__ + ': ' + str(error)).encode())
-        record = dict(label=label, argv=[str(x) for x in argv], timeout_seconds=timeout,
+            finally:
+                command_elapsed = time.monotonic() - started
+                stopping.set()
+                if observer is not None:
+                    observer.join(timeout=35)
+        record: dict = dict(label=label, argv=[str(x) for x in argv], timeout_seconds=timeout,
                       status=status, timed_out=timed_out, elapsed_seconds=time.monotonic() - started,
-                      log=str(path))
+                      command_elapsed_seconds=command_elapsed, log=str(path))
+        if wait_probe is not None:
+            record.update(wait_probe_invoked=probe_state['invoked'],
+                          wait_probe_completed=observer is None or not observer.is_alive(),
+                          wait_probe_error=probe_state['error'])
         with (self.directory / 'commands.jsonl').open('a') as stream:
             stream.write(json.dumps(record) + '\n')
         print('SETTINGS_STARTUP_COMMAND: ' + json.dumps(record), flush=True)
@@ -246,6 +272,101 @@ def collect_process_evidence(runner, kind, device, bundle, app_container, eviden
                if p.is_file() and p.stat().st_mtime >= since]
     for index, report in enumerate(sorted(reports, key=lambda p: p.stat().st_mtime, reverse=True)[:2]):
         (evidence / (kind + '-crash-' + str(index) + '.txt')).write_text(report.read_text(errors='replace'))
+
+
+def runtime_service_state(runner, label):
+    snapshot = runner.run(label + '-processes', ['ps', '-axo', 'pid=,ppid=,stat=,etime=,command='], timeout=5)
+    listed = runner.run(label + '-launchctl', ['launchctl', 'list'], timeout=5)
+    services = []
+    names = {'com.apple.CoreSimulator.CoreSimulatorService', 'CoreSimulatorService',
+             'simdiskimaged', 'SimLaunchHost', 'com.apple.CoreSimulator.SimLaunchHost'}
+    for line in snapshot['stdout'].splitlines():
+        fields = line.strip().split(None, 4)
+        if len(fields) != 5 or not fields[0].isdigit():
+            continue
+        executable = fields[4].split(' ', 1)[0].rsplit('/', 1)[-1]
+        if executable in names:
+            services.append(dict(pid=int(fields[0]), parent_pid=fields[1], state=fields[2],
+                                 elapsed=fields[3], command=fields[4]))
+    services.sort(key=lambda row: ('CoreSimulatorService' not in row['command'], row['pid']))
+    labels = [line for line in listed['stdout'].splitlines()
+              if 'CoreSimulator' in line or 'simdiskimaged' in line or 'SimLaunchHost' in line]
+    save_json(runner.directory / (label + '-services.json'), dict(services=services,
+        launchctl_labels=labels, ps_status=snapshot['status'], launchctl_status=listed['status'],
+        limit='Read-only snapshot; an absent process is not proof that it never existed.'))
+    return services
+
+
+def collect_runtime_wait_evidence(runner, client_pid):
+    # Sample the client first, while the original 30-second deadline is still active.
+    client = runner.run('runtimes-wait-client-sample', ['/usr/bin/sample', str(client_pid), '2', '1',
+        '-file', str(runner.directory / 'runtimes-client.stack.txt')], timeout=6)
+    services = runtime_service_state(runner, 'runtimes-wait')
+    samples = []
+    for service in services[:1]:
+        sampled = runner.run('runtimes-wait-service-sample', ['/usr/bin/sample', str(service['pid']), '2', '1',
+            '-file', str(runner.directory / 'runtimes-service.stack.txt')], timeout=6)
+        samples.append(dict(pid=service['pid'], command=service['command'], status=sampled['status']))
+    logs = runner.run('runtimes-wait-service-log', ['/usr/bin/log', 'show', '--last', '2m',
+        '--style', 'compact', '--info', '--predicate',
+        'process == "simctl" OR process == "CoreSimulatorService" OR process == "simdiskimaged" '
+        'OR process == "com.apple.CoreSimulator.CoreSimulatorService" '
+        'OR subsystem BEGINSWITH "com.apple.CoreSimulator"'], timeout=8)
+    save_json(runner.directory / 'runtimes-wait-summary.json', dict(client_pid=client_pid,
+        client_sample_status=client['status'], service_samples=samples, service_log_status=logs['status'],
+        policy='observation only; no restart, extra simctl invocation, download or deadline extension'))
+
+
+def runtime_inventory_once(runner):
+    return runner.run('runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '--json'], timeout=30,
+                      wait_probe=lambda pid: collect_runtime_wait_evidence(runner, pid), probe_after=10)
+
+
+def execute_runtime_wait_diagnostic():
+    if platform.system() != 'Darwin' or not os.environ.get('RUNNER_TEMP'):
+        raise RuntimeError('execute only on the authorized isolated cloud Mac')
+    evidence = Path(os.environ['RUNNER_TEMP']) / 'settings-startup-diagnostic'
+    evidence.mkdir(exist_ok=True)
+    if (evidence / 'RESULT.json').exists():
+        raise RuntimeError('refusing to overwrite a prior diagnostic run')
+    runner = CommandRunner(evidence)
+    source = os.environ.get('GITHUB_SHA', '')
+    report: dict = dict(schemaVersion=1, source_commit=source,
+        run_id=os.environ.get('GITHUB_RUN_ID'), run_attempt=os.environ.get('GITHUB_RUN_ATTEMPT'),
+        boundary='runtime inventory waiting/service observation only; NOT original App diagnosis or a fix',
+        runtime_timeout_seconds=30, apps_executed=[], state='preparing', runtime_inventory_completed=False)
+    save_json(evidence / 'RESULT.json', report)
+    try:
+        if not re.fullmatch(r'[0-9a-f]{40}', source):
+            raise ValueError('missing exact cloud source SHA')
+        if runner.checked('head', ['git', 'rev-parse', 'HEAD']) != source:
+            raise ValueError('checkout does not match cloud source')
+        if runner.checked('worktree', ['git', 'status', '--porcelain']):
+            raise ValueError('dirty checkout')
+        runner.checked('xcode-version', ['xcodebuild', '-version'])
+        runner.checked('host-version', ['sw_vers'])
+        runner.checked('host-arch', ['uname', '-m'])
+        runtime_service_state(runner, 'runtimes-before')
+        report['state'] = 'observing-runtime-inventory'
+        save_json(evidence / 'RESULT.json', report)
+        inventory = runtime_inventory_once(runner)
+        report['runtime_command'] = {key: value for key, value in inventory.items() if key != 'stdout'}
+        runtime_service_state(runner, 'runtimes-after')
+        if inventory['status']:
+            raise RuntimeError('runtime inventory did not complete: ' + str(inventory['status']))
+        payload = json.loads(inventory['stdout'])
+        if not isinstance(payload, dict) or not isinstance(payload.get('runtimes'), list):
+            raise ValueError('runtime inventory did not return its JSON schema')
+        report.update(state='complete', runtime_inventory_completed=True,
+            runtime_count=len(payload['runtimes']),
+            conclusion='runtime inventory completed in this observation; previous timeout remains unexplained')
+    except Exception as error:
+        report.update(state='blocked', error=type(error).__name__ + ': ' + str(error))
+        print('SETTINGS_STARTUP_BLOCKER: ' + report['error'], flush=True)
+    finally:
+        save_json(evidence / 'RESULT.json', report)
+        print('SETTINGS_STARTUP_RESULT: ' + json.dumps(report), flush=True)
+    return 0 if report['runtime_inventory_completed'] else 1
 
 
 def execute_diagnostic():
@@ -392,6 +513,8 @@ def execute_diagnostic():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--execute', action='store_true')
-    if not parser.parse_args().execute:
+    parser.add_argument('--runtime-wait-only', action='store_true')
+    args = parser.parse_args()
+    if not args.execute:
         parser.error('--execute is required; importing never executes cloud work')
-    raise SystemExit(execute_diagnostic())
+    raise SystemExit(execute_runtime_wait_diagnostic() if args.runtime_wait_only else execute_diagnostic())

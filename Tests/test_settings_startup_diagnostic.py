@@ -6,6 +6,7 @@ import runpy
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -173,6 +174,109 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
             recorded = json.loads((Path(directory) / 'commands.jsonl').read_text())
             self.assertEqual(recorded['status'], 124)
 
+    def test_live_wait_probe_runs_before_timeout_without_changing_command_verdict(self):
+        module = self.module()
+        self.assertIn('wait_probe', module['CommandRunner'].run.__code__.co_varnames,
+                      'Missing live command observer before timeout cancellation')
+        with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as directory:
+            root = Path(directory)
+            runner = module['CommandRunner'](root)
+            observed = []
+            def sample_wait(pid):
+                observed.append((pid, time.monotonic()))
+                (root / 'observer-started').write_text(str(pid))
+                time.sleep(1.2)
+            result = runner.run('observed-timeout-unit', [sys.executable, '-u', '-c',
+                'import time; time.sleep(10)'], timeout=1, wait_probe=sample_wait, probe_after=0.1)
+            self.assertEqual(result['status'], 124)
+            self.assertEqual(result['timeout_seconds'], 1)
+            self.assertTrue(result['wait_probe_invoked'])
+            self.assertTrue(result['wait_probe_completed'])
+            self.assertEqual(len(observed), 1)
+            self.assertGreater(observed[0][0], 0)
+            self.assertLess(result['command_elapsed_seconds'], 1.8)
+            self.assertTrue((root / 'observer-started').is_file())
+
+    def test_wait_probe_cancels_on_fast_exit_and_probe_error_does_not_override_timeout(self):
+        module = self.module()
+        with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as directory:
+            runner = module['CommandRunner'](Path(directory))
+            callback = mock.Mock()
+            fast = runner.run('fast-observer-unit', [sys.executable, '-c', 'pass'],
+                timeout=3, wait_probe=callback, probe_after=2)
+            self.assertEqual(fast['status'], 0)
+            self.assertFalse(fast['wait_probe_invoked'])
+            callback.assert_not_called()
+            def failing_probe(pid):
+                raise RuntimeError('expected observer rejection')
+            blocked = runner.run('failing-observer-unit', [sys.executable, '-c',
+                'import time; time.sleep(10)'], timeout=0.5, wait_probe=failing_probe, probe_after=0.05)
+            self.assertEqual(blocked['status'], 124)
+            self.assertTrue(blocked['wait_probe_completed'])
+            self.assertIn('expected observer rejection', blocked['wait_probe_error'])
+
+    def test_runtime_inventory_is_launched_once_with_30_second_bound_and_live_probe(self):
+        module = self.module()
+        self.assertIn('runtime_inventory_once', module, 'Missing runtime-inventory live observation')
+        runner = mock.Mock()
+        runner.run.return_value = {'status': 124, 'timed_out': True}
+        observed = module['runtime_inventory_once'](runner)
+        self.assertEqual(observed['status'], 124)
+        runner.run.assert_called_once()
+        call = runner.run.call_args
+        self.assertEqual(call.args, ('runtimes', ['xcrun', 'simctl', 'list', 'runtimes', '--json']))
+        self.assertEqual(call.kwargs['timeout'], 30)
+        self.assertLess(call.kwargs['probe_after'], 30)
+        self.assertTrue(callable(call.kwargs['wait_probe']))
+
+    def test_runtime_wait_collection_samples_client_and_only_matching_service(self):
+        module = self.module()
+        self.assertIn('collect_runtime_wait_evidence', module, 'Missing service/stack evidence collector')
+        process_list = ('4242 1 S 00:10 /Applications/Xcode.app/Contents/Developer/usr/bin/simctl list runtimes --json\n'
+            '5100 1 S 00:08 /Library/Developer/PrivateFrameworks/CoreSimulator.framework/Resources/bin/com.apple.CoreSimulator.CoreSimulatorService\n'
+            '6100 1 S 00:08 /usr/bin/unrelated CoreSimulatorService\n')
+        with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as directory:
+            runner = mock.Mock()
+            runner.directory = Path(directory)
+            runner.run.side_effect = lambda label, argv, **kw: dict(status=0,
+                stdout=process_list if argv[0] == 'ps' else '', log=str(Path(directory) / (label + '.log')))
+            module['collect_runtime_wait_evidence'](runner, 4242)
+            commands = [call.args[1] for call in runner.run.call_args_list]
+            samples = [argv for argv in commands if argv[0] == '/usr/bin/sample']
+            self.assertEqual([argv[1] for argv in samples], ['4242', '5100'])
+            self.assertIn(['launchctl', 'list'], commands)
+            self.assertTrue(any(argv[:2] == ['/usr/bin/log', 'show'] for argv in commands))
+            self.assertFalse(any(argv[0] in ('killall', 'pkill', 'launchd') or
+                'kickstart' in argv or 'shutdown' in argv or 'boot' in argv for argv in commands))
+            self.assertTrue((Path(directory) / 'runtimes-wait-services.json').is_file())
+
+    def test_runtime_only_mode_stops_at_inventory_boundary_for_success_and_timeout(self):
+        module = self.module()
+        for status in (0, 124):
+            with self.subTest(status=status), tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as directory:
+                root = Path(directory)
+                runner = mock.Mock()
+                runner.directory = root / 'settings-startup-diagnostic'
+                source = 'a' * 40  # Unit fixture only; real cloud mode verifies checkout HEAD.
+                runner.checked.side_effect = lambda label, argv, **kw: source if label == 'head' else ''
+                runner.run.side_effect = lambda label, argv, **kw: dict(status=status if label == 'runtimes' else 0,
+                    stdout='{"runtimes": []}' if label == 'runtimes' and status == 0 else '', timed_out=status == 124)
+                namespace = module['execute_runtime_wait_diagnostic'].__globals__
+                with mock.patch.dict(os.environ, RUNNER_TEMP=directory, GITHUB_SHA=source,
+                     GITHUB_RUN_ID='unit-fixture', GITHUB_RUN_ATTEMPT='1'), \
+                     mock.patch('platform.system', return_value='Darwin'), \
+                     mock.patch.dict(namespace, CommandRunner=lambda path: runner), \
+                     mock.patch('builtins.print'):
+                    actual = module['execute_runtime_wait_diagnostic']()
+                self.assertEqual(actual, 0 if status == 0 else 1)
+                report = json.loads((runner.directory / 'RESULT.json').read_text())
+                self.assertEqual(report['runtime_inventory_completed'], status == 0)
+                self.assertEqual(report['apps_executed'], [])
+                self.assertEqual(report['runtime_timeout_seconds'], 30)
+                calls = [call.args[1] for call in runner.run.call_args_list]
+                simulator_calls = [argv for argv in calls if argv[:2] == ['xcrun', 'simctl']]
+                self.assertEqual(simulator_calls, [['xcrun', 'simctl', 'list', 'runtimes', '--json']])
+
     def test_only_new_diagnostic_branch_can_run_and_original_build_gate_is_unchanged(self):
         path = ROOT / '.github/workflows/settings-startup-diagnostic.yml'
         self.assertTrue(path.is_file(), 'Missing isolated push-only diagnostic workflow')
@@ -189,6 +293,7 @@ class SettingsStartupDiagnosticContracts(unittest.TestCase):
         self.assertEqual(job['env']['DEVELOPER_DIR'], '/Applications/Xcode_16.4.app/Contents/Developer')
         steps = job['steps']
         commands = '\n'.join(step.get('run', '') for step in steps)
+        self.assertIn('python3 -B ci/settings_startup_diagnostic.py --execute --runtime-wait-only', commands)
         self.assertIn('mkdir -p "$RUNNER_TEMP/settings-startup-diagnostic"', commands)
         self.assertIn('tee "$RUNNER_TEMP/settings-startup-diagnostic/guard-tests.log"', commands)
         self.assertIn('python3 -B ci/settings_startup_diagnostic.py --execute',

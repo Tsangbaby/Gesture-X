@@ -14,7 +14,7 @@
   "permissions": {"contents": "read"},
   "jobs": {
     "settings-startup-diagnostic": {
-      "name": "One fresh Simulator · control then historical baseline",
+      "name": "CoreSimulator runtime inventory · wait sampling only",
       "runs-on": "macos-15",
       "timeout-minutes": 12,
       "env": {
@@ -28,8 +28,8 @@
           "with": {"persist-credentials": false}
         },
         {
-          "name": "Guard tests and one-shot startup observations",
-          "run": "set -euo pipefail\nmkdir -p \"$RUNNER_TEMP/settings-startup-diagnostic\"\npython3 -B -m unittest discover -s Tests -p test_settings_startup_diagnostic.py -v 2>&1 | tee \"$RUNNER_TEMP/settings-startup-diagnostic/guard-tests.log\"\npython3 -B ci/settings_startup_diagnostic.py --execute"
+          "name": "Guard tests and one-shot runtime wait observation",
+          "run": "set -euo pipefail\nmkdir -p \"$RUNNER_TEMP/settings-startup-diagnostic\"\npython3 -B -m unittest discover -s Tests -p test_settings_startup_diagnostic.py -v 2>&1 | tee \"$RUNNER_TEMP/settings-startup-diagnostic/guard-tests.log\"\npython3 -B ci/settings_startup_diagnostic.py --execute --runtime-wait-only"
         },
         {
           "name": "Preserve diagnostic evidence even on failure",
