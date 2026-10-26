@@ -26,7 +26,7 @@ struct BottomGestureSample {
 
     static func capture(_ receiver: AnyObject, _ tongue: AnyObject?,
                         _ gesture: AnyObject?) -> BottomGestureSample? {
-        guard let capabilities = liveCapabilities() else { return nil }
+        guard let capabilities = BottomGestureDiagnostic.value(liveCapabilities(), .sampleCapabilitiesUnavailable) else { return nil }
         return captureValidated(receiver, tongue, gesture, capabilities: capabilities)
     }
 
@@ -51,24 +51,30 @@ struct BottomGestureSample {
 
     static func captureValidated(_ receiver: AnyObject, _ tongue: AnyObject?, _ gesture: AnyObject?,
                                  capabilities: Capabilities) -> BottomGestureSample? {
-        guard Thread.isMainThread,
-              UIApplication.shared.applicationState == .active,
-              let receiver = receiver as? NSObject, receiver.isKind(of: capabilities.manager),
-              let deck = PrivateAPI.object(receiver, "deckGrabberTongue"), deck === tongue,
-              deck.isKind(of: capabilities.tongue),
-              let container = objectIvar(deck, "_tongueContainer") as? UIView,
-              let recognizer = edgeRecognizer(in: deck),
-              recognizer === gesture, recognizer.view != nil,
-              let window = container.window, window.screen === UIScreen.main,
-              let scene = window.windowScene, scene.activationState == .foregroundActive,
-              scene.screen === window.screen,
-              let referenceRect = referenceRectangle(of: window.screen),
-              let orientationRaw = interfaceOrientation(of: capabilities.application),
-              orientationRaw == scene.interfaceOrientation.rawValue else { return nil }
+        guard BottomGestureDiagnostic.check(Thread.isMainThread, .sampleOffMain),
+              BottomGestureDiagnostic.check(UIApplication.shared.applicationState == .active, .sampleApplicationInactive),
+              let receiver = BottomGestureDiagnostic.value(receiver as? NSObject, .sampleReceiverUnavailable),
+              BottomGestureDiagnostic.check(receiver.isKind(of: capabilities.manager), .sampleReceiverWrongType),
+              let deck = BottomGestureDiagnostic.value(PrivateAPI.object(receiver, "deckGrabberTongue"), .sampleDeckUnavailable),
+              BottomGestureDiagnostic.check(deck === tongue, .sampleDeckMismatch),
+              BottomGestureDiagnostic.check(deck.isKind(of: capabilities.tongue), .sampleDeckWrongType),
+              let container = BottomGestureDiagnostic.value(objectIvar(deck, "_tongueContainer") as? UIView, .sampleContainerUnavailable),
+              let recognizer = BottomGestureDiagnostic.value(edgeRecognizer(in: deck), .sampleRecognizerUnavailable),
+              BottomGestureDiagnostic.check(recognizer === gesture, .sampleRecognizerMismatch),
+              BottomGestureDiagnostic.check(recognizer.view != nil, .sampleRecognizerDetached),
+              let window = BottomGestureDiagnostic.value(container.window, .sampleContainerDetached),
+              BottomGestureDiagnostic.check(window.screen === UIScreen.main, .sampleWrongScreen),
+              let scene = BottomGestureDiagnostic.value(window.windowScene, .sampleSceneUnavailable),
+              BottomGestureDiagnostic.check(scene.activationState == .foregroundActive, .sampleSceneInactive),
+              BottomGestureDiagnostic.check(scene.screen === window.screen, .sampleSceneWrongScreen),
+              let referenceRect = BottomGestureDiagnostic.value(referenceRectangle(of: window.screen), .sampleReferenceUnavailable),
+              let orientationRaw = BottomGestureDiagnostic.value(interfaceOrientation(of: capabilities.application), .sampleOrientationUnavailable),
+              BottomGestureDiagnostic.check(orientationRaw == scene.interfaceOrientation.rawValue, .sampleOrientationMismatch) else { return nil }
         let referenceSpace = window.screen.fixedCoordinateSpace
-        guard referenceSpace.bounds == referenceRect else { return nil }
+        guard BottomGestureDiagnostic.check(referenceSpace.bounds == referenceRect, .sampleReferenceMismatch) else { return nil }
         let point = container.convert(recognizer.location(in: container), to: referenceSpace)
-        guard point.x.isFinite, point.y.isFinite else { return nil }
+        guard BottomGestureDiagnostic.check(point.x.isFinite, .sampleNonfinitePoint),
+              BottomGestureDiagnostic.check(point.y.isFinite, .sampleNonfinitePoint) else { return nil }
         return BottomGestureSample(point: point, referenceRect: referenceRect,
             orientationRaw: orientationRaw, scene: scene, screen: window.screen, referenceSpace: referenceSpace,
             container: container, recognizer: recognizer, deck: deck)
@@ -191,6 +197,7 @@ final class BottomGestureSession {
 
     func invalidate() {
         guard Thread.isMainThread else { return }
+        BottomGestureDiagnostic.mark(.sessionInvalidated)
         active = nil
         cancelAll()
     }
@@ -232,13 +239,19 @@ final class BottomGestureSession {
             // Until separately proven lock-screen ingress is available, fluid
             // callbacks require known-unlocked eligibility EVEN if the setting
             // permits locked use. Unknown/locked preserves native input.
-            guard active == nil, let gesture = gesture, let tongue = tongue,
-                  snapshot.available, unlocked(),
-                  let current = sample(receiver, tongue, gesture),
-                  let bounds = BottomGestureGeometry.bounds(snapshot: snapshot,
-                      referenceSize: current.referenceSize, orientationRaw: current.orientationRaw),
-                  let side = BottomGestureGeometry.side(origin: current.point, bounds: bounds),
-                  enabledSide(side, snapshot: snapshot) else { forward(); return }
+            BottomGestureDiagnostic.admission(true)
+            defer { BottomGestureDiagnostic.admission(false) }
+            guard BottomGestureDiagnostic.check(active == nil, .beganAlreadyOwned),
+                  let gesture = BottomGestureDiagnostic.value(gesture, .beganGestureUnavailable),
+                  let tongue = BottomGestureDiagnostic.value(tongue, .beganTongueUnavailable),
+                  BottomGestureDiagnostic.check(snapshot.available, .beganPreferencesUnavailable),
+                  BottomGestureDiagnostic.check(unlocked(), .beganLockedOrUnknown),
+                  let current = BottomGestureDiagnostic.value(sample(receiver, tongue, gesture), .beganSampleUnavailable),
+                  let bounds = BottomGestureDiagnostic.value(BottomGestureGeometry.bounds(snapshot: snapshot,
+                      referenceSize: current.referenceSize, orientationRaw: current.orientationRaw), .beganBoundsUnavailable),
+                  let side = BottomGestureDiagnostic.value(BottomGestureGeometry.side(origin: current.point, bounds: bounds), .beganOutsideSide),
+                  BottomGestureDiagnostic.check(enabledSide(side, snapshot: snapshot), .beganSideDisabled) else { forward(); return }
+            BottomGestureDiagnostic.mark(.beganAdmitted)
             active = Active(receiver: receiver, gesture: gesture, tongue: tongue,
                             sample: current, snapshot: snapshot)
             cancelPendingFlow() // Never dismiss an already displayed panel here.
@@ -260,11 +273,12 @@ final class BottomGestureSession {
                     if let match = BottomGestureGeometry.classify(origin: saved.origin, current: current.point,
                         snapshot: saved.snapshot, referenceSize: saved.referenceSize,
                         orientationRaw: saved.orientationRaw) {
+                        BottomGestureDiagnostic.mark(.actionSubmitted)
                         trigger(match.selection, saved.scene, false)
-                    }
+                    } else { BottomGestureDiagnostic.mark(.endedClassificationRejected) }
                 } else { invalidate() }
                 forward() // Submission BEFORE native; own cleanup AFTER native.
-            } else { forward() }
+            } else { BottomGestureDiagnostic.mark(.endedWithoutOwner); forward() }
         case .canceled:
             let saved = active
             if let saved = saved, saved.owns(receiver, gesture) { saved.ending = true }

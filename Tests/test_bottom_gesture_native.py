@@ -181,7 +181,7 @@ class BottomNativeSourceTests(unittest.TestCase):
                       'sample.referenceSpace === referenceSpace', 'sample.screen === screen',
                       'activeInterfaceOrientation', 'returns: "q"', '"SBGrabberTongue"',
                       '"SBFluidSwitcherGestureManager"', '"edgePullGestureRecognizer"',
-                      'let container = objectIvar(deck, "_tongueContainer")'):
+                      'let container = BottomGestureDiagnostic.value(objectIvar(deck, "_tongueContainer") as? UIView, .sampleContainerUnavailable)'):
             self.assertIn(token, text)
         self.assertNotIn('objectSlot(deck, "_tongueContainer")', text)
 
