@@ -1,0 +1,69 @@
+{
+  "name": "Bottom sample-view fix 1 — functional RootHide candidate",
+  "on": {
+    "push": {
+      "branches": [
+        "fix/bottom-sample-view-08bdc78"
+      ]
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "jobs": {
+    "roothide-sample-fix": {
+      "name": "RootHide · attached recognizer view · functional validation",
+      "runs-on": "macos-15",
+      "timeout-minutes": 35,
+      "env": {
+        "THEOS_PACKAGE_SCHEME": "roothide",
+        "THEOS_REF": "cfba89a53a05b4a1b822121158acc3669c20602f",
+        "SDK_REF": "0222fd5413cf4b9af096f37b4621afa2688572f7",
+        "DEVELOPER_DIR": "/Applications/Xcode_16.4.app/Contents/Developer",
+        "HOMEBREW_NO_AUTO_UPDATE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "steps": [
+        {
+          "name": "Checkout exact source",
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "persist-credentials": false
+          }
+        },
+        {
+          "name": "Freeze narrow functional scope",
+          "run": "set -euo pipefail\nmkdir -p \"$RUNNER_TEMP/taplock-artifacts\"\ngit fetch --no-tags --depth=1 origin 08bdc7823db6d68ef7a438234439364569c1265c\npython3 -B ci/bottom_sample_fix.py verify-source > \"$RUNNER_TEMP/taplock-artifacts/SOURCE_SCOPE.json\""
+        },
+        {
+          "name": "Source and real Swift runtime tests",
+          "run": "set -euo pipefail\n{\nset -euo pipefail\npython3 -B -m unittest discover -s Tests -p 'test_*.py' -v\nxcodebuild -version\nxcrun swift --version\nxcrun swiftc -swift-version 5 Sources/PrivateAPI.swift Tests/PrivateAPIRuntimeTests.swift -o \"$RUNNER_TEMP/private-api-tests\"\n\"$RUNNER_TEMP/private-api-tests\"\nbash ci/lock-action-smoke.sh\nbash ci/open-app-smoke.sh\nbash ci/control-center-smoke.sh\nbash ci/notification-center-smoke.sh\nbash ci/screenshot-smoke.sh\nbash ci/app-switcher-smoke.sh\nbash ci/media-play-pause-smoke.sh\nbash ci/media-tracks-smoke.sh\npython3 -B ci/media_tracks_guard.py --validate-suite \"$RUNNER_TEMP/MEDIA_TRACKS_TESTS.txt\" \"$GITHUB_SHA\"\nbash ci/flashlight-smoke.sh\npython3 -B ci/flashlight_guard.py --validate-suite \"$RUNNER_TEMP/FLASHLIGHT_TESTS.txt\" \"$GITHUB_SHA\"\nbash ci/system-mute-smoke.sh\npython3 -B ci/system_mute_guard.py --validate-suite \"$RUNNER_TEMP/SYSTEM_MUTE_TESTS.txt\" \"$GITHUB_SHA\"\n} 2>&1 | tee \"$RUNNER_TEMP/taplock-artifacts/source-tests.log\""
+        },
+        {
+          "name": "Focused recognizer-view behavioral RED then GREEN",
+          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/bottom-gesture-model-smoke.sh 2>&1 | tee \"$OUT_DIR/BOTTOM_GESTURE_MODEL_TESTS.txt\"\nbash ci/bottom-sample-fix-smoke.sh"
+        },
+        {
+          "name": "Install packaging tools and pinned RootHide Theos",
+          "run": "set -euo pipefail\n{\nset -euo pipefail\nbrew install make dpkg ldid xz\nprintf '%s\\n' \"$(brew --prefix make)/libexec/gnubin\" >> \"$GITHUB_PATH\"\nexport THEOS=\"$RUNNER_TEMP/theos\"\nprintf 'THEOS=%s\\n' \"$THEOS\" >> \"$GITHUB_ENV\"\ngit init \"$THEOS\"\ngit -C \"$THEOS\" remote add origin https://github.com/roothide/theos.git\ngit -C \"$THEOS\" fetch --depth=1 origin \"$THEOS_REF\"\ngit -C \"$THEOS\" checkout --detach FETCH_HEAD\ngit -C \"$THEOS\" submodule update --init --recursive --depth=1\ntest \"$(git -C \"$THEOS\" rev-parse HEAD)\" = \"$THEOS_REF\"\ngit -C \"$THEOS\" submodule status --recursive\ngit init \"$RUNNER_TEMP/sdks\"\ngit -C \"$RUNNER_TEMP/sdks\" remote add origin https://github.com/theos/sdks.git\ngit -C \"$RUNNER_TEMP/sdks\" sparse-checkout init --cone\ngit -C \"$RUNNER_TEMP/sdks\" sparse-checkout set iPhoneOS16.5.sdk\ngit -C \"$RUNNER_TEMP/sdks\" fetch --depth=1 --filter=blob:none origin \"$SDK_REF\"\ngit -C \"$RUNNER_TEMP/sdks\" checkout --detach FETCH_HEAD\ntest \"$(git -C \"$RUNNER_TEMP/sdks\" rev-parse HEAD)\" = \"$SDK_REF\"\nmkdir -p \"$THEOS/sdks\"\ncp -R \"$RUNNER_TEMP/sdks/iPhoneOS16.5.sdk\" \"$THEOS/sdks/\"\n} 2>&1 | tee \"$RUNNER_TEMP/taplock-artifacts/tool-setup.log\""
+        },
+        {
+          "name": "Compile and package functional RootHide candidate",
+          "run": "set -euo pipefail\nexport OUT_DIR=\"$RUNNER_TEMP/taplock-artifacts\"\nbash ci/bottom-sample-fix-build.sh"
+        },
+        {
+          "name": "Retain original package and all failure evidence",
+          "if": "always()",
+          "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "with": {
+            "name": "taplock-roothide-bottomfix1-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}",
+            "path": "${{ runner.temp }}/taplock-artifacts/*",
+            "if-no-files-found": "error",
+            "retention-days": 14,
+            "compression-level": 0
+          }
+        }
+      ]
+    }
+  }
+}

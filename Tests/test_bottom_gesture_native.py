@@ -79,7 +79,7 @@ class BottomNativeSourceTests(unittest.TestCase):
         path = ROOT / 'Sources/BottomGestureSession.swift'
         self.assertTrue(path.is_file(), 'missing live coordinate acquisition')
         text = code('Sources/BottomGestureSession.swift')
-        for token in ('deckGrabberTongue', '_tongueContainer', '_edgePullGestureRecognizer',
+        for token in ('deckGrabberTongue', 'let container = recognizer.view', '_edgePullGestureRecognizer',
                       'recognizer === gesture', 'location(in: container)', '_referenceBounds',
                       'ivar_getTypeEncoding', 'object_getIvar', 'PrivateAPI.checkedMethod',
                       'window.windowScene', 'scene.interfaceOrientation.rawValue'):
@@ -181,7 +181,7 @@ class BottomNativeSourceTests(unittest.TestCase):
                       'sample.referenceSpace === referenceSpace', 'sample.screen === screen',
                       'activeInterfaceOrientation', 'returns: "q"', '"SBGrabberTongue"',
                       '"SBFluidSwitcherGestureManager"', '"edgePullGestureRecognizer"',
-                      'let container = objectIvar(deck, "_tongueContainer")'):
+                      'let container = recognizer.view'):
             self.assertIn(token, text)
         self.assertNotIn('objectSlot(deck, "_tongueContainer")', text)
 

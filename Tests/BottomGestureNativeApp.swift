@@ -8,7 +8,12 @@ import Darwin
 @objc(TLBottomNativeRecognizerFixture)
 final class NativeRecognizerFixture: UIGestureRecognizer {
     var point = CGPoint(x: 10, y: 790)
-    override func location(in view: UIView?) -> CGPoint { point }
+    var locationReads = 0
+    weak var lastLocationView: UIView?
+    override func location(in view: UIView?) -> CGPoint {
+        locationReads += 1; lastLocationView = view
+        return point
+    }
 }
 
 final class NativeDeckFixture {
@@ -487,6 +492,88 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
         require(BottomGestureSample.captureValidated(receiver, receiver.deck.object, receiver.deck.recognizer,
             capabilities: capabilities) == nil, "conflicting SpringBoard/scene orientation must reject")
     }
+    private func testRecognizerViewSampling() {
+        checkpoint("recognizer attachment independent of display container")
+        let recognizer = receiver.deck.recognizer!
+        let attached = recognizer.view!
+        let display = receiver.deck.container!
+        let parent = attached.superview!
+        let savedPoint = recognizer.point
+        let orientation = NativeOrientationFixture()
+        orientation.raw = Int64(scene.interfaceOrientation.rawValue)
+        let capabilities = BottomGestureSample.Capabilities(manager: NativeReceiverFixture.self,
+            tongue: NativeDeckFixture.runtimeType, application: orientation)
+        func capture(_ gesture: AnyObject? = nil) -> BottomGestureSample? {
+            BottomGestureSample.captureValidated(receiver, receiver.deck.object,
+                gesture ?? recognizer, capabilities: capabilities)
+        }
+        defer {
+            attached.transform = .identity; parent.addSubview(attached)
+            attached.addGestureRecognizer(recognizer)
+            receiver.deck.container = display; recognizer.point = savedPoint
+        }
+        receiver.deck.container = nil
+        let before = recognizer.locationReads
+        let expected = attached.convert(recognizer.point, to: UIScreen.main.fixedCoordinateSpace)
+        let missingDisplay = capture()
+        require(missingDisplay?.container === attached && missingDisplay?.point == expected,
+                "missing display container must not block attached recognizer sampling")
+        require(recognizer.locationReads == before + 1 && recognizer.lastLocationView === attached,
+                "read location once in exact recognizer view")
+        receiver.deck.container = UIView() // Existing but detached presentation is not the input owner.
+        let detachedDisplay = capture()
+        require(detachedDisplay?.container === attached && detachedDisplay?.point == expected,
+                "detached display container must not select coordinate owner")
+        attached.transform = CGAffineTransform(rotationAngle: .pi / 2).scaledBy(x: 0.8, y: 0.8)
+        let transformed = capture()
+        require(transformed?.point == attached.convert(recognizer.point, to: UIScreen.main.fixedCoordinateSpace) &&
+                transformed?.point != expected, "attached view transforms must normalize to fixed screen")
+        attached.transform = .identity
+        var reads = recognizer.locationReads
+        require(capture(NSObject()) == nil && recognizer.locationReads == reads,
+                "foreign recognizer must reject before sampling")
+        attached.removeGestureRecognizer(recognizer)
+        require(capture() == nil && recognizer.locationReads == reads,
+                "detached recognizer must reject before sampling")
+        attached.addGestureRecognizer(recognizer)
+        attached.removeFromSuperview()
+        require(capture() == nil && recognizer.locationReads == reads,
+                "windowless attachment must reject before sampling")
+        parent.addSubview(attached)
+        require(capture()?.point == expected, "reattachment restores valid capture")
+        recognizer.point.x = .nan
+        require(capture() == nil, "nonfinite recognizer point must reject")
+        recognizer.point = savedPoint
+        reads = recognizer.locationReads
+        orientation.raw = orientation.raw == 1 ? 3 : 1
+        require(capture() == nil && recognizer.locationReads == reads,
+                "conflicting orientation rejects before sampling")
+        orientation.raw = Int64(scene.interfaceOrientation.rawValue)
+        let replacement = UIView(frame: attached.frame)
+        parent.addSubview(replacement)
+        defer { replacement.removeFromSuperview() }
+        var submissions = 0
+        let session = BottomGestureSession(sample: { _, _, _ in capture() }, unlocked: { true },
+            trigger: { _, _, _ in submissions += 1 }, cancelPendingFlow: {}, cancelAll: {})
+        session.reload(configured())
+        let fixed = UIScreen.main.fixedCoordinateSpace
+        let height = fixed.bounds.height
+        recognizer.point = attached.convert(CGPoint(x: 10, y: height - 10), from: fixed)
+        var forwarded = 0
+        session.receive(.began, receiver: receiver, tongue: receiver.deck.object, gesture: recognizer) { forwarded += 1 }
+        require(forwarded == 0, "real capture must admit configured left begin without display UI")
+        replacement.addGestureRecognizer(recognizer)
+        recognizer.point = replacement.convert(CGPoint(x: 10, y: height - 110), from: fixed)
+        session.receive(.ended, receiver: receiver, tongue: receiver.deck.object, gesture: recognizer) { forwarded += 1 }
+        require(submissions == 0 && forwarded == 1, "changed recognizer view invalidates owned session")
+        attached.addGestureRecognizer(recognizer)
+        recognizer.point = attached.convert(CGPoint(x: 10, y: height - 10), from: fixed)
+        session.receive(.began, receiver: receiver, tongue: receiver.deck.object, gesture: recognizer) { forwarded += 1 }
+        recognizer.point = attached.convert(CGPoint(x: 10, y: height - 110), from: fixed)
+        session.receive(.ended, receiver: receiver, tongue: receiver.deck.object, gesture: recognizer) { forwarded += 1 }
+        require(submissions == 1 && forwarded == 2, "unchanged recognizer attachment recovers single action submission")
+        session.invalidate()
+    }
     private func testCoordinatorBridge() {
         checkpoint("hook/core/coordinator real integration")
         prepare(configured(flow: true))
@@ -557,7 +644,7 @@ final class BottomGestureNativeApp: UIResponder, UIApplicationDelegate, UIWindow
         for call in calls { require(call.receiver === receiver && call.distance == 123.125 && call.velocity == -456.875 &&
             call.tongue === receiver.deck.object && call.gesture === receiver.deck.recognizer, "installation-time seed forwarding tuple") }
         testCapabilityRejection(); testForwarding(); testOverlap(); testInvalidation()
-        testLandscape(); testEdge(); testSafeObjectSlots(); testCoordinatorBridge()
+        testLandscape(); testEdge(); testSafeObjectSlots(); testRecognizerViewSampling(); testCoordinatorBridge()
         owner.invalidate()
         print("BOTTOM_GESTURE_NATIVE_PASS: assertions=\(checks)")
         print("Boundary: UIKit/ObjC backend fixtures; NOT handset injection, native competition, or lockscreen parity")
